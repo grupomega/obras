@@ -1,0 +1,2445 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover">
+<title>GRUPO MEGA · Mobile</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --mega-laranja:#E8520A; --mega-laranja-cl:#F4885A; --mega-laranja-bg:#FFF3EE;
+  --mega-cinza-esc:#1E1E1E; --mega-cinza-med:#3A3A3A; --mega-cinza-sub:#5A5A5A;
+  --mega-cinza-bdr:#D0D0D0; --mega-cinza-bg:#F5F5F5; --mega-branco:#FFFFFF;
+  --mega-verde:#1A7A3C; --mega-verde-cl:#D4EDDA;
+  --mega-vermelho:#C0392B; --mega-vermelho-cl:#FADBD8;
+  --mega-amarelo:#D4890A; --mega-amarelo-cl:#FEF3CD;
+  --mega-azul:#1A4A6E; --mega-azul-cl:#D1E8F5;
+  --font-display:'Barlow Condensed',sans-serif; --font-body:'DM Sans',sans-serif; --font-mono:'JetBrains Mono',monospace;
+  --radius-sm:6px; --radius-md:10px; --radius-lg:18px;
+  --shadow-card:0 2px 8px rgba(0,0,0,.10); --shadow-deep:0 8px 32px rgba(0,0,0,.25);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{margin:0;font-family:var(--font-body);background:var(--mega-cinza-bg);color:var(--mega-cinza-esc);padding-bottom:78px;}
+h1,h2,h3{font-family:var(--font-display);}
+button{font-family:var(--font-body);cursor:pointer;}
+input,select,textarea{font-family:var(--font-body);font-size:16px;}
+.mono{font-family:var(--font-mono);}
+a.applink{color:#aaa;font-size:12px;text-decoration:underline;}
+
+.top-bar{background:var(--mega-cinza-esc);border-bottom:3px solid var(--mega-laranja);padding:12px 16px;
+  display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:50;}
+.top-bar .brand{font-family:var(--font-display);font-size:19px;font-weight:800;color:var(--mega-laranja);letter-spacing:1px;}
+.top-bar .right{display:flex;align-items:center;gap:10px;color:#eee;font-size:12px;}
+.btn-logout{background:transparent;border:1px solid #555;color:#ccc;padding:6px 10px;border-radius:var(--radius-sm);font-size:11px;}
+
+.wrap{max-width:600px;margin:0 auto;padding:14px;}
+
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--mega-cinza-esc);border-top:2px solid #333;
+  display:flex;z-index:60;padding-bottom:env(safe-area-inset-bottom,0);}
+.bottom-nav button{flex:1;background:none;border:none;color:#999;padding:10px 4px 8px;display:flex;flex-direction:column;
+  align-items:center;gap:3px;font-size:10px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;font-family:var(--font-display);}
+.bottom-nav button .ic{font-size:20px;}
+.bottom-nav button.active{color:var(--mega-laranja);}
+
+.kpi-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px;}
+.kpi-grid.g3{grid-template-columns:repeat(3,1fr);}
+.kpi-card{background:var(--mega-cinza-esc);border-left:4px solid var(--mega-laranja);padding:14px;border-radius:var(--radius-md);}
+.kpi-label{font-family:var(--font-display);font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#999;}
+.kpi-value{font-family:var(--font-display);font-size:28px;font-weight:700;color:#fff;line-height:1.1;margin-top:4px;}
+.card{background:#fff;border-radius:var(--radius-md);box-shadow:var(--shadow-card);padding:16px;margin-bottom:14px;}
+
+.section-header{padding:12px 16px;background:var(--mega-cinza-esc);color:#fff;border-left:5px solid var(--mega-laranja);
+  font-family:var(--font-display);font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+  border-radius:var(--radius-sm);margin-bottom:12px;}
+
+.badge{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;font-family:var(--font-display);
+  letter-spacing:.5px;text-transform:uppercase;display:inline-block;white-space:nowrap;}
+.badge-ok{background:var(--mega-verde-cl);color:var(--mega-verde);}
+.badge-pendente{background:var(--mega-amarelo-cl);color:var(--mega-amarelo);}
+.badge-critico{background:var(--mega-vermelho-cl);color:var(--mega-vermelho);}
+.badge-andamento{background:var(--mega-azul-cl);color:var(--mega-azul);}
+.badge-concluido{background:#E8E8E8;color:#3A3A3A;}
+
+.btn{border:none;padding:12px 18px;border-radius:var(--radius-sm);font-weight:700;font-size:14px;font-family:var(--font-body);min-height:44px;}
+.btn-primary{background:var(--mega-laranja);color:#fff;}
+.btn-secondary{background:#fff;color:var(--mega-cinza-esc);border:1px solid var(--mega-cinza-bdr);}
+.btn-verde{background:var(--mega-verde);color:#fff;}
+.btn-vermelho{background:var(--mega-vermelho);color:#fff;}
+.btn-sm{padding:8px 14px;font-size:12px;min-height:36px;}
+.btn:disabled{opacity:.45;}
+.btn-block{width:100%;}
+.btn-icon{width:38px;height:38px;border-radius:var(--radius-sm);border:1px solid var(--mega-cinza-bdr);background:#fff;font-size:16px;}
+.btn-icon.danger{color:var(--mega-vermelho);border-color:var(--mega-vermelho-cl);}
+
+.form-grid{display:grid;grid-template-columns:1fr;gap:12px;}
+.form-grid.g2{grid-template-columns:1fr 1fr;}
+.field{display:flex;flex-direction:column;gap:6px;}
+.field label{font-size:11px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;color:var(--mega-cinza-sub);}
+.field input,.field select,.field textarea{padding:12px;border:1px solid var(--mega-cinza-bdr);border-radius:var(--radius-sm);background:#fff;min-height:44px;}
+.field textarea{resize:vertical;min-height:70px;}
+
+.login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--mega-cinza-esc);padding:20px;}
+.login-card{background:#fff;border-radius:var(--radius-lg);padding:28px 22px;width:100%;max-width:420px;box-shadow:var(--shadow-deep);}
+.login-card .brand{text-align:center;font-family:var(--font-display);font-size:26px;font-weight:800;color:var(--mega-laranja);letter-spacing:2px;}
+.login-card .tag{text-align:center;font-size:11px;color:var(--mega-cinza-sub);letter-spacing:1px;text-transform:uppercase;margin-bottom:20px;}
+.user-pick{max-height:260px;overflow-y:auto;border:1px solid var(--mega-cinza-bdr);border-radius:var(--radius-sm);margin-bottom:14px;}
+.user-pick .u{padding:14px 12px;border-bottom:1px solid #eee;font-size:15px;display:flex;justify-content:space-between;min-height:48px;align-items:center;}
+.user-pick .u.sel{background:var(--mega-laranja);color:#fff;}
+.err-msg{background:var(--mega-vermelho-cl);color:var(--mega-vermelho);padding:10px 12px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:12px;}
+
+.foto-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.foto-grid img{width:100%;height:90px;object-fit:cover;border-radius:var(--radius-sm);border:1px solid var(--mega-cinza-bdr);}
+.foto-item{position:relative;}
+.foto-item .del{position:absolute;top:2px;right:2px;width:22px;height:22px;border-radius:50%;background:rgba(192,57,43,.9);color:#fff;border:none;font-size:12px;}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;display:flex;align-items:flex-end;}
+.modal-panel{background:var(--mega-cinza-bg);width:100%;max-height:92vh;overflow-y:auto;border-radius:18px 18px 0 0;box-shadow:var(--shadow-deep);}
+.modal-head{background:var(--mega-cinza-esc);color:#fff;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;border-radius:18px 18px 0 0;}
+.modal-body{padding:16px;}
+.sheet-item{padding:16px;background:#fff;border-radius:var(--radius-sm);margin-bottom:8px;font-weight:600;display:flex;align-items:center;gap:12px;font-size:15px;}
+.sheet-item:active{background:var(--mega-laranja-bg);}
+
+.timeline{border-left:2px solid var(--mega-cinza-bdr);padding-left:14px;margin-left:4px;}
+.timeline .ev{margin-bottom:12px;position:relative;}
+.timeline .ev::before{content:'';position:absolute;left:-19px;top:4px;width:9px;height:9px;border-radius:50%;background:var(--mega-laranja);}
+.timeline .ev .t{font-size:11px;color:var(--mega-cinza-sub);font-family:var(--font-mono);}
+.timeline .ev .d{font-size:13px;font-weight:600;}
+
+.muted{color:var(--mega-cinza-sub);font-size:13px;}
+.flex-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.divider{height:1px;background:var(--mega-cinza-bdr);margin:14px 0;}
+.empty-state{text-align:center;padding:30px 16px;color:var(--mega-cinza-sub);}
+.spinner{border:3px solid #eee;border-top:3px solid var(--mega-laranja);border-radius:50%;width:22px;height:22px;animation:spin 0.8s linear infinite;margin:16px auto;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.notif-dot{width:8px;height:8px;border-radius:50%;background:var(--mega-vermelho);display:inline-block;margin-left:2px;}
+
+#toast-holder{position:fixed;bottom:82px;left:0;right:0;display:flex;justify-content:center;z-index:400;pointer-events:none;}
+.toast{background:var(--mega-cinza-esc);color:#fff;padding:12px 20px;border-radius:var(--radius-md);box-shadow:var(--shadow-deep);
+  margin-bottom:10px;font-size:13px;border-left:4px solid var(--mega-laranja);max-width:90%;}
+
+.chip-group{display:flex;flex-wrap:wrap;gap:8px;}
+.chip{padding:11px 16px;border-radius:20px;border:2px solid var(--mega-cinza-bdr);background:#fff;font-size:13px;font-weight:600;color:var(--mega-cinza-med);min-height:44px;}
+.chip.sel{background:var(--mega-laranja);border-color:var(--mega-laranja);color:#fff;}
+.chip-scroll{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:12px;-webkit-overflow-scrolling:touch;}
+.chip-scroll .chip{white-space:nowrap;flex-shrink:0;}
+
+.stepper{display:flex;align-items:center;gap:8px;}
+.stepper button{width:46px;height:46px;border-radius:var(--radius-sm);border:2px solid var(--mega-cinza-bdr);background:#fff;font-size:22px;font-weight:700;}
+.stepper button:active{background:var(--mega-laranja-bg);border-color:var(--mega-laranja);}
+.stepper input{width:80px;height:46px;text-align:center;font-size:17px;font-weight:700;border:2px solid var(--mega-cinza-bdr);border-radius:var(--radius-sm);}
+
+.photo-widget{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;}
+.pw-thumb{position:relative;width:92px;height:92px;}
+.pw-thumb img{width:100%;height:100%;object-fit:cover;border-radius:var(--radius-sm);border:1px solid var(--mega-cinza-bdr);}
+.pw-thumb button{position:absolute;top:-6px;right:-6px;width:24px;height:24px;border-radius:50%;background:var(--mega-vermelho);color:#fff;border:none;font-size:13px;}
+.btn-add-photo{width:92px;height:92px;border:2px dashed var(--mega-cinza-bdr);border-radius:var(--radius-sm);background:#fafafa;
+  font-size:26px;color:var(--mega-cinza-sub);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;}
+.btn-add-photo span{font-size:10px;font-weight:700;text-transform:uppercase;}
+
+.item-row{background:#fafafa;border:1px solid var(--mega-cinza-bdr);border-radius:var(--radius-sm);padding:12px;margin-bottom:10px;}
+.item-row-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.perm-check{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:500;padding:10px 0;border-bottom:1px solid #f0f0f0;}
+.perm-check input{width:20px;height:20px;}
+
+.mcard{background:#fff;border-radius:var(--radius-md);box-shadow:var(--shadow-card);padding:14px 16px;margin-bottom:10px;border-left:4px solid var(--mega-azul);}
+.mcard.crit-critica{border-left-color:var(--mega-vermelho);}
+.mcard.crit-alta{border-left-color:var(--mega-amarelo);}
+.mcard .mc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px;}
+.mcard .mc-num{font-family:var(--font-mono);font-size:12px;color:var(--mega-cinza-sub);}
+.mcard .mc-title{font-size:15px;font-weight:700;margin-bottom:6px;}
+.mcard .mc-meta{font-size:12px;color:var(--mega-cinza-sub);display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+.mcard .mc-actions{display:flex;gap:8px;margin-top:10px;}
+</style>
+</head>
+<body>
+<div id="app">Carregando…</div>
+<div id="toast-holder"></div>
+<script>
+/* ==========================================================
+   GRUPO MEGA — NÚCLEO COMPARTILHADO (desktop.html + mobile.html)
+   ========================================================== */
+const CURRENT_PLATFORM = 'mobile';
+const SUPABASE_URL = "https://coswqqxzebcablaugatz.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNvc3dxcXh6ZWJjYWJsYXVnYXR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM3NDEwMzcsImV4cCI6MjA5OTMxNzAzN30.dguzOVusy9hDwv7zLxfVTkvDYo2dznSUvjshKOFtBp8";
+
+async function sb(path, opts={}){
+  const headers = {apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type':'application/json'};
+  if(opts.prefer) headers['Prefer']=opts.prefer;
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {method:opts.method||'GET', headers, body:opts.body?JSON.stringify(opts.body):undefined});
+  if(!res.ok){ let t; try{t=await res.json();}catch(e){t=await res.text();} throw new Error(t.message||JSON.stringify(t)); }
+  if(res.status===204) return null;
+  const txt = await res.text();
+  return txt? JSON.parse(txt): null;
+}
+async function sbRpc(fn, params){ return sb(`rpc/${fn}`, {method:'POST', body:params}); }
+async function uploadFoto(file, path){
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/fotos-os/${path}`, {
+    method:'POST',
+    headers:{apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': file.type||'application/octet-stream'},
+    body:file
+  });
+  if(!res.ok){ throw new Error('Falha ao enviar foto'); }
+  return `${SUPABASE_URL}/storage/v1/object/public/fotos-os/${path}`;
+}
+async function uploadArquivo(file, path, bucket){
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${bucket}/${path}`, {
+    method:'POST',
+    headers:{apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': file.type||'application/octet-stream'},
+    body:file
+  });
+  if(!res.ok){ throw new Error('Falha ao enviar arquivo'); }
+  return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`;
+}
+
+/* ==========================================================
+   CONSTANTES / OPÇÕES
+   ========================================================== */
+const PISTA_OPTS=[['pista_simples','Pista simples'],['pista_dupla','Pista dupla'],['pista_principal','Pista principal'],
+  ['marginal','Marginal'],['acesso','Acesso'],['retorno','Retorno'],['trevo','Trevo'],['acostamento','Acostamento'],
+  ['canteiro_central','Canteiro central'],['outro','Outro']];
+const SENTIDO_OPTS=[['norte','Norte'],['sul','Sul'],['leste','Leste'],['oeste','Oeste'],['crescente','Crescente'],
+  ['decrescente','Decrescente'],['ambos','Ambos os sentidos'],['nao_aplicavel','Não aplicável']];
+const FAIXA_OPTS=[['faixa_1','Faixa 1'],['faixa_2','Faixa 2'],['faixa_3','Faixa 3'],['faixa_4','Faixa 4'],
+  ['acostamento','Acostamento'],['eixo','Eixo'],['bordo','Bordo'],['canteiro_central','Canteiro central'],['nao_aplicavel','Não aplicável']];
+const CRIT_OPTS=[['baixa','Baixa'],['media','Média'],['alta','Alta'],['critica','Crítica']];
+const UNIDADE_OPTS=[['m','m'],['m2','m²'],['un','un'],['kg','kg'],['L','L']];
+const SERVICO_SUGESTOES=['Pintura de faixa','Faixa de bordo','Faixa de eixo','Faixa de retenção','Faixa de pedestre','Setas',
+  'Zebrados','Instalação de tachas','Implantação de placas','Remoção de sinalização','Instalação de defensa metálica',
+  'Limpeza','Correção','Retrabalho','Sinalização provisória','Outro'];
+const IMPEDIMENTO_MOTIVOS=['Chuva','Pista molhada','Falta de material','Falta de equipamento','Equipamento quebrado',
+  'Falta de colaborador','Falta de liberação','Trânsito intenso','Acidente na pista','Interferência de terceiros',
+  'Localização incorreta','Serviço já executado','Serviço diferente do informado','Risco de segurança','Outro'];
+const REPROVACAO_MOTIVOS=['Foto insuficiente','Foto ilegível','KM incorreto','Serviço incompleto','Medição incorreta',
+  'Falta de informações','Qualidade inadequada','Serviço executado em local incorreto','Necessidade de retrabalho','Outro'];
+const CLIMA_OPTS=['Sol','Nublado','Chuva leve','Chuva forte','Vento forte'];
+const MATERIAIS_PRESET=['Tinta termoplástica','Tinta a frio','Microesferas de vidro','Solvente','Tachas refletivas',
+  'Placas de sinalização','Defensa metálica','Parafusos/fixadores','Outro'];
+const EQUIPAMENTOS_PRESET=['Máquina de pintura','Compressor','Vassoura mecânica','Caminhão','Guincho','Fresadora','Gerador','Outro'];
+const STATUS_LABELS={criada:'Criada',programada:'Programada',enviada_equipe:'Enviada p/ equipe',visualizada_equipe:'Visualizada',
+  em_deslocamento:'Em deslocamento',em_execucao:'Em execução',pausada:'Pausada',impedida:'Impedida',
+  aguardando_material:'Aguard. material',aguardando_equipamento:'Aguard. equipamento',aguardando_liberacao_pista:'Aguard. liberação pista',
+  executada:'Executada',enviada_conferencia:'Em conferência',aprovada:'Aprovada',reprovada:'Reprovada',
+  correcao_solicitada:'Correção solicitada',cancelada:'Cancelada'};
+const STATUS_CLASS={criada:'andamento',programada:'andamento',enviada_equipe:'andamento',visualizada_equipe:'andamento',
+  em_deslocamento:'andamento',em_execucao:'andamento',pausada:'pendente',impedida:'critico',aguardando_material:'pendente',
+  aguardando_equipamento:'pendente',aguardando_liberacao_pista:'pendente',executada:'pendente',enviada_conferencia:'pendente',
+  aprovada:'ok',reprovada:'critico',correcao_solicitada:'pendente',cancelada:'concluido'};
+const CRIT_CLASS={baixa:'concluido',media:'andamento',alta:'pendente',critica:'critico'};
+const PERFIL_LABELS={administrador:'Administrador',escritorio:'Escritório',coordenador:'Coordenador/Supervisor',equipe:'Equipe de Campo'};
+
+const VEICULO_TIPOS=['Caminhão Operacional','Caminhão Carroceria','Caminhonete','Utilitário','Ônibus','Outro'];
+const EQUIPAMENTO_TIPOS=['Furadeira','Gerador','Compressor','Betoneira','Rompedor','Outro'];
+
+const CHECKLIST_TIPOS=[['veiculo_seta_luminosa','Caminhão Operacional'],['caminhao_carroceria','Caminhão Carroceria'],
+  ['furadeira','Furadeira'],['gerador','Gerador']];
+const CHECKLIST_ITENS = {
+  veiculo_seta_luminosa:[
+    "O motorista do veículo está portando crachá de identificação com a função?",
+    "O motorista foi treinado para operar o equipamento?",
+    "O operador tem conhecimento da APT? A APT encontra-se no local de trabalho e está devidamente preenchida?",
+    "O motorista é habilitado para a função? A CNH categoria B ou superior está na validade?",
+    "Faróis, luz de alta e luz de baixa, pisca alerta, luz de ré estão em perfeitas condições?",
+    "Há alarme sonoro de marcha ré instalado e em funcionamento?",
+    "O veículo possui espelhos retrovisores?",
+    "Os espelhos retrovisores estão em perfeito estado de conservação?",
+    "O limpador de pára-brisa e o esguicho está funcionando?",
+    "O veículo possui triângulo ou cones de sinalização?",
+    "Os cintos de segurança encontram-se em condições de uso?",
+    "O sistema de direção está em bom estado?",
+    "O freio de estacionamento está funcionando?",
+    "A instrumentação básica do painel está funcionando?",
+    "O veículo está livre de vazamento de óleo?",
+    "As portas estão em perfeitas condições de funcionamento?",
+    "O veículo possui buzina? A mesma funciona?",
+    "Pneus se encontram em bom estado? Oferecem condições de segurança?",
+    "Possui todos os parafusos de fixação da roda?",
+    "Freio de pé em perfeitas condições?",
+    "Sinalização lateral?",
+    "Os bancos estão em condições de uso?",
+    "A Seta Luminosa é constituída de estrutura sólida, com lentes de sistema óptico refletivo e LEDs amarelos intermitentes?",
+    "A Seta Luminosa se encontra em perfeito estado e firmemente instalada sua estrutura de sustentação?"
+  ],
+  furadeira:[
+    "O colaborador recebeu treinamento específico sobre o manuseio seguro do equipamento?",
+    "O colaborador usa crachá de identificação com autorização para operar o equipamento?",
+    "Os dispositivos de Lig/Desl estão em boas condições de uso?",
+    "O quadro elétrico utilizado está aterrado e com DR?",
+    "O equipamento é ligado através do conjunto plug tomada?",
+    "Os cabos elétricos estão em boas condições?",
+    "As emendas estão corretamente isoladas?",
+    "A chave de mandril está disponível para aperto da broca?",
+    "As brocas estão em boas condições e são adequadas para o serviço?",
+    "O equipamento está isento de improvisações?",
+    "A voltagem da máquina é adequada à tensão da rede?",
+    "Os cabos elétricos estão livres de água, materiais ferrosos ou aquecidos?",
+    "A carcaça da máquina encontra-se em boas condições de conservação?",
+    "As condições de uso da máquina são boas?",
+    "A APT específica encontra-se disponível no local, liberada pelo encarregado e divulgada ao executante?",
+    "O local de trabalho está limpo e organizado?",
+    "A área de trabalho está isolada?",
+    "Os EPI's básicos estão em perfeitas condições (Botina, Óculos, Capacete, Protetor Auricular, Luvas)?"
+  ],
+  caminhao_carroceria:[
+    "O motorista do veículo está portando crachá de identificação com a função?",
+    "O operador tem conhecimento da APT? A APT encontra-se no local e está devidamente preenchida?",
+    "O motorista é habilitado para a função? A CNH categoria C está na validade?",
+    "Faróis, luz de alta e luz de baixa, pisca alerta, luz de ré estão em perfeitas condições?",
+    "Há dispositivo sonoro de ré em funcionamento?",
+    "O veículo possui espelhos retrovisores?",
+    "Os espelhos retrovisores estão em perfeito estado de conservação?",
+    "O extintor de incêndio está carregado e dentro da validade?",
+    "O limpador de pára-brisa e o esguicho está funcionando?",
+    "O veículo possui triângulo ou cones de sinalização?",
+    "Os cintos de segurança encontram-se em condições de uso?",
+    "O sistema de direção está em bom estado?",
+    "O freio de estacionamento está funcionando?",
+    "A instrumentação básica do painel está funcionando?",
+    "O veículo está livre de vazamento de óleo?",
+    "As portas estão em perfeitas condições de funcionamento?",
+    "O veículo possui buzina? A mesma funciona?",
+    "Os pneus e estepe encontram-se em condições de uso?",
+    "O equipamento possui calço para os pneus?",
+    "Tacógrafo com disco?",
+    "Possui todos os parafusos de fixação da roda?",
+    "A lataria possui alguma avaria com risco de acidente (corte)?",
+    "O nível de óleo está adequado?",
+    "Freio de pé em perfeitas condições?",
+    "Sinalização lateral com faixa refletiva?",
+    "Os bancos estão em condições de uso?",
+    "O assento atende requisitos mínimos da NR-17 (altura ajustável, borda frontal arredondada, etc)?",
+    "[Cabine suplementar] Todos os bancos estão fixados corretamente?",
+    "[Cabine suplementar] Cintos de segurança em condições de uso e disponíveis a todos os ocupantes?",
+    "[Cabine suplementar] A cabine está limpa e organizada?",
+    "[Cabine suplementar] Motorista treinado para transporte coletivo, com anotação na CNH (+9 passageiros)?",
+    "[Cabine suplementar] O extintor de incêndio está carregado e dentro da validade?",
+    "[Cabine suplementar] Não está sendo transportado material/ferramentas junto com passageiros?",
+    "[Cabine suplementar] Escada de acesso em perfeitas condições?",
+    "[Cabine suplementar] As portas estão em perfeitas condições de funcionamento?"
+  ],
+  gerador:[
+    "O equipamento está isento de improvisações?",
+    "A carcaça da máquina encontra-se em boas condições de conservação?",
+    "O local de trabalho está limpo e organizado?",
+    "A área de trabalho está isolada?",
+    "Amperímetro",
+    "Bandeja de contenção de óleo",
+    "Disjuntor elétrico",
+    "Horímetro",
+    "Nível de combustível",
+    "Proteção das correias",
+    "Regulador de voltagem",
+    "Sinalização e isolamento da área",
+    "Sistema de escapamento dos gases",
+    "Sistema de partida",
+    "Tomada elétrica de saída",
+    "Condição das mangueiras e tanque (verificar vazamentos)",
+    "Voltímetro",
+    "Extintor",
+    "Cobertura",
+    "Identificação da voltagem",
+    "Condições dos cabos e conexões elétricas",
+    "Sistema de abastecimento (por caminhão tanque)",
+    "Outros (especificar)"
+  ]
+};
+const RESULTADO_OPTS=[['conforme_liberado','Conforme / Liberado'],['nao_conforme_nao_liberado','Não Conforme / Não Liberado'],
+  ['pendencia_liberado','Com Pendências / Liberado'],['pendencia_nao_liberado','Com Pendências / Não Liberado']];
+
+const VEICULO_DOC_ITENS=['CRLV do veículo','CNH compatível do motorista','ASO vigente (motorista e operador)',
+  'Ficha de EPI da equipe','APR / PT da atividade','Ordem de Serviço / Programação do dia'];
+const VEICULO_INVENTARIO_ITENS=['Extintor','Macaco / Chave de roda','Triângulo','Calço de roda','Estepe','Câmera de ré',
+  'Sensor de presença','Câmeras adicionais','Giroflex','Strobo','Espelho biônico','Pistola Mecânica','Pistola Manual','Espalhador'];
+const VEICULO_PINTURA_ITENS=['Máquina testada (ligou/funcionou)','Mangueiras sem vazamento','Pistolas funcionando',
+  'Filtros limpos','Bicos corretos','Pressão regulada','Reservatórios fechados'];
+const VEICULO_CONDICOES_ITENS=['Motor sem vazamentos','Nível de óleo','Sistema de arrefecimento','Sistema elétrico OK',
+  'Freios funcionando','Direção normal','Pneus em bom estado / calibrados','Estepe disponível'];
+const VEICULO_SINALIZACAO_ITENS=['Cones (quantidade mínima do trecho)','Cavaletes','Placas de obra',
+  'Dispositivos noturnos (se aplicável)','Bandeiras'];
+
+const TIPO_DESPESA_OPTS=['Combustível','Pedágio','Alimentação','Hospedagem','Manutenção de Veículo','Material de Obra','Estacionamento','Outro'];
+const FORMA_PAGAMENTO_OPTS=['Cartão Corporativo','Cartão Pessoal (reembolso)','Dinheiro','PIX','Boleto','Outro'];
+const FIN_STATUS_LABELS={enviado:'Aguardando Aprovação',aprovado:'Aprovado',reprovado:'Reprovado',atencao:'Atenção — Retorno Necessário'};
+const FIN_STATUS_CLASS={enviado:'andamento',aprovado:'ok',reprovado:'critico',atencao:'pendente'};
+function finStatusBadge(s){ return badge(FIN_STATUS_CLASS[s]||'andamento', FIN_STATUS_LABELS[s]||s); }
+function fmtMoney(v){ return 'R$ '+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+const MODULES=[['dashboard','Dashboard'],['os_lista','Ordens de Serviço'],['os_nova','Nova OS'],
+  ['cadastros_obras','Cadastro de Obras'],['cadastros_equipes','Cadastro de Equipes'],['cadastros_usuarios','Cadastro de Usuários'],
+  ['cadastros_veiculos','Cadastro de Veículos'],['cadastros_equipamentos','Cadastro de Equipamentos'],
+  ['checklists','Checklists de Segurança'],['checkin_veiculo','Check-in/Check-out de Veículo'],
+  ['financeiro','Financeiro — Notas Fiscais'],['financeiro_geral','Painel Financeiro Geral'],['permissoes','Permissões de Acesso']];
+
+function defaultPermissoes(perfil){
+  const all = {dashboard:false,os_lista:true,os_nova:false,cadastros_obras:false,cadastros_equipes:false,cadastros_usuarios:false,
+    cadastros_veiculos:false,cadastros_equipamentos:false,checklists:true,permissoes:false,checkin_veiculo:false,
+    financeiro:true,financeiro_geral:false};
+  if(perfil==='administrador') return {dashboard:true,os_lista:true,os_nova:true,cadastros_obras:true,cadastros_equipes:true,
+    cadastros_usuarios:true,cadastros_veiculos:true,cadastros_equipamentos:true,checklists:true,permissoes:true,checkin_veiculo:true,
+    financeiro:true,financeiro_geral:true};
+  if(perfil==='escritorio') return {...all,dashboard:true,os_nova:true,cadastros_veiculos:true,cadastros_equipamentos:true,checkin_veiculo:true,financeiro_geral:true};
+  if(perfil==='coordenador') return {...all,dashboard:true};
+  return {...all, checkin_veiculo:true}; // equipe (motorista)
+}
+function canAccess(mod){ return !!(S.user && S.user.permissoes && S.user.permissoes[mod]); }
+
+/* ==========================================================
+   HELPERS DE FORMATAÇÃO
+   ========================================================== */
+function fmtDate(d){ if(!d) return '—'; const dt=new Date(d); return dt.toLocaleDateString('pt-BR')+' '+dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
+function fmtDateOnly(d){ if(!d) return '—'; return new Date(d).toLocaleDateString('pt-BR'); }
+function badge(cls,label){ return `<span class="badge badge-${cls}">${label}</span>`; }
+function statusBadge(s){ return badge(STATUS_CLASS[s]||'andamento', STATUS_LABELS[s]||s); }
+function critBadge(c){ return badge(CRIT_CLASS[c]||'andamento', (c||'').toUpperCase()); }
+function resultadoBadge(r){
+  const cls = r==='conforme_liberado'?'ok':r==='nao_conforme_nao_liberado'?'critico':'pendente';
+  const lbl = (RESULTADO_OPTS.find(x=>x[0]===r)||[,r])[1];
+  return badge(cls, lbl||'—');
+}
+function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function opt(list,val,labelFirst){ return (labelFirst?`<option value="">Selecione…</option>`:'') + list.map(([v,l])=>`<option value="${v}" ${v===val?'selected':''}>${l}</option>`).join(''); }
+function uid(){ return 'f'+Math.random().toString(36).slice(2,10); }
+
+/* Ícone ilustrativo por palavra-chave — usado ao lado de cada pergunta de checklist */
+function iconeItem(texto){
+  const t = (texto||'').toLowerCase();
+  const mapa = [
+    [['crachá','identificação'],'🪪'],[['treinad'],'🎓'],[['apt','pt específica','pt da ativ'],'📋'],
+    [['cnh','habilitad'],'🪪'],[['farol','luz de alta','luz de baixa','pisca'],'💡'],
+    [['ré','marcha ré','sonoro de ré'],'🔊'],[['retrovisor','espelho'],'🪞'],
+    [['limpador','esguicho','pára-brisa','parabrisa'],'🌧️'],[['triângulo','cone'],'⚠️'],
+    [['cinto de segurança'],'🔒'],[['direção'],'🎯'],[['freio'],'🛑'],
+    [['instrumentação','painel'],'📊'],[['óleo','vazamento'],'🛢️'],[['porta'],'🚪'],
+    [['buzina'],'📯'],[['pneu','roda','parafus'],'🛞'],[['calço'],'🔺'],
+    [['sinalização lateral','faixa reflet'],'🟧'],[['banco','assento'],'💺'],
+    [['seta luminosa','led'],'🔶'],[['extintor'],'🧯'],[['lig/desl','liga/desl'],'🔌'],
+    [['quadro elétrico','aterrado',' dr?','dr '],'⚡'],[['cabo','emenda','fiaç'],'🔌'],
+    [['mandril','broca'],'🔩'],[['voltagem','tensão','voltímetro'],'⚡'],
+    [['carcaça','improvisaç'],'🔧'],[['limpo e organizado'],'🧹'],[['isolada','área de trabalho'],'🚧'],
+    [['epi','botina','óculos','capacete','protetor','luva'],'🦺'],[['cabine','ocupantes','passageiros'],'🚐'],
+    [['escada'],'🪜'],[['amperímetro'],'📟'],[['disjuntor'],'🔌'],[['horímetro'],'⏱️'],
+    [['combustível','tanque','abastec'],'⛽'],[['correia'],'⚙️'],[['regulador'],'🎛️'],
+    [['escapamento','gases'],'💨'],[['partida'],'🔑'],[['mangueira'],'🚰'],[['tomada'],'🔌'],
+    [['cobertura'],'🏕️'],[['tacógrafo','disco'],'📀'],[['lataria','avaria'],'🚛'],[['nível'],'📏'],
+    [['pintura','máquina testada'],'🎨'],[['reservatório'],'🪣'],[['bico'],'💧'],
+    [['filtro'],'🧽'],[['pressão'],'📈'],[['giroflex','strobo','estepe'],'🚨']
+  ];
+  for(const [keys,icon] of mapa){ if(keys.some(k=>t.includes(k))) return icon; }
+  return '📝';
+}
+
+/* ==========================================================
+   COMPONENTES DE TOQUE — não chamam render() global, manipulam
+   o DOM diretamente para nunca perder o que já foi digitado.
+   ========================================================== */
+function chipGroup(name, list, selected, onSelectExtra){
+  return `<div class="chip-group" data-field="${esc(name)}">
+    ${list.map(([v,l])=>`<button type="button" class="chip ${v===selected?'sel':''}" data-value="${esc(v)}" onclick="selectChip(this)${onSelectExtra?';'+onSelectExtra+'(this)':''}">${esc(l)}</button>`).join('')}
+    <input type="hidden" name="${esc(name)}" value="${esc(selected||'')}">
+  </div>`;
+}
+function selectChip(btn){
+  const group = btn.closest('.chip-group');
+  group.querySelectorAll('.chip').forEach(c=>c.classList.remove('sel'));
+  btn.classList.add('sel');
+  group.querySelector('input[type=hidden]').value = btn.dataset.value;
+}
+function chipMultiGroup(name, list, selectedArr){
+  selectedArr = selectedArr||[];
+  return `<div class="chip-group" data-field="${esc(name)}">
+    ${list.map(l=>`<button type="button" class="chip ${selectedArr.includes(l)?'sel':''}" data-value="${esc(l)}" onclick="toggleChip(this)">${esc(l)}</button>`).join('')}
+    <input type="hidden" name="${esc(name)}" value="${esc(selectedArr.join('|'))}">
+  </div>`;
+}
+function toggleChip(btn){
+  btn.classList.toggle('sel');
+  const group = btn.closest('.chip-group');
+  const vals = [...group.querySelectorAll('.chip.sel')].map(c=>c.dataset.value);
+  group.querySelector('input[type=hidden]').value = vals.join('|');
+}
+function stepperField(name, value, step, min, decimals){
+  value = value==null||value===''?0:value;
+  return `<div class="stepper" data-step="${step}" data-min="${min??0}" data-dec="${decimals||0}">
+    <button type="button" onclick="stepChange(this,-1)">−</button>
+    <input type="number" name="${esc(name)}" value="${value}" step="${step}">
+    <button type="button" onclick="stepChange(this,1)">+</button>
+  </div>`;
+}
+function stepChange(btn, dir){
+  const wrap = btn.parentElement;
+  const inp = wrap.querySelector('input');
+  const step = parseFloat(wrap.dataset.step)||1;
+  const min = parseFloat(wrap.dataset.min)||0;
+  const dec = parseInt(wrap.dataset.dec)||0;
+  let v = (parseFloat(inp.value)||0) + step*dir;
+  if(v<min) v=min;
+  inp.value = dec>0? v.toFixed(dec) : Math.round(v);
+}
+window.pendingFiles = {};
+function photoWidget(key){
+  if(!window.pendingFiles[key]) window.pendingFiles[key]=[];
+  return `<div class="photo-widget" id="pw-${key}">
+    <div id="pw-thumbs-${key}" style="display:contents;">${renderPwThumbs(key)}</div>
+    <button type="button" class="btn-add-photo" onclick="document.getElementById('pw-input-${key}').click()">📷<span>Foto</span></button>
+    <input type="file" id="pw-input-${key}" accept="image/*" capture="environment" style="display:none" onchange="onPhotoPicked('${key}',this)">
+  </div>`;
+}
+function renderPwThumbs(key){
+  return (window.pendingFiles[key]||[]).map((f,i)=>`<div class="pw-thumb"><img src="${f.__preview}"><button type="button" onclick="removePendingPhoto('${key}',${i})">✕</button></div>`).join('');
+}
+function onPhotoPicked(key, input){
+  const f = input.files[0];
+  if(!f) return;
+  f.__preview = URL.createObjectURL(f);
+  window.pendingFiles[key].push(f);
+  const holder = document.getElementById('pw-thumbs-'+key);
+  if(holder) holder.innerHTML = renderPwThumbs(key);
+  input.value='';
+}
+function removePendingPhoto(key, idx){
+  window.pendingFiles[key].splice(idx,1);
+  const holder = document.getElementById('pw-thumbs-'+key);
+  if(holder) holder.innerHTML = renderPwThumbs(key);
+}
+function clearPending(key){ window.pendingFiles[key]=[]; }
+
+function addItemRow(containerId){
+  const rowId = uid();
+  const html = `<div class="item-row" id="${rowId}">
+    <div class="item-row-head"><b>Item de serviço</b><button type="button" class="btn-icon danger" onclick="document.getElementById('${rowId}').remove()">🗑</button></div>
+    <div class="form-grid">
+      <div class="field field-span2"><label>Serviço</label>${chipGroup('item_servico', SERVICO_SUGESTOES.map(s=>[s,s]), '')}</div>
+      <div class="field"><label>Unidade</label>${chipGroup('item_unidade', UNIDADE_OPTS, '')}</div>
+      <div class="field"><label>Meta de produção</label>${stepperField('item_meta', 0, 1, 0, 1)}</div>
+      <div class="field field-span3"><label>Observação (opcional)</label><input name="item_obs"></div>
+    </div>
+  </div>`;
+  document.getElementById(containerId).insertAdjacentHTML('beforeend', html);
+}
+function itensFromForm(fd){
+  const servicos=fd.getAll('item_servico'), unidades=fd.getAll('item_unidade'), metas=fd.getAll('item_meta'), obs=fd.getAll('item_obs');
+  const rows=[];
+  for(let i=0;i<servicos.length;i++){
+    if(servicos[i]) rows.push({servico:servicos[i], unidade:unidades[i]||null, quantidade_prevista:metas[i]||null, observacao:obs[i]||null});
+  }
+  return rows;
+}
+
+/* TOAST — fora do ciclo de render, nunca apaga formulário aberto */
+function toast(msg){
+  const holder = document.getElementById('toast-holder');
+  if(!holder) return;
+  holder.innerHTML = `<div class="toast">${esc(msg)}</div>`;
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(()=>{ holder.innerHTML=''; }, 3200);
+}
+
+/* ==========================================================
+   ESTADO GLOBAL
+   ========================================================== */
+const S = {
+  view:'login', user:null, loading:false, error:null,
+  usuariosLogin:[], loginSel:null, pin:'',
+  usuarios:[], obras:[], equipes:[], veiculos:[], equipamentos:[],
+  osList:[], osFilters:{obra:'',equipe:'',status:'',criticidade:'',busca:'',ordenar:'criticidade'},
+  currentOS:null, currentItens:[], currentFotos:[], currentRetorno:null, currentMedicoes:[], currentImpedimentos:[], currentHistorico:[], currentComentarios:[],
+  lightboxUrl:null, notificacoes:[], showNotif:false, showAddItem:false, editingOS:false,
+  cadastroTab:'obras', editObra:null, editEquipe:null, editUsuario:null, editVeiculo:null, editEquipamento:null,
+  checklistTipo:'veiculo_seta_luminosa', checklistView:'novo', checklists:[], currentChecklist:null, currentChecklistItens:[],
+  editPermUserId:null,
+  veiculoUsoView:'pendentes', veiculoUsos:[], currentUso:null, currentUsoItens:[],
+  financeiroView:'enviar', minhasNotas:[], todasNotas:[], currentNota:null, financeiroNotaOrigem:'meu_painel',
+  usuariosLoginLoaded:false, checklistsLoaded:false, veiculoUsosLoaded:false, minhasNotasLoaded:false, todasNotasLoaded:false,
+  rhTab:'pessoas', pessoasSolicitacoes:[], pessoasSolicitacoesLoaded:false,
+  atestados:[], atestadosLoaded:false, pontos:[], pontosLoaded:false, ajustesPonto:[],
+  documentos:[], documentosLoaded:false, indicacoes:[], indicacoesLoaded:false
+};
+
+function usuMap(){ const m={}; S.usuarios.forEach(u=>m[u.id]=u); return m; }
+(function(){
+  const params = new URLSearchParams(window.location.search);
+  const loginId = params.get('login');
+  if(loginId){ S.loginSel = loginId; }
+})();
+function obraMap(){ const m={}; S.obras.forEach(o=>m[o.id]=o); return m; }
+function equipeMap(){ const m={}; S.equipes.forEach(e=>m[e.id]=e); return m; }
+function veiculoMap(){ const m={}; S.veiculos.forEach(v=>m[v.id]=v); return m; }
+function equipamentoMap(){ const m={}; S.equipamentos.forEach(e=>m[e.id]=e); return m; }
+
+/* ==========================================================
+   CARGA DE DADOS
+   ========================================================== */
+async function loadLoginList(){
+  S.usuariosLogin = await sb('usuarios?select=id,nome,cargo,perfil&status=eq.ativo&order=nome.asc');
+  S.usuariosLoginLoaded = true;
+}
+async function loadBaseData(){
+  const [usuarios,obras,equipes,veiculos,equipamentos] = await Promise.all([
+    sb('usuarios?select=id,nome,cpf,cargo,email,telefone,perfil,equipe_id,obra_id,status,permissoes,plataforma_acesso,obras_acesso,criado_em,data_nascimento,estado_civil,naturalidade,rg,telefone_whatsapp,data_admissao&order=nome.asc'),
+    sb('obras?select=*&order=nome.asc'),
+    sb('equipes?select=*&order=nome.asc'),
+    sb('veiculos?select=*&order=placa.asc'),
+    sb('equipamentos?select=*&order=nome.asc')
+  ]);
+  S.usuarios=usuarios; S.obras=obras; S.equipes=equipes; S.veiculos=veiculos; S.equipamentos=equipamentos;
+}
+async function loadNotificacoes(){
+  if(!S.user) return;
+  S.notificacoes = await sb(`notificacoes?usuario_id=eq.${S.user.id}&lida=eq.false&order=criado_em.desc&limit=20`);
+}
+async function loadOSList(){
+  let q = 'ordens_servico?select=*&order=criado_em.desc&limit=500';
+  if(S.user.perfil==='equipe'){ q += `&equipe_id=eq.${S.user.equipe_id}`; }
+  if(S.user.obras_acesso && S.user.obras_acesso.length>0){ q += `&obra_id=in.(${S.user.obras_acesso.join(',')})`; }
+  S.osList = await sb(q);
+}
+async function loadOSDetail(id){
+  const [os,itens,fotos,retornos,medicoes,impedimentos,historico,comentarios] = await Promise.all([
+    sb(`ordens_servico?id=eq.${id}&select=*`),
+    sb(`itens_os?ordem_servico_id=eq.${id}&order=criado_em.asc`),
+    sb(`fotos?ordem_servico_id=eq.${id}&order=data_hora.asc`),
+    sb(`retornos_equipe?ordem_servico_id=eq.${id}&order=criado_em.desc`),
+    sb(`medicoes?ordem_servico_id=eq.${id}&order=criado_em.desc`),
+    sb(`impedimentos?ordem_servico_id=eq.${id}&order=data_hora.desc`),
+    sb(`historico_status?ordem_servico_id=eq.${id}&order=data_hora.desc`),
+    sb(`comentarios?ordem_servico_id=eq.${id}&order=data_hora.desc`)
+  ]);
+  S.currentOS=os[0]; S.currentItens=itens; S.currentFotos=fotos; S.currentRetorno=retornos[0]||null; S.currentMedicoes=medicoes;
+  S.currentImpedimentos=impedimentos; S.currentHistorico=historico; S.currentComentarios=comentarios;
+}
+async function loadChecklists(){
+  let q = 'checklists?select=*&order=criado_em.desc&limit=200';
+  if(S.user.obras_acesso && S.user.obras_acesso.length>0){ q += `&obra_id=in.(${S.user.obras_acesso.join(',')})`; }
+  S.checklists = await sb(q);
+  S.checklistsLoaded = true;
+}
+async function loadChecklistDetail(id){
+  const [cl,itens] = await Promise.all([
+    sb(`checklists?id=eq.${id}&select=*`),
+    sb(`checklist_itens?checklist_id=eq.${id}&order=item_numero.asc`)
+  ]);
+  S.currentChecklist = cl[0]; S.currentChecklistItens = itens;
+}
+
+/* ==========================================================
+   AÇÕES — LOGIN
+   ========================================================== */
+async function doLogin(){
+  if(!S.loginSel || !S.pin){ S.error='Selecione seu nome e informe o PIN.'; render(); return; }
+  S.loading=true; S.error=null; render();
+  try{
+    const r = await sbRpc('rpc_login',{p_usuario_id:S.loginSel, p_pin:S.pin});
+    if(!r || r.length===0){ S.error='PIN incorreto.'; S.loading=false; render(); return; }
+    S.user = r[0];
+    await loadBaseData();
+    const full = S.usuarios.find(u=>u.id===S.user.id);
+    const plataforma = full?.plataforma_acesso || 'ambos';
+    if(plataforma!=='ambos' && plataforma!==CURRENT_PLATFORM){
+      const destino = plataforma==='desktop' ? './desktop.html' : './mobile.html';
+      window.location.href = destino + '?login=' + S.user.id;
+      return;
+    }
+    S.user.permissoes = (full && full.permissoes && Object.keys(full.permissoes).length) ? full.permissoes : defaultPermissoes(S.user.perfil);
+    S.user.obras_acesso = full?.obras_acesso || [];
+    if(full){ S.user.data_nascimento=full.data_nascimento; S.user.estado_civil=full.estado_civil; S.user.naturalidade=full.naturalidade;
+      S.user.rg=full.rg; S.user.telefone_whatsapp=full.telefone_whatsapp; S.user.data_admissao=full.data_admissao; S.user.cargo=full.cargo; }
+    if(S.user.obras_acesso.length>0){
+      const permitidas = new Set(S.user.obras_acesso);
+      S.obras = S.obras.filter(o=>permitidas.has(o.id));
+      S.equipes = S.equipes.filter(e=>!e.obra_id || permitidas.has(e.obra_id));
+      S.veiculos = S.veiculos.filter(v=>!v.obra_id || permitidas.has(v.obra_id));
+      S.equipamentos = S.equipamentos.filter(e=>!e.obra_id || permitidas.has(e.obra_id));
+    }
+    await loadNotificacoes();
+    await loadOSList();
+    S.view = canAccess('dashboard') ? 'dashboard' : 'lista';
+    S.pin=''; S.loginSel=null;
+  }catch(e){ S.error='Erro ao entrar: '+e.message; }
+  S.loading=false; render();
+}
+function doLogout(){ S.user=null; S.view='login'; S.osList=[]; S.currentOS=null;
+  S.checklistsLoaded=false; S.veiculoUsosLoaded=false; S.minhasNotasLoaded=false; S.todasNotasLoaded=false;
+  S.checklists=[]; S.veiculoUsos=[]; S.minhasNotas=[]; S.todasNotas=[];
+  render(); }
+
+/* ==========================================================
+   AÇÕES — OS
+   ========================================================== */
+async function abrirOS(id){
+  S.loading=true; S.editingOS=false; S.showAddItem=false; render();
+  try{ await loadOSDetail(id); S.view='detalhe'; }
+  catch(e){ toast('Erro ao carregar OS: '+e.message); }
+  S.loading=false; render();
+}
+function fecharOS(){ S.currentOS=null; S.view='lista'; loadOSList().then(render); }
+
+async function criarOS(form){
+  const itens = itensFromForm(new FormData(form));
+  if(itens.length===0){ toast('Adicione ao menos um item de serviço com meta de produção.'); return; }
+  const fd = new FormData(form);
+  const servicoResumo = itens.map(i=>i.servico).join(' + ');
+  const payload = {
+    obra_id: fd.get('obra_id'), equipe_id: fd.get('equipe_id')||null,
+    contrato: fd.get('contrato')||null,
+    data_programada: fd.get('data_programada')||null,
+    prazo_retorno: fd.get('prazo_retorno')||null,
+    pista: fd.get('pista')||null, sentido: fd.get('sentido')||null, faixa: fd.get('faixa')||null,
+    km_inicial: fd.get('km_inicial')||null, km_final: fd.get('km_final')||null,
+    servico: servicoResumo, descricao: fd.get('descricao')||null,
+    criticidade: fd.get('criticidade')||'media',
+    responsavel_criacao_id: S.user.id, responsavel_escritorio_id: S.user.id,
+    observacoes: fd.get('observacoes')||null
+  };
+  S.loading=true; render();
+  try{
+    const created = await sb('ordens_servico', {method:'POST', body:payload, prefer:'return=representation'});
+    const os = created[0];
+    for(const it of itens){
+      await sb('itens_os',{method:'POST', body:{ordem_servico_id:os.id, servico:it.servico, unidade:it.unidade,
+        quantidade_prevista:it.quantidade_prevista||null, observacao:it.observacao||null}});
+    }
+    const files = window.pendingFiles['antes_nova']||[];
+    for(let i=0;i<files.length;i++){
+      const f=files[i]; const path=`${os.id}/antes/${Date.now()}_${i}_${f.name}`;
+      try{ const url = await uploadFoto(f, path); await sb('fotos',{method:'POST', body:{ordem_servico_id:os.id, tipo_foto:'antes', arquivo_url:url, usuario_id:S.user.id}}); }
+      catch(e){ console.error('foto falhou', e); }
+    }
+    clearPending('antes_nova');
+    toast(`OS ${os.numero_os} criada com sucesso.`);
+    S.view='lista'; await loadOSList();
+  }catch(e){ toast('Erro ao criar OS: '+e.message); }
+  S.loading=false; render();
+}
+
+async function atualizarStatusOS(id, status, extra={}){ await sb(`ordens_servico?id=eq.${id}`, {method:'PATCH', body:{status, ...extra}}); }
+async function enviarParaEquipe(id){ S.loading=true; render(); try{ await atualizarStatusOS(id,'enviada_equipe'); toast('OS enviada para a equipe.'); await loadOSDetail(id);}catch(e){toast('Erro: '+e.message);} S.loading=false; render(); }
+async function confirmarRecebimento(id){ S.loading=true; render(); try{ await atualizarStatusOS(id,'visualizada_equipe'); await loadOSDetail(id);}catch(e){toast('Erro: '+e.message);} S.loading=false; render(); }
+async function iniciarExecucao(id){ S.loading=true; render(); try{ await atualizarStatusOS(id,'em_execucao'); toast('Atividade iniciada.'); await loadOSDetail(id);}catch(e){toast('Erro: '+e.message);} S.loading=false; render(); }
+async function retomarExecucao(id){ S.loading=true; render(); try{ await atualizarStatusOS(id,'em_execucao'); await loadOSDetail(id);}catch(e){toast('Erro: '+e.message);} S.loading=false; render(); }
+
+function toggleEditarOS(){ S.editingOS=!S.editingOS; render(); }
+async function salvarEdicaoOS(form){
+  const fd = new FormData(form);
+  const payload = {
+    obra_id: fd.get('obra_id'), equipe_id: fd.get('equipe_id')||null, contrato: fd.get('contrato')||null,
+    data_programada: fd.get('data_programada')||null, prazo_retorno: fd.get('prazo_retorno')||null,
+    pista: fd.get('pista')||null, sentido: fd.get('sentido')||null, faixa: fd.get('faixa')||null,
+    km_inicial: fd.get('km_inicial')||null, km_final: fd.get('km_final')||null,
+    criticidade: fd.get('criticidade')||'media', descricao: fd.get('descricao')||null, observacoes: fd.get('observacoes')||null
+  };
+  S.loading=true; render();
+  try{ await sb(`ordens_servico?id=eq.${S.currentOS.id}`,{method:'PATCH',body:payload}); toast('OS atualizada.'); S.editingOS=false; await loadOSDetail(S.currentOS.id); }
+  catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+async function excluirOS(id){
+  if(!confirm('Excluir esta Ordem de Serviço e TODOS os registros vinculados? Esta ação não pode ser desfeita.')) return;
+  S.loading=true; render();
+  try{ await sb(`ordens_servico?id=eq.${id}`,{method:'DELETE'}); toast('OS excluída.'); S.view='lista'; await loadOSList(); }
+  catch(e){ toast('Erro ao excluir: '+e.message); }
+  S.loading=false; render();
+}
+
+async function adicionarItemOS(form){
+  const fd=new FormData(form);
+  try{
+    await sb('itens_os',{method:'POST',body:{ordem_servico_id:S.currentOS.id, servico:fd.get('servico'), unidade:fd.get('unidade')||null,
+      quantidade_prevista:fd.get('meta')||null, observacao:fd.get('obs')||null}});
+    toast('Item adicionado.'); S.showAddItem=false; await loadOSDetail(S.currentOS.id);
+  }catch(e){ toast('Erro: '+e.message); }
+  render();
+}
+async function excluirItemOS(id){
+  if(!confirm('Excluir este item de serviço?')) return;
+  try{ await sb(`itens_os?id=eq.${id}`,{method:'DELETE'}); toast('Item excluído.'); await loadOSDetail(S.currentOS.id); }
+  catch(e){ toast('Erro: '+e.message); }
+  render();
+}
+
+async function registrarImpedimento(form){
+  const fd = new FormData(form);
+  const motivo = fd.get('motivo');
+  if(!motivo){ toast('Selecione o motivo do impedimento.'); return; }
+  S.loading=true; render();
+  try{
+    await sb('impedimentos',{method:'POST', body:{ordem_servico_id:S.currentOS.id, equipe_id:S.currentOS.equipe_id,
+      motivo, descricao:fd.get('descricao')||null, usuario_id:S.user.id}});
+    const files = window.pendingFiles['imped_'+S.currentOS.id]||[];
+    for(let i=0;i<files.length;i++){
+      const f=files[i]; const path=`${S.currentOS.id}/impedimento/${Date.now()}_${i}_${f.name}`;
+      const url = await uploadFoto(f, path);
+      await sb('fotos',{method:'POST', body:{ordem_servico_id:S.currentOS.id, tipo_foto:'impedimento', arquivo_url:url, usuario_id:S.user.id}});
+    }
+    clearPending('imped_'+S.currentOS.id);
+    toast('Impedimento registrado. OS retornada ao escritório.');
+    await loadOSDetail(S.currentOS.id);
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+
+async function finalizarAtividade(form){
+  const key = 'depois_'+S.currentOS.id;
+  const fotosFiles = window.pendingFiles[key]||[];
+  if(fotosFiles.length===0){ toast('É necessário ao menos 1 foto da execução.'); return; }
+  const fd = new FormData(form);
+  S.loading=true; render();
+  try{
+    for(let i=0;i<fotosFiles.length;i++){
+      const f=fotosFiles[i]; const path = `${S.currentOS.id}/depois/${Date.now()}_${i}_${f.name}`;
+      const url = await uploadFoto(f, path);
+      await sb('fotos',{method:'POST', body:{ordem_servico_id:S.currentOS.id, tipo_foto:'depois', arquivo_url:url, usuario_id:S.user.id}});
+    }
+    const retorno = {
+      ordem_servico_id: S.currentOS.id, equipe_id: S.currentOS.equipe_id, responsavel_id: S.user.id,
+      data_execucao: fd.get('data_execucao')||new Date().toISOString().slice(0,10),
+      hora_inicio: fd.get('hora_inicio')||null, hora_fim: new Date().toISOString(),
+      km_inicial_executado: fd.get('km_inicial_executado')||null, km_final_executado: fd.get('km_final_executado')||null,
+      informacoes_adicionais: fd.get('informacoes_adicionais')||null,
+      materiais_utilizados: fd.get('materiais_utilizados')||null, equipamentos_utilizados: fd.get('equipamentos_utilizados')||null,
+      numero_colaboradores: fd.get('numero_colaboradores')||null, condicao_climatica: fd.get('condicao_climatica')||null,
+      observacoes: fd.get('observacoes_retorno')||null
+    };
+    await sb('retornos_equipe',{method:'POST', body:retorno});
+    for(const it of S.currentItens){
+      const val = fd.get('exec_item_'+it.id);
+      if(val===null) continue;
+      await sb('medicoes',{method:'POST', body:{ordem_servico_id:S.currentOS.id, item_id:it.id, item:it.servico, unidade:it.unidade,
+        quantidade_prevista:it.quantidade_prevista, quantidade_executada:val}});
+    }
+    clearPending(key);
+    await atualizarStatusOS(S.currentOS.id,'enviada_conferencia');
+    toast('Atividade finalizada e enviada para conferência.');
+    await loadOSDetail(S.currentOS.id);
+  }catch(e){ toast('Erro ao finalizar: '+e.message); }
+  S.loading=false; render();
+}
+
+async function aprovarOS(id){ S.loading=true; render(); try{ await atualizarStatusOS(id,'aprovada'); toast('OS aprovada.'); await loadOSDetail(id);}catch(e){toast('Erro: '+e.message);} S.loading=false; render(); }
+async function reprovarOS(form){
+  const fd = new FormData(form);
+  S.loading=true; render();
+  try{
+    await sb('comentarios',{method:'POST', body:{ordem_servico_id:S.currentOS.id, usuario_id:S.user.id, comentario:`Reprovado — Motivo: ${fd.get('motivo')}. ${fd.get('comentario')||''}`}});
+    await atualizarStatusOS(S.currentOS.id,'reprovada'); toast('OS reprovada.'); await loadOSDetail(S.currentOS.id);
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+async function solicitarCorrecao(form){
+  const fd = new FormData(form);
+  S.loading=true; render();
+  try{
+    await sb('comentarios',{method:'POST', body:{ordem_servico_id:S.currentOS.id, usuario_id:S.user.id, comentario:`Correção solicitada: ${fd.get('comentario')||''}`}});
+    await atualizarStatusOS(S.currentOS.id,'correcao_solicitada'); toast('Correção solicitada à equipe.'); await loadOSDetail(S.currentOS.id);
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+async function enviarComentario(form){
+  const fd = new FormData(form); const texto = fd.get('comentario'); if(!texto) return;
+  try{ await sb('comentarios',{method:'POST', body:{ordem_servico_id:S.currentOS.id, usuario_id:S.user.id, comentario:texto}}); form.reset(); await loadOSDetail(S.currentOS.id); render(); }
+  catch(e){ toast('Erro: '+e.message); }
+}
+async function excluirComentario(id){ if(!confirm('Excluir este comentário?'))return; try{await sb(`comentarios?id=eq.${id}`,{method:'DELETE'}); await loadOSDetail(S.currentOS.id); render();}catch(e){toast('Erro: '+e.message);} }
+async function excluirFoto(id){ if(!confirm('Excluir esta foto?'))return; try{await sb(`fotos?id=eq.${id}`,{method:'DELETE'}); await loadOSDetail(S.currentOS.id); render();}catch(e){toast('Erro: '+e.message);} }
+async function excluirImpedimento(id){ if(!confirm('Excluir este registro de impedimento?'))return; try{await sb(`impedimentos?id=eq.${id}`,{method:'DELETE'}); await loadOSDetail(S.currentOS.id); render();}catch(e){toast('Erro: '+e.message);} }
+async function excluirMedicao(id){ if(!confirm('Excluir esta medição?'))return; try{await sb(`medicoes?id=eq.${id}`,{method:'DELETE'}); await loadOSDetail(S.currentOS.id); render();}catch(e){toast('Erro: '+e.message);} }
+
+/* ==========================================================
+   AÇÕES — CADASTROS
+   ========================================================== */
+async function criarObra(form){
+  const fd=new FormData(form);
+  const payload={nome:fd.get('nome'),cliente:fd.get('cliente')||null,contrato:fd.get('contrato')||null,rodovia:fd.get('rodovia')||null,
+    km_inicial:fd.get('km_inicial')||null,km_final:fd.get('km_final')||null,cidade:fd.get('cidade')||null,estado:fd.get('estado')||null,
+    data_inicio:fd.get('data_inicio')||null,data_prevista_termino:fd.get('data_prevista_termino')||null,status:fd.get('status')||'planejada'};
+  try{ await sb('obras',{method:'POST',body:payload}); toast('Obra cadastrada.'); await loadBaseData(); form.reset(); render(); }
+  catch(e){ toast('Erro: '+e.message); }
+}
+function iniciarEdicaoObra(id){ S.editObra = {...S.obras.find(o=>o.id===id)}; render(); }
+function cancelarEdicaoObra(){ S.editObra=null; render(); }
+async function salvarEdicaoObra(form){
+  const fd=new FormData(form);
+  const payload={nome:fd.get('nome'),cliente:fd.get('cliente')||null,contrato:fd.get('contrato')||null,rodovia:fd.get('rodovia')||null,
+    km_inicial:fd.get('km_inicial')||null,km_final:fd.get('km_final')||null,cidade:fd.get('cidade')||null,estado:fd.get('estado')||null,
+    data_inicio:fd.get('data_inicio')||null,data_prevista_termino:fd.get('data_prevista_termino')||null,status:fd.get('status')};
+  try{ await sb(`obras?id=eq.${S.editObra.id}`,{method:'PATCH',body:payload}); toast('Obra atualizada.'); S.editObra=null; await loadBaseData(); }
+  catch(e){ toast('Erro: '+e.message); }
+  render();
+}
+async function excluirObra(id){
+  if(!confirm('Excluir esta obra?')) return;
+  try{ await sb(`obras?id=eq.${id}`,{method:'DELETE'}); toast('Obra excluída.'); await loadBaseData(); }
+  catch(e){ toast('Não foi possível excluir — verifique se há equipes/OS vinculadas a esta obra.'); }
+  render();
+}
+
+async function criarEquipe(form){
+  const fd=new FormData(form);
+  const payload={nome:fd.get('nome'),codigo:fd.get('codigo')||null,encarregado_id:fd.get('encarregado_id')||null,
+    supervisor_id:fd.get('supervisor_id')||null,veiculo:fd.get('veiculo')||null,equipamento:fd.get('equipamento')||null,
+    obra_id:fd.get('obra_id')||null,telefone:fd.get('telefone')||null};
+  try{ await sb('equipes',{method:'POST',body:payload}); toast('Equipe cadastrada.'); await loadBaseData(); form.reset(); render(); }
+  catch(e){ toast('Erro: '+e.message); }
+}
+function iniciarEdicaoEquipe(id){ S.editEquipe = {...S.equipes.find(e=>e.id===id)}; render(); }
+function cancelarEdicaoEquipe(){ S.editEquipe=null; render(); }
+async function salvarEdicaoEquipe(form){
+  const fd=new FormData(form);
+  const payload={nome:fd.get('nome'),codigo:fd.get('codigo')||null,encarregado_id:fd.get('encarregado_id')||null,
+    supervisor_id:fd.get('supervisor_id')||null,veiculo:fd.get('veiculo')||null,equipamento:fd.get('equipamento')||null,
+    obra_id:fd.get('obra_id')||null,telefone:fd.get('telefone')||null};
+  try{ await sb(`equipes?id=eq.${S.editEquipe.id}`,{method:'PATCH',body:payload}); toast('Equipe atualizada.'); S.editEquipe=null; await loadBaseData(); }
+  catch(e){ toast('Erro: '+e.message); }
+  render();
+}
+async function excluirEquipe(id){
+  if(!confirm('Excluir esta equipe?')) return;
+  try{ await sb(`equipes?id=eq.${id}`,{method:'DELETE'}); toast('Equipe excluída.'); await loadBaseData(); }
+  catch(e){ toast('Não foi possível excluir — verifique se há usuários/OS vinculados a esta equipe.'); }
+  render();
+}
+
+async function criarUsuario(form){
+  const fd=new FormData(form);
+  const perfil = fd.get('perfil');
+  const payload={nome:fd.get('nome'),cpf:fd.get('cpf')||null,cargo:fd.get('cargo')||null,email:fd.get('email')||null,
+    telefone:fd.get('telefone')||null,perfil,equipe_id:fd.get('equipe_id')||null,obra_id:fd.get('obra_id')||null,
+    plataforma_acesso:fd.get('plataforma_acesso')||'ambos', obras_acesso:fd.getAll('obras_acesso')};
+  try{
+    const created = await sb('usuarios?select=id',{method:'POST',body:payload,prefer:'return=representation'});
+    await sb(`usuarios?id=eq.${created[0].id}`,{method:'PATCH',body:{permissoes:defaultPermissoes(perfil)}});
+    toast('Usuário cadastrado. PIN inicial: 1234 (oriente a troca imediata).'); await loadBaseData(); form.reset(); render();
+  }catch(e){ toast('Erro: '+e.message); }
+}
+function iniciarEdicaoUsuario(id){ S.editUsuario = {...S.usuarios.find(u=>u.id===id)}; render(); }
+function cancelarEdicaoUsuario(){ S.editUsuario=null; render(); }
+async function salvarEdicaoUsuario(form){
+  const fd=new FormData(form);
+  const payload={nome:fd.get('nome'),cpf:fd.get('cpf')||null,cargo:fd.get('cargo')||null,email:fd.get('email')||null,
+    telefone:fd.get('telefone')||null,perfil:fd.get('perfil'),equipe_id:fd.get('equipe_id')||null,obra_id:fd.get('obra_id')||null,
+    status:fd.get('status')||'ativo', plataforma_acesso:fd.get('plataforma_acesso')||'ambos', obras_acesso:fd.getAll('obras_acesso')};
+  try{ await sb(`usuarios?id=eq.${S.editUsuario.id}`,{method:'PATCH',body:payload}); toast('Usuário atualizado.'); S.editUsuario=null; await loadBaseData(); }
+  catch(e){ toast('Erro: '+e.message); }
+  render();
+}
+async function excluirUsuario(id){
+  if(!confirm('Excluir este usuário?')) return;
+  try{ await sb(`usuarios?id=eq.${id}`,{method:'DELETE'}); toast('Usuário excluído.'); await loadBaseData(); }
+  catch(e){ toast('Não foi possível excluir — verifique se este usuário está vinculado a OS ou equipes.'); }
+  render();
+}
+async function redefinirPin(userId){
+  const novo = prompt('Novo PIN (4 dígitos) para este usuário:');
+  if(!novo) return;
+  try{ await sbRpc('rpc_set_pin',{p_usuario_id:userId,p_new_pin:novo}); toast('PIN redefinido.'); }
+  catch(e){ toast('Erro: '+e.message); }
+}
+async function marcarNotificacoesLidas(){
+  try{ for(const n of S.notificacoes){ await sb(`notificacoes?id=eq.${n.id}`,{method:'PATCH',body:{lida:true}}); } S.notificacoes=[]; S.showNotif=false; render(); }
+  catch(e){ toast('Erro: '+e.message); }
+}
+
+/* VEÍCULOS */
+async function criarVeiculo(form){
+  const fd=new FormData(form);
+  const payload={placa:fd.get('placa')||null,codigo_ativo:fd.get('codigo_ativo')||null,tipo:fd.get('tipo')||null,
+    marca:fd.get('marca')||null,modelo:fd.get('modelo')||null,ano:fd.get('ano')||null,
+    empresa_subcontratada:fd.get('empresa_subcontratada')||null,obra_id:fd.get('obra_id')||null};
+  try{ await sb('veiculos',{method:'POST',body:payload}); toast('Veículo cadastrado.'); await loadBaseData(); form.reset(); render(); }
+  catch(e){ toast('Erro: '+e.message); }
+}
+function iniciarEdicaoVeiculo(id){ S.editVeiculo = {...S.veiculos.find(v=>v.id===id)}; render(); }
+function cancelarEdicaoVeiculo(){ S.editVeiculo=null; render(); }
+async function salvarEdicaoVeiculo(form){
+  const fd=new FormData(form);
+  const payload={placa:fd.get('placa')||null,codigo_ativo:fd.get('codigo_ativo')||null,tipo:fd.get('tipo')||null,
+    marca:fd.get('marca')||null,modelo:fd.get('modelo')||null,ano:fd.get('ano')||null,
+    empresa_subcontratada:fd.get('empresa_subcontratada')||null,obra_id:fd.get('obra_id')||null,status:fd.get('status')||'ativo'};
+  try{ await sb(`veiculos?id=eq.${S.editVeiculo.id}`,{method:'PATCH',body:payload}); toast('Veículo atualizado.'); S.editVeiculo=null; await loadBaseData(); }
+  catch(e){ toast('Erro: '+e.message); }
+  render();
+}
+async function excluirVeiculo(id){
+  if(!confirm('Excluir este veículo?')) return;
+  try{ await sb(`veiculos?id=eq.${id}`,{method:'DELETE'}); toast('Veículo excluído.'); await loadBaseData(); }
+  catch(e){ toast('Erro ao excluir: '+e.message); }
+  render();
+}
+
+/* EQUIPAMENTOS */
+async function criarEquipamento(form){
+  const fd=new FormData(form);
+  const payload={nome:fd.get('nome'),tipo:fd.get('tipo')||null,codigo_ativo:fd.get('codigo_ativo')||null,
+    empresa_subcontratada:fd.get('empresa_subcontratada')||null,obra_id:fd.get('obra_id')||null};
+  try{ await sb('equipamentos',{method:'POST',body:payload}); toast('Equipamento cadastrado.'); await loadBaseData(); form.reset(); render(); }
+  catch(e){ toast('Erro: '+e.message); }
+}
+function iniciarEdicaoEquipamento(id){ S.editEquipamento = {...S.equipamentos.find(e=>e.id===id)}; render(); }
+function cancelarEdicaoEquipamento(){ S.editEquipamento=null; render(); }
+async function salvarEdicaoEquipamento(form){
+  const fd=new FormData(form);
+  const payload={nome:fd.get('nome'),tipo:fd.get('tipo')||null,codigo_ativo:fd.get('codigo_ativo')||null,
+    empresa_subcontratada:fd.get('empresa_subcontratada')||null,obra_id:fd.get('obra_id')||null,status:fd.get('status')||'ativo'};
+  try{ await sb(`equipamentos?id=eq.${S.editEquipamento.id}`,{method:'PATCH',body:payload}); toast('Equipamento atualizado.'); S.editEquipamento=null; await loadBaseData(); }
+  catch(e){ toast('Erro: '+e.message); }
+  render();
+}
+async function excluirEquipamento(id){
+  if(!confirm('Excluir este equipamento?')) return;
+  try{ await sb(`equipamentos?id=eq.${id}`,{method:'DELETE'}); toast('Equipamento excluído.'); await loadBaseData(); }
+  catch(e){ toast('Erro ao excluir: '+e.message); }
+  render();
+}
+
+/* PERMISSÕES */
+function iniciarEdicaoPermissoes(userId){ S.editPermUserId = userId; render(); }
+function cancelarEdicaoPermissoes(){ S.editPermUserId=null; render(); }
+function togglePermCheckbox(cb){ /* visual apenas; lido no submit */ }
+async function salvarPermissoes(form, userId){
+  const fd = new FormData(form);
+  const perms = {};
+  MODULES.forEach(([k])=>{ perms[k] = fd.get('perm_'+k)==='on'; });
+  try{
+    await sb(`usuarios?id=eq.${userId}`,{method:'PATCH',body:{permissoes:perms}});
+    toast('Permissões atualizadas.');
+    S.editPermUserId=null;
+    await loadBaseData();
+  }catch(e){ toast('Erro: '+e.message); }
+  render();
+}
+
+/* CHECKLISTS */
+function selectChecklistTipo(btn){
+  selectChip(btn);
+  S.checklistTipo = btn.dataset.value;
+  const cont = document.getElementById('checklist-itens-container');
+  if(cont) cont.innerHTML = renderChecklistItensHTML(S.checklistTipo);
+}
+function renderChecklistItensHTML(tipo){
+  const itens = CHECKLIST_ITENS[tipo]||[];
+  return itens.map((texto,i)=>`<div class="item-row">
+    <div style="display:flex;gap:10px;align-items:flex-start;">
+      <div style="font-size:26px;line-height:1.2;flex-shrink:0;" aria-hidden="true">${iconeItem(texto)}</div>
+      <b>${i+1}. ${esc(texto)}</b>
+    </div>
+    <div style="margin-top:8px;">${chipGroup('resp_'+i,[['ok','OK'],['pendente','Pendente'],['na','N/A']],'na')}</div>
+    <div class="field" style="margin-top:8px;"><input name="pend_${i}" placeholder="Descrição da pendência (se houver)"></div>
+  </div>`).join('');
+}
+async function salvarChecklist(form){
+  const fd = new FormData(form);
+  const tipo = S.checklistTipo;
+  const itens = CHECKLIST_ITENS[tipo]||[];
+  const payload = {
+    tipo, veiculo_id: fd.get('veiculo_id')||null, equipamento_id: fd.get('equipamento_id')||null,
+    obra_id: fd.get('obra_id')||null, contrato: fd.get('contrato')||null,
+    setor_area: fd.get('setor_area')||null, tipo_inspecao: fd.get('tipo_inspecao')||'rotineira',
+    processo_atividade: fd.get('processo_atividade')||null,
+    motorista_colaborador: fd.get('motorista_colaborador')||S.user.nome, matricula: fd.get('matricula')||null,
+    encarregado_nome: fd.get('encarregado_nome')||null,
+    resultado_geral: fd.get('resultado_geral')||'conforme_liberado',
+    usuario_id: S.user.id
+  };
+  S.loading=true; render();
+  try{
+    const created = await sb('checklists',{method:'POST',body:payload,prefer:'return=representation'});
+    const cl = created[0];
+    for(let i=0;i<itens.length;i++){
+      await sb('checklist_itens',{method:'POST',body:{checklist_id:cl.id, item_numero:i+1, item_texto:itens[i],
+        resposta:fd.get('resp_'+i)||'na', descricao_pendencia:fd.get('pend_'+i)||null}});
+    }
+    toast('Checklist salvo com sucesso.');
+    S.checklistView='historico'; await loadChecklists();
+  }catch(e){ toast('Erro ao salvar checklist: '+e.message); }
+  S.loading=false; render();
+}
+async function abrirChecklist(id){
+  S.loading=true; render();
+  try{ await loadChecklistDetail(id); S.checklistView='detalhe'; }
+  catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+async function excluirChecklist(id){
+  if(!confirm('Excluir este checklist?')) return;
+  try{ await sb(`checklists?id=eq.${id}`,{method:'DELETE'}); toast('Checklist excluído.'); S.checklistView='historico'; await loadChecklists(); }
+  catch(e){ toast('Erro: '+e.message); }
+  render();
+}
+
+/* ==========================================================
+   CHECK-IN / CHECK-OUT DE VEÍCULO
+   ========================================================== */
+async function loadVeiculoUsos(){
+  S.veiculoUsos = await sb('veiculo_usos?select=*&order=data_checkin.desc&limit=200');
+  S.veiculoUsosLoaded = true;
+}
+async function loadUsoDetail(id){
+  const [uso,itens] = await Promise.all([
+    sb(`veiculo_usos?id=eq.${id}&select=*`),
+    sb(`veiculo_uso_itens?uso_id=eq.${id}&order=criado_em.asc`)
+  ]);
+  S.currentUso = uso[0]; S.currentUsoItens = itens;
+}
+async function criarCheckin(form){
+  const fd = new FormData(form);
+  const veiculo_id = fd.get('veiculo_id');
+  if(!veiculo_id){ toast('Selecione o veículo.'); return; }
+  S.loading=true; render();
+  try{
+    const abertos = await sb(`veiculo_usos?veiculo_id=eq.${veiculo_id}&status=eq.aberto&select=id`);
+    if(abertos.length>0){ toast('Este veículo já está em uso — faça o check-out antes de um novo check-in.'); S.loading=false; render(); return; }
+    const payload = {
+      veiculo_id, motorista_id: S.user.id, motorista_nome: fd.get('motorista_nome')||S.user.nome,
+      km_inicial: fd.get('km_inicial')||null, observacao_checkin: fd.get('observacao_checkin')||null, status:'aberto'
+    };
+    const created = await sb('veiculo_usos',{method:'POST',body:payload,prefer:'return=representation'});
+    const uso = created[0];
+    const itens = [];
+    VEICULO_DOC_ITENS.forEach((t,i)=>itens.push({categoria:'documentacao', item_texto:t, check_in: fd.get('doc_'+i)==='ok'}));
+    VEICULO_INVENTARIO_ITENS.forEach((t,i)=>itens.push({categoria:'inventario', item_texto:t, check_in: fd.get('inv_'+i)==='ok'}));
+    VEICULO_PINTURA_ITENS.forEach((t,i)=>itens.push({categoria:'pintura', item_texto:t, check_in: fd.get('pint_'+i)==='ok'}));
+    VEICULO_CONDICOES_ITENS.forEach((t,i)=>itens.push({categoria:'condicoes', item_texto:t, check_in: fd.get('cond_'+i)==='ok'}));
+    VEICULO_SINALIZACAO_ITENS.forEach((t,i)=>itens.push({categoria:'sinalizacao', item_texto:t, valor_texto: fd.get('sinal_'+i)||null}));
+    itens.push({categoria:'equipamento_extra', item_texto:'Caixa de Ferramenta', valor_texto: fd.get('caixa_ferramenta')||null});
+    for(const it of itens){ await sb('veiculo_uso_itens',{method:'POST',body:{uso_id:uso.id, ...it}}); }
+    toast('Check-in registrado com sucesso.');
+    S.veiculoUsoView='pendentes'; await loadVeiculoUsos();
+  }catch(e){ toast('Erro ao registrar check-in: '+e.message); }
+  S.loading=false; render();
+}
+async function abrirCheckout(id){
+  S.loading=true; render();
+  try{ await loadUsoDetail(id); S.veiculoUsoView='checkout'; }
+  catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+async function finalizarCheckout(form){
+  const fd = new FormData(form);
+  S.loading=true; render();
+  try{
+    for(const it of S.currentUsoItens){
+      if(it.categoria==='sinalizacao' || it.categoria==='equipamento_extra') continue;
+      const val = fd.get('out_'+it.id);
+      if(val===null) continue;
+      await sb(`veiculo_uso_itens?id=eq.${it.id}`,{method:'PATCH',body:{check_out: val==='ok'}});
+    }
+    await sb(`veiculo_usos?id=eq.${S.currentUso.id}`,{method:'PATCH',body:{
+      status:'fechado', data_checkout:new Date().toISOString(), km_final: fd.get('km_final')||null,
+      observacao_checkout: fd.get('observacao_checkout')||null,
+      assinatura_cco: fd.get('assinatura_cco')||null, assinatura_motorista: fd.get('assinatura_motorista')||S.user.nome,
+      assinatura_gerente: fd.get('assinatura_gerente')||null
+    }});
+    toast('Check-out registrado com sucesso.');
+    S.veiculoUsoView='historico'; await loadVeiculoUsos();
+  }catch(e){ toast('Erro ao registrar check-out: '+e.message); }
+  S.loading=false; render();
+}
+async function excluirUso(id){
+  if(!confirm('Excluir este registro de check-in/check-out?')) return;
+  try{ await sb(`veiculo_usos?id=eq.${id}`,{method:'DELETE'}); toast('Registro excluído.'); await loadVeiculoUsos(); }
+  catch(e){ toast('Erro: '+e.message); }
+  render();
+}
+
+/* ==========================================================
+   FINANCEIRO — NOTAS FISCAIS
+   ========================================================== */
+async function loadMinhasNotas(){
+  S.minhasNotas = await sb(`notas_fiscais?usuario_id=eq.${S.user.id}&select=*&order=criado_em.desc&limit=200`);
+  S.minhasNotasLoaded = true;
+}
+async function loadTodasNotas(){
+  S.todasNotas = await sb('notas_fiscais?select=*&order=criado_em.desc&limit=500');
+  S.todasNotasLoaded = true;
+}
+async function loadNotaDetail(id){
+  const r = await sb(`notas_fiscais?id=eq.${id}&select=*`);
+  S.currentNota = r[0];
+}
+async function criarNota(form){
+  const fd = new FormData(form);
+  const key = 'nota_foto';
+  const files = window.pendingFiles[key]||[];
+  if(files.length===0){ toast('Adicione ao menos uma foto da nota.'); return; }
+  S.loading=true; render();
+  try{
+    const urls = [];
+    for(let i=0;i<files.length;i++){
+      const f=files[i]; const path=`${S.user.id}/${Date.now()}_${i}_${f.name}`;
+      const url = await uploadArquivo(f, path, 'notas-fiscais');
+      urls.push(url);
+    }
+    const payload = {
+      usuario_id:S.user.id, fotos_urls:urls, tipo_despesa:fd.get('tipo_despesa')||null,
+      data_despesa:fd.get('data_despesa')||new Date().toISOString().slice(0,10),
+      forma_pagamento:fd.get('forma_pagamento')||null, valor:fd.get('valor')||null,
+      obra_id:fd.get('obra_id')||null, observacao:fd.get('observacao')||null, status:'enviado'
+    };
+    await sb('notas_fiscais',{method:'POST',body:payload});
+    clearPending(key);
+    toast('Nota fiscal enviada para aprovação.');
+    S.financeiroView='meu_painel'; await loadMinhasNotas();
+  }catch(e){ toast('Erro ao enviar nota: '+e.message); }
+  S.loading=false; render();
+}
+async function abrirNota(id, origem){
+  S.loading=true; render();
+  try{ await loadNotaDetail(id); S.financeiroNotaOrigem = origem||'meu_painel'; S.financeiroView='detalhe'; }
+  catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+async function aprovarNota(id){
+  if(!confirm('Aprovar esta nota fiscal?')) return;
+  S.loading=true; render();
+  try{
+    await sb(`notas_fiscais?id=eq.${id}`,{method:'PATCH',body:{status:'aprovado', usuario_revisor_id:S.user.id, revisado_em:new Date().toISOString()}});
+    toast('Nota aprovada.'); await loadNotaDetail(id); await loadTodasNotas();
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+async function reprovarNota(form){
+  const fd = new FormData(form);
+  S.loading=true; render();
+  try{
+    await sb(`notas_fiscais?id=eq.${S.currentNota.id}`,{method:'PATCH',body:{status:'reprovado', comentario_financeiro:fd.get('comentario')||null, usuario_revisor_id:S.user.id, revisado_em:new Date().toISOString()}});
+    toast('Nota reprovada.'); await loadNotaDetail(S.currentNota.id); await loadTodasNotas();
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+async function marcarAtencaoNota(form){
+  const fd = new FormData(form);
+  S.loading=true; render();
+  try{
+    await sb(`notas_fiscais?id=eq.${S.currentNota.id}`,{method:'PATCH',body:{status:'atencao', comentario_financeiro:fd.get('comentario')||null, usuario_revisor_id:S.user.id, revisado_em:new Date().toISOString()}});
+    toast('Marcado como Atenção — o colaborador precisa responder.'); await loadNotaDetail(S.currentNota.id); await loadTodasNotas();
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+async function responderAtencaoNota(form){
+  const fd = new FormData(form);
+  S.loading=true; render();
+  try{
+    await sb(`notas_fiscais?id=eq.${S.currentNota.id}`,{method:'PATCH',body:{resposta_colaborador:fd.get('resposta')||null, status:'enviado'}});
+    toast('Resposta enviada. Aguardando nova análise.'); await loadNotaDetail(S.currentNota.id); await loadMinhasNotas();
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+async function excluirNota(id){
+  if(!confirm('Excluir esta nota fiscal?')) return;
+  try{ await sb(`notas_fiscais?id=eq.${id}`,{method:'DELETE'}); toast('Nota excluída.'); S.financeiroView = S.financeiroView==='detalhe'?(S.financeiroNotaOrigem||'meu_painel'):S.financeiroView; await loadMinhasNotas(); await loadTodasNotas(); }
+  catch(e){ toast('Erro: '+e.message); }
+  render();
+}
+
+
+/* ==========================================================
+   RENDER — LOGIN
+   ========================================================== */
+function renderLogin(){
+  if(!S.usuariosLoginLoaded){ S.usuariosLoginLoaded=true; loadLoginList().then(render).catch(e=>{S.error='Erro ao carregar usuários: '+e.message; render();}); }
+  const grupos = {};
+  S.usuariosLogin.forEach(u=>{ (grupos[u.perfil]=grupos[u.perfil]||[]).push(u); });
+  return `
+  <div class="login-screen">
+    <div class="login-card">
+      <div class="brand">GRUPO MEGA</div>
+      <div class="tag">Ordens de Serviço · Mobile</div>
+      ${S.error?`<div class="err-msg">${esc(S.error)}</div>`:''}
+      <div class="field"><label>Selecione seu nome</label></div>
+      <div class="user-pick">
+        ${Object.keys(grupos).length===0?'<div style="padding:14px;color:#999;">Carregando usuários…</div>':
+          Object.entries(grupos).map(([perfil,us])=>`
+            <div style="background:#f0f0f0;padding:8px 12px;font-family:var(--font-display);font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#777;">${PERFIL_LABELS[perfil]}</div>
+            ${us.map(u=>`<div class="u ${S.loginSel===u.id?'sel':''}" onclick="S.loginSel='${u.id}';render()"><span>${esc(u.nome)}</span><span class="muted">${esc(u.cargo||'')}</span></div>`).join('')}
+          `).join('')}
+      </div>
+      <div class="field"><label>PIN de acesso</label>
+        <input type="password" inputmode="numeric" maxlength="6" placeholder="••••" value="${esc(S.pin)}"
+          oninput="S.pin=this.value" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <button class="btn btn-primary btn-block" style="margin-top:14px;" onclick="doLogin()" ${S.loading?'disabled':''}>${S.loading?'Entrando…':'Entrar'}</button>
+      <div class="muted" style="margin-top:14px;text-align:center;">PIN padrão para novos usuários: 1234</div>
+      <div style="text-align:center;margin-top:10px;"><a class="applink" href="./desktop.html">Acessar versão desktop →</a></div>
+    </div>
+  </div>`;
+}
+
+/* ==========================================================
+   TOP BAR + BOTTOM NAV
+   ========================================================== */
+function renderTopBar(){
+  return `<div class="top-bar">
+    <span class="brand">GRUPO MEGA</span>
+    <div class="right">
+      <span style="position:relative;" onclick="S.showNotif=!S.showNotif;render()">🔔${S.notificacoes.length?`<span class="notif-dot"></span>`:''}</span>
+      <span><b style="color:#fff;">${esc(S.user.nome)}</b></span>
+      <button class="btn-logout" onclick="doLogout()">Sair</button>
+    </div>
+  </div>
+  ${S.showNotif?renderNotifSheet():''}`;
+}
+function renderNotifSheet(){
+  return `<div class="modal-overlay" onclick="if(event.target===this){S.showNotif=false;render();}">
+    <div class="modal-panel"><div class="modal-head"><b>Notificações</b>
+      <button class="btn-logout" onclick="S.showNotif=false;render()">✕</button></div>
+    <div class="modal-body">
+      ${S.notificacoes.length?`<button class="btn btn-secondary btn-block" style="margin-bottom:10px;" onclick="marcarNotificacoesLidas()">Marcar todas como lidas</button>`:''}
+      ${S.notificacoes.length===0?'<div class="empty-state">Nenhuma notificação nova.</div>':
+        S.notificacoes.map(n=>`<div class="card">${esc(n.mensagem)}<div class="muted" style="margin-top:4px;">${fmtDate(n.criado_em)}</div></div>`).join('')}
+    </div></div></div>`;
+}
+function renderBottomNav(){
+  const items=[];
+  if(canAccess('dashboard')) items.push(['dashboard','📊','Painel']);
+  if(canAccess('os_lista')) items.push(['lista','📋','OS']);
+  if(canAccess('os_nova')) items.push(['nova','➕','Nova OS']);
+  if(canAccess('checklists')) items.push(['checklists','✅','Checklist']);
+  if(canAccess('checkin_veiculo')) items.push(['veiculo_checkin','🚛','Veículo']);
+  items.push(['mais','☰','Mais']);
+  return `<div class="bottom-nav">
+    ${items.map(([k,ic,l])=>`<button class="${S.view===k?'active':''}" onclick="${k==='mais'?'S.showMais=true;render()':k==='lista'?"S.view='lista';loadOSList().then(render);":k==='veiculo_checkin'?"S.view='veiculo_checkin';S.veiculoUsoView='pendentes';loadVeiculoUsos().then(render);":`S.view='${k}';render();`}">
+      <span class="ic">${ic}</span>${l}</button>`).join('')}
+  </div>
+  ${S.showMais?renderMaisSheet():''}`;
+}
+function renderMaisSheet(){
+  const items=[];
+  if(canAccess('cadastros_obras')) items.push(['cadastro_obras','🏗️','Cadastro de Obras']);
+  if(canAccess('cadastros_equipes')) items.push(['cadastro_equipes','👷','Cadastro de Equipes']);
+  if(canAccess('cadastros_usuarios')) items.push(['cadastro_usuarios','👤','Cadastro de Usuários']);
+  if(canAccess('cadastros_veiculos')) items.push(['cadastro_veiculos','🚚','Cadastro de Veículos']);
+  if(canAccess('cadastros_equipamentos')) items.push(['cadastro_equipamentos','🛠️','Cadastro de Equipamentos']);
+  if(canAccess('checklists')) items.push(['checklist_historico','📑','Histórico de Checklists']);
+  if(canAccess('financeiro')) items.push(['financeiro','💰','Financeiro — Notas Fiscais']);
+  if(canAccess('permissoes')) items.push(['permissoes','🔐','Permissões de Acesso']);
+  items.push(['rh','👥','Pessoas / RH']);
+  return `<div class="modal-overlay" onclick="if(event.target===this){S.showMais=false;render();}">
+    <div class="modal-panel"><div class="modal-head"><b>Mais opções</b>
+      <button class="btn-logout" onclick="S.showMais=false;render()">✕</button></div>
+    <div class="modal-body">
+      ${items.map(([k,ic,l])=>`<div class="sheet-item" onclick="irPara('${k}')"><span style="font-size:20px;">${ic}</span>${l}</div>`).join('') || '<div class="empty-state">Nenhum módulo adicional liberado.</div>'}
+    </div></div></div>`;
+}
+function irPara(destino){
+  S.showMais=false;
+  if(destino==='checklist_historico'){ S.view='checklists'; S.checklistView='historico'; loadChecklists().then(render); return; }
+  if(destino.startsWith('cadastro_')){ S.view='cadastros'; S.cadastroTab=destino.replace('cadastro_',''); render(); return; }
+  if(destino==='rh'){ S.view='rh'; carregarRHTab(S.rhTab); return; }
+  S.view=destino; render();
+}
+
+/* ==========================================================
+   DASHBOARD
+   ========================================================== */
+function renderDashboard(){
+  const list = S.osList;
+  const cnt = s => list.filter(o=>o.status===s).length;
+  const abertas = list.filter(o=>['criada','programada','enviada_equipe','visualizada_equipe'].includes(o.status)).length;
+  const emExec = list.filter(o=>['em_deslocamento','em_execucao'].includes(o.status)).length;
+  const criticas = list.filter(o=>o.criticidade==='critica' && !['aprovada','cancelada'].includes(o.status)).length;
+  const atrasadas = list.filter(o=>o.prazo_retorno && new Date(o.prazo_retorno)<new Date() && !['aprovada','cancelada'].includes(o.status)).length;
+  return `<div class="wrap">
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-label">Total OS</div><div class="kpi-value">${list.length}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Abertas</div><div class="kpi-value">${abertas}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Em execução</div><div class="kpi-value">${emExec}</div></div>
+      <div class="kpi-card" style="border-left-color:var(--mega-vermelho);"><div class="kpi-label">Críticas</div><div class="kpi-value">${criticas}</div></div>
+    </div>
+    ${atrasadas>0?`<div class="card" style="border-left:4px solid var(--mega-vermelho);"><b>${atrasadas} OS atrasada(s)</b></div>`:''}
+    <div class="section-header">OS por Status</div>
+    <div class="kpi-grid g3">
+      ${Object.keys(STATUS_LABELS).map(s=>`<div class="kpi-card" style="border-left-color:${s==='reprovada'||s==='impedida'||s==='cancelada'?'var(--mega-vermelho)':s==='aprovada'?'var(--mega-verde)':'var(--mega-laranja)'};">
+        <div class="kpi-label" style="font-size:9px;">${STATUS_LABELS[s]}</div><div class="kpi-value" style="font-size:20px;">${cnt(s)}</div></div>`).join('')}
+    </div>
+  </div>`;
+}
+
+/* ==========================================================
+   LISTA / NOVA / DETALHE OS  (cartões touch)
+   ========================================================== */
+function renderLista(){
+  let list=[...S.osList];
+  const f=S.osFilters;
+  if(f.status) list=list.filter(o=>o.status===f.status);
+  if(f.criticidade) list=list.filter(o=>o.criticidade===f.criticidade);
+  const critOrder={critica:0,alta:1,media:2,baixa:3};
+  if(f.ordenar==='criticidade') list.sort((a,b)=>critOrder[a.criticidade]-critOrder[b.criticidade]);
+  else if(f.ordenar==='km_asc') list.sort((a,b)=>(a.km_inicial??0)-(b.km_inicial??0));
+  else if(f.ordenar==='km_desc') list.sort((a,b)=>(b.km_inicial??0)-(a.km_inicial??0));
+
+  const om=obraMap(), em=equipeMap();
+  const total=S.osList.length;
+  const emExec=S.osList.filter(o=>['em_deslocamento','em_execucao'].includes(o.status)).length;
+  const criticas=S.osList.filter(o=>o.criticidade==='critica').length;
+  const impedidas=S.osList.filter(o=>o.status==='impedida').length;
+  const conferencia=S.osList.filter(o=>o.status==='enviada_conferencia').length;
+
+  return `<div class="wrap">
+    <div class="kpi-grid" style="margin-bottom:10px;">
+      <div class="kpi-card"><div class="kpi-label">Total</div><div class="kpi-value" style="font-size:22px;">${total}</div></div>
+      <div class="kpi-card" style="border-left-color:var(--mega-vermelho);"><div class="kpi-label">Críticas</div><div class="kpi-value" style="font-size:22px;">${criticas}</div></div>
+    </div>
+    <div class="chip-scroll">
+      <button class="chip ${!f.status?'sel':''}" onclick="S.osFilters.status='';render()">Todas</button>
+      <button class="chip ${f.status==='em_execucao'?'sel':''}" onclick="S.osFilters.status='em_execucao';render()">Em execução (${emExec})</button>
+      <button class="chip ${f.status==='impedida'?'sel':''}" onclick="S.osFilters.status='impedida';render()">Impedidas (${impedidas})</button>
+      <button class="chip ${f.status==='enviada_conferencia'?'sel':''}" onclick="S.osFilters.status='enviada_conferencia';render()">Conferência (${conferencia})</button>
+    </div>
+    <div class="chip-scroll">
+      <span class="muted" style="align-self:center;">Ordenar:</span>
+      <button class="chip ${f.ordenar==='criticidade'?'sel':''}" onclick="S.osFilters.ordenar='criticidade';render()">Criticidade</button>
+      <button class="chip ${f.ordenar==='km_asc'?'sel':''}" onclick="S.osFilters.ordenar='km_asc';render()">↑ KM</button>
+      <button class="chip ${f.ordenar==='km_desc'?'sel':''}" onclick="S.osFilters.ordenar='km_desc';render()">↓ KM</button>
+    </div>
+    ${list.map(o=>`<div class="mcard crit-${o.criticidade}" onclick="abrirOS('${o.id}')">
+      <div class="mc-top"><span class="mc-num">${o.numero_os}</span>${statusBadge(o.status)}</div>
+      <div class="mc-title">${esc(o.servico)}</div>
+      <div class="mc-meta"><span>🏗️ ${esc(om[o.obra_id]?.nome||'—')}</span><span>👷 ${esc(em[o.equipe_id]?.nome||'—')}</span></div>
+      <div class="mc-meta" style="margin-top:4px;"><span>📍 KM ${o.km_inicial??'—'}–${o.km_final??'—'}</span>${critBadge(o.criticidade)}</div>
+    </div>`).join('') || `<div class="empty-state">Nenhuma atividade encontrada.</div>`}
+  </div>`;
+}
+
+function renderNovaOS(){
+  return `<div class="wrap">
+    <div class="section-header">Nova Ordem de Serviço</div>
+    <form class="card" onsubmit="event.preventDefault();criarOS(this);">
+      <div class="form-grid">
+        <div class="field"><label>Obra *</label><select name="obra_id" required>${opt(S.obras.map(o=>[o.id,o.nome]),'',true)}</select></div>
+        <div class="field"><label>Equipe responsável</label><select name="equipe_id">${opt(S.equipes.map(e=>[e.id,e.nome]),'',true)}</select></div>
+        <div class="field"><label>Contrato</label><input name="contrato"></div>
+        <div class="field"><label>Data prevista</label><input type="date" name="data_programada"></div>
+        <div class="field"><label>Prazo para retorno</label><input type="datetime-local" name="prazo_retorno"></div>
+        <div class="field"><label>Criticidade *</label>${chipGroup('criticidade',CRIT_OPTS,'media')}</div>
+        <div class="field"><label>Pista</label>${chipGroup('pista',PISTA_OPTS,'')}</div>
+        <div class="field"><label>Sentido</label>${chipGroup('sentido',SENTIDO_OPTS,'')}</div>
+        <div class="field"><label>Faixa</label>${chipGroup('faixa',FAIXA_OPTS,'')}</div>
+        <div class="field"><label>KM inicial</label>${stepperField('km_inicial',0,0.1,0,1)}</div>
+        <div class="field"><label>KM final</label>${stepperField('km_final',0,0.1,0,1)}</div>
+        <div class="field"><label>Descrição (opcional)</label><textarea name="descricao"></textarea></div>
+        <div class="field"><label>Observações (opcional)</label><textarea name="observacoes"></textarea></div>
+      </div>
+      <div class="divider"></div>
+      <div class="section-header">Itens de Serviço / Metas</div>
+      <div id="itens-container"></div>
+      <button type="button" class="btn btn-secondary btn-block btn-sm" onclick="addItemRow('itens-container')">+ Adicionar item</button>
+      <div class="divider"></div>
+      <div class="field"><label>Fotos antes da execução</label>${photoWidget('antes_nova')}</div>
+      <div class="divider"></div>
+      <button class="btn btn-primary btn-block" ${S.loading?'disabled':''}>${S.loading?'Salvando…':'Criar Ordem de Serviço'}</button>
+      <button type="button" class="btn btn-secondary btn-block" style="margin-top:8px;" onclick="clearPending('antes_nova');S.view='lista';loadOSList().then(render);">Cancelar</button>
+    </form>
+  </div>`;
+}
+
+function renderDetalheOS(){
+  const o = S.currentOS;
+  if(!o) return `<div class="wrap"><div class="empty-state">OS não encontrada.</div></div>`;
+  const om=obraMap(), em=equipeMap(), um=usuMap();
+  const isEquipeUser = S.user.perfil==='equipe';
+  const isEscritorio = ['administrador','escritorio','coordenador'].includes(S.user.perfil);
+  const fotosPorTipo = t => S.currentFotos.filter(f=>f.tipo_foto===t);
+
+  if(S.editingOS){
+    return `<div class="modal-overlay" onclick="if(event.target===this){S.editingOS=false;render();}"><div class="modal-panel">
+      <div class="modal-head"><b>Editar ${o.numero_os}</b><button class="btn-logout" onclick="S.editingOS=false;render()">✕</button></div>
+      <div class="modal-body">
+        <form onsubmit="event.preventDefault();salvarEdicaoOS(this);">
+          <div class="form-grid">
+            <div class="field"><label>Obra *</label><select name="obra_id" required>${opt(S.obras.map(x=>[x.id,x.nome]),o.obra_id)}</select></div>
+            <div class="field"><label>Equipe</label><select name="equipe_id">${opt(S.equipes.map(x=>[x.id,x.nome]),o.equipe_id,true)}</select></div>
+            <div class="field"><label>Contrato</label><input name="contrato" value="${esc(o.contrato||'')}"></div>
+            <div class="field"><label>Data prevista</label><input type="date" name="data_programada" value="${o.data_programada||''}"></div>
+            <div class="field"><label>Prazo</label><input type="datetime-local" name="prazo_retorno" value="${o.prazo_retorno? o.prazo_retorno.slice(0,16):''}"></div>
+            <div class="field"><label>Criticidade</label>${chipGroup('criticidade',CRIT_OPTS,o.criticidade)}</div>
+            <div class="field"><label>Pista</label>${chipGroup('pista',PISTA_OPTS,o.pista)}</div>
+            <div class="field"><label>Sentido</label>${chipGroup('sentido',SENTIDO_OPTS,o.sentido)}</div>
+            <div class="field"><label>Faixa</label>${chipGroup('faixa',FAIXA_OPTS,o.faixa)}</div>
+            <div class="field"><label>KM inicial</label>${stepperField('km_inicial',o.km_inicial||0,0.1,0,1)}</div>
+            <div class="field"><label>KM final</label>${stepperField('km_final',o.km_final||0,0.1,0,1)}</div>
+            <div class="field"><label>Descrição</label><textarea name="descricao">${esc(o.descricao||'')}</textarea></div>
+            <div class="field"><label>Observações</label><textarea name="observacoes">${esc(o.observacoes||'')}</textarea></div>
+          </div>
+          <div class="divider"></div>
+          <button class="btn btn-primary btn-block" ${S.loading?'disabled':''}>${S.loading?'Salvando…':'Salvar alterações'}</button>
+          <button type="button" class="btn btn-secondary btn-block" style="margin-top:8px;" onclick="S.editingOS=false;render()">Cancelar</button>
+        </form>
+      </div></div></div>`;
+  }
+
+  let acoes = '';
+  if(isEscritorio && ['criada','programada'].includes(o.status)) acoes += `<button class="btn btn-primary btn-block" onclick="enviarParaEquipe('${o.id}')">Enviar para equipe</button>`;
+  if(isEquipeUser && o.equipe_id===S.user.equipe_id){
+    if(['enviada_equipe','criada','programada'].includes(o.status)) acoes += `<button class="btn btn-secondary btn-block" onclick="confirmarRecebimento('${o.id}')">Confirmar recebimento</button>`;
+    if(['visualizada_equipe','enviada_equipe','criada','programada','correcao_solicitada'].includes(o.status)) acoes += `<button class="btn btn-primary btn-block" onclick="iniciarExecucao('${o.id}')">Iniciar execução</button>`;
+    if(o.status==='impedida') acoes += `<button class="btn btn-primary btn-block" onclick="retomarExecucao('${o.id}')">Retomar execução</button>`;
+  }
+  if(isEscritorio && o.status==='enviada_conferencia') acoes += `<button class="btn btn-verde btn-block" onclick="aprovarOS('${o.id}')">✓ Aprovar</button>`;
+  if(isEscritorio) acoes += `<div class="flex-row" style="margin-top:8px;"><button class="btn btn-secondary" style="flex:1;" onclick="toggleEditarOS()">✏️ Editar</button><button class="btn btn-vermelho" style="flex:1;" onclick="excluirOS('${o.id}')">🗑 Excluir</button></div>`;
+
+  return `<div class="modal-overlay" onclick="if(event.target===this)fecharOS()">
+  <div class="modal-panel">
+    <div class="modal-head"><div><b>${o.numero_os}</b><div style="font-size:11px;color:#aaa;">${esc(om[o.obra_id]?.nome||'')}</div></div>
+    <button class="btn-logout" onclick="fecharOS()">✕</button></div>
+    <div class="modal-body">
+      <div class="flex-row" style="margin-bottom:12px;">${statusBadge(o.status)}${critBadge(o.criticidade)}</div>
+      <div class="card">
+        <div class="form-grid" style="font-size:13px;gap:8px;">
+          <div><b>Equipe:</b> ${esc(em[o.equipe_id]?.nome||'—')}</div>
+          <div><b>Pista/Sentido/Faixa:</b> ${PISTA_OPTS.find(p=>p[0]===o.pista)?.[1]||'—'} · ${SENTIDO_OPTS.find(s=>s[0]===o.sentido)?.[1]||'—'} · ${FAIXA_OPTS.find(f=>f[0]===o.faixa)?.[1]||'—'}</div>
+          <div><b>KM:</b> ${o.km_inicial??'—'} a ${o.km_final??'—'}</div>
+          <div><b>Prazo:</b> ${fmtDate(o.prazo_retorno)}</div>
+        </div>
+        ${o.descricao?`<div class="divider"></div><div><b>Descrição:</b> ${esc(o.descricao)}</div>`:''}
+      </div>
+      ${acoes?`<div class="card">${acoes}</div>`:''}
+
+      <div class="section-header">Itens / Metas de Produção</div>
+      <div class="card">
+        ${S.currentItens.map(it=>`<div class="item-row"><b>${esc(it.servico)}</b> <span class="muted">(${esc(it.unidade||'')}) meta: ${it.quantidade_prevista??'—'}</span>
+          ${isEscritorio?`<div style="margin-top:6px;"><button class="btn-icon danger" onclick="excluirItemOS('${it.id}')">🗑</button></div>`:''}</div>`).join('') || '<div class="muted">Nenhum item cadastrado.</div>'}
+        ${isEscritorio?`<button type="button" class="btn btn-secondary btn-sm btn-block" onclick="S.showAddItem=!S.showAddItem;render()">${S.showAddItem?'Cancelar':'+ Adicionar item'}</button>
+        ${S.showAddItem?`<form onsubmit="event.preventDefault();adicionarItemOS(this);" style="margin-top:10px;">
+          <div class="form-grid">
+            <div class="field"><label>Serviço</label>${chipGroup('servico', SERVICO_SUGESTOES.map(s=>[s,s]), '')}</div>
+            <div class="field"><label>Unidade</label>${chipGroup('unidade', UNIDADE_OPTS, '')}</div>
+            <div class="field"><label>Meta</label>${stepperField('meta',0,1,0,1)}</div>
+            <div class="field"><label>Observação</label><input name="obs"></div>
+          </div>
+          <button class="btn btn-primary btn-block btn-sm" style="margin-top:8px;">Salvar item</button>
+        </form>`:''}`:''}
+      </div>
+
+      ${isEquipeUser && o.equipe_id===S.user.equipe_id && ['em_execucao','em_deslocamento','pausada','aguardando_material','aguardando_equipamento','aguardando_liberacao_pista'].includes(o.status) ? renderFormExecucao(o) : ''}
+      ${isEscritorio && o.status==='enviada_conferencia' ? renderFormConferencia() : ''}
+
+      <div class="section-header">Fotos</div>
+      <div class="card">
+        ${['antes','durante','depois','evidencia_medicao','impedimento','correcao'].map(t=>{
+          const fs = fotosPorTipo(t); if(fs.length===0) return '';
+          return `<div style="margin-bottom:10px;"><div class="muted" style="text-transform:uppercase;font-weight:700;font-size:11px;margin-bottom:6px;">${t.replace('_',' ')}</div>
+          <div class="foto-grid">${fs.map(f=>`<div class="foto-item"><img src="${f.arquivo_url}" onclick="S.lightboxUrl='${f.arquivo_url}';render()">
+          ${isEscritorio?`<button class="del" onclick="event.stopPropagation();excluirFoto('${f.id}')">✕</button>`:''}</div>`).join('')}</div></div>`;
+        }).join('') || '<div class="muted">Nenhuma foto registrada.</div>'}
+      </div>
+
+      ${S.currentImpedimentos.length?`<div class="section-header">Impedimentos</div><div class="card">
+        ${S.currentImpedimentos.map(i=>`<div style="margin-bottom:10px;"><b>${esc(i.motivo)}</b> — ${fmtDate(i.data_hora)}<br><span class="muted">${esc(i.descricao||'')}</span>
+        ${isEscritorio?`<div style="margin-top:6px;"><button class="btn-icon danger" onclick="excluirImpedimento('${i.id}')">🗑</button></div>`:''}</div>`).join('')}
+      </div>`:''}
+
+      <div class="section-header">Histórico</div>
+      <div class="card"><div class="timeline">
+        ${S.currentHistorico.map(h=>`<div class="ev"><div class="t">${fmtDate(h.data_hora)}</div>
+          <div class="d">${h.status_anterior?STATUS_LABELS[h.status_anterior]+' → ':''}${STATUS_LABELS[h.status_novo]}</div></div>`).join('') || '<div class="muted">Sem histórico.</div>'}
+      </div></div>
+
+      <div class="section-header">Comentários</div>
+      <div class="card">
+        <form onsubmit="event.preventDefault();enviarComentario(this);">
+          <input name="comentario" placeholder="Adicionar comentário…" style="width:100%;padding:12px;border:1px solid var(--mega-cinza-bdr);border-radius:var(--radius-sm);margin-bottom:8px;">
+          <button class="btn btn-secondary btn-block btn-sm">Enviar</button>
+        </form>
+        <div class="divider"></div>
+        ${S.currentComentarios.map(c=>`<div style="margin-bottom:10px;"><b>${esc(um[c.usuario_id]?.nome||'Usuário')}</b><span class="muted"> · ${fmtDate(c.data_hora)}</span><br>${esc(c.comentario)}
+        ${isEscritorio?`<div style="margin-top:4px;"><button class="btn-icon danger" onclick="excluirComentario('${c.id}')">🗑</button></div>`:''}</div>`).join('') || '<div class="muted">Nenhum comentário ainda.</div>'}
+      </div>
+    </div>
+  </div></div>
+  ${S.lightboxUrl?`<div class="modal-overlay" style="align-items:center;justify-content:center;" onclick="S.lightboxUrl=null;render()"><img src="${S.lightboxUrl}" style="max-width:92%;max-height:80vh;border-radius:8px;"></div>`:''}`;
+}
+
+function renderFormExecucao(o){
+  return `<div class="section-header">Retorno da Execução</div>
+  <div class="card">
+    <form onsubmit="event.preventDefault();finalizarAtividade(this);">
+      <label style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--mega-cinza-sub);">Quantidade executada por item</label>
+      ${S.currentItens.map(it=>`<div class="item-row"><b>${esc(it.servico)}</b> <span class="muted">(${esc(it.unidade||'')}) meta: ${it.quantidade_prevista??'—'}</span>
+        <div style="margin-top:8px;">${stepperField('exec_item_'+it.id, it.quantidade_prevista||0, 1, 0, 1)}</div></div>`).join('') || '<div class="muted">Nenhum item cadastrado.</div>'}
+      <div class="divider"></div>
+      <div class="form-grid">
+        <div class="field"><label>Data execução</label><input type="date" name="data_execucao" value="${new Date().toISOString().slice(0,10)}"></div>
+        <div class="field"><label>KM inicial exec.</label>${stepperField('km_inicial_executado', o.km_inicial||0, 0.1,0,1)}</div>
+        <div class="field"><label>KM final exec.</label>${stepperField('km_final_executado', o.km_final||0, 0.1,0,1)}</div>
+        <div class="field"><label>Nº colaboradores</label>${stepperField('numero_colaboradores',1,1,0,0)}</div>
+        <div class="field"><label>Condição climática</label>${chipGroup('condicao_climatica', CLIMA_OPTS.map(c=>[c,c]), '')}</div>
+        <div class="field"><label>Materiais utilizados</label>${chipMultiGroup('materiais_utilizados', MATERIAIS_PRESET, [])}</div>
+        <div class="field"><label>Equipamentos utilizados</label>${chipMultiGroup('equipamentos_utilizados', EQUIPAMENTOS_PRESET, [])}</div>
+        <div class="field"><label>Observações (opcional)</label><textarea name="observacoes_retorno"></textarea></div>
+        <div class="field"><label>Fotos da execução *</label>${photoWidget('depois_'+o.id)}</div>
+      </div>
+      <div class="divider"></div>
+      <button class="btn btn-verde btn-block" ${S.loading?'disabled':''}>${S.loading?'Enviando…':'Finalizar e enviar p/ conferência'}</button>
+    </form>
+  </div>
+  <div class="section-header">Registrar Impedimento</div>
+  <div class="card">
+    <form onsubmit="event.preventDefault();registrarImpedimento(this);">
+      <div class="field" style="margin-bottom:12px;"><label>Motivo *</label>${chipGroup('motivo', IMPEDIMENTO_MOTIVOS.map(m=>[m,m]), '')}</div>
+      <div class="field" style="margin-bottom:12px;"><label>Descrição (opcional)</label><input name="descricao"></div>
+      <div class="field" style="margin-bottom:12px;"><label>Fotos</label>${photoWidget('imped_'+o.id)}</div>
+      <button class="btn btn-vermelho btn-block" ${S.loading?'disabled':''}>Registrar impedimento</button>
+    </form>
+  </div>`;
+}
+function renderFormConferencia(){
+  return `<div class="section-header">Conferência</div>
+  <div class="card">
+    <button class="btn btn-verde btn-block" onclick="aprovarOS('${S.currentOS.id}')" style="margin-bottom:12px;">✓ Aprovar serviço</button>
+    <div class="divider"></div>
+    <form onsubmit="event.preventDefault();reprovarOS(this);" style="margin-bottom:14px;">
+      <div class="field" style="margin-bottom:8px;"><label>Motivo da reprovação</label>${chipGroup('motivo', REPROVACAO_MOTIVOS.map(m=>[m,m]), '')}</div>
+      <div class="field"><label>Comentário</label><input name="comentario"></div>
+      <button class="btn btn-vermelho btn-block" style="margin-top:8px;">Reprovar</button>
+    </form>
+    <form onsubmit="event.preventDefault();solicitarCorrecao(this);">
+      <div class="field"><label>Solicitar correção</label><input name="comentario" placeholder="O que precisa ser corrigido?"></div>
+      <button class="btn btn-secondary btn-block" style="margin-top:8px;">Solicitar correção</button>
+    </form>
+  </div>`;
+}
+
+/* ==========================================================
+   CADASTROS (cartões)
+   ========================================================== */
+function renderCadastros(){
+  return `<div class="wrap">
+    ${S.cadastroTab==='obras'?renderCadastroObras():''}
+    ${S.cadastroTab==='equipes'?renderCadastroEquipes():''}
+    ${S.cadastroTab==='usuarios'?renderCadastroUsuarios():''}
+    ${S.cadastroTab==='veiculos'?renderCadastroVeiculos():''}
+    ${S.cadastroTab==='equipamentos'?renderCadastroEquipamentos():''}
+  </div>`;
+}
+function renderCadastroObras(){
+  const ed = S.editObra;
+  return `<div class="section-header">Cadastro de Obras</div>
+  <div class="card">
+    <div class="muted" style="margin-bottom:10px;font-weight:700;">${ed?'Editando obra':'Nova obra'}</div>
+    <form onsubmit="event.preventDefault();${ed?'salvarEdicaoObra(this)':'criarObra(this)'};">
+      <div class="form-grid">
+        <div class="field"><label>Nome *</label><input name="nome" required value="${esc(ed?.nome||'')}"></div>
+        <div class="field"><label>Cliente</label><input name="cliente" value="${esc(ed?.cliente||'')}"></div>
+        <div class="field"><label>Contrato</label><input name="contrato" value="${esc(ed?.contrato||'')}"></div>
+        <div class="field"><label>Rodovia</label><input name="rodovia" value="${esc(ed?.rodovia||'')}"></div>
+        <div class="field"><label>KM inicial</label><input type="number" step="0.001" name="km_inicial" value="${ed?.km_inicial??''}"></div>
+        <div class="field"><label>KM final</label><input type="number" step="0.001" name="km_final" value="${ed?.km_final??''}"></div>
+        <div class="field"><label>Cidade</label><input name="cidade" value="${esc(ed?.cidade||'')}"></div>
+        <div class="field"><label>Estado</label><input name="estado" maxlength="2" value="${esc(ed?.estado||'')}"></div>
+        <div class="field"><label>Status</label>${chipGroup('status',[['planejada','Planejada'],['em_andamento','Em andamento'],['paralisada','Paralisada'],['concluida','Concluída']],ed?.status||'planejada')}</div>
+      </div>
+      <button class="btn btn-primary btn-block" style="margin-top:12px;">${ed?'Salvar alterações':'Cadastrar Obra'}</button>
+      ${ed?`<button type="button" class="btn btn-secondary btn-block" style="margin-top:8px;" onclick="cancelarEdicaoObra()">Cancelar</button>`:''}
+    </form>
+  </div>
+  ${S.obras.map(o=>`<div class="mcard"><div class="mc-title">${esc(o.nome)}</div>
+    <div class="mc-meta">${esc(o.rodovia||'—')} · KM ${o.km_inicial??'—'}-${o.km_final??'—'}</div>
+    <div class="mc-meta">${badge(o.status==='em_andamento'?'andamento':o.status==='concluida'?'concluido':'pendente',o.status)}</div>
+    <div class="mc-actions"><button class="btn-icon" onclick="iniciarEdicaoObra('${o.id}')">✏️</button><button class="btn-icon danger" onclick="excluirObra('${o.id}')">🗑</button></div>
+  </div>`).join('') || '<div class="empty-state">Nenhuma obra cadastrada.</div>'}`;
+}
+function renderCadastroEquipes(){
+  const ed = S.editEquipe;
+  return `<div class="section-header">Cadastro de Equipes</div>
+  <div class="card">
+    <div class="muted" style="margin-bottom:10px;font-weight:700;">${ed?'Editando equipe':'Nova equipe'}</div>
+    <form onsubmit="event.preventDefault();${ed?'salvarEdicaoEquipe(this)':'criarEquipe(this)'};">
+      <div class="form-grid">
+        <div class="field"><label>Nome *</label><input name="nome" required value="${esc(ed?.nome||'')}"></div>
+        <div class="field"><label>Código</label><input name="codigo" value="${esc(ed?.codigo||'')}"></div>
+        <div class="field"><label>Obra</label><select name="obra_id">${opt(S.obras.map(o=>[o.id,o.nome]),ed?.obra_id,true)}</select></div>
+        <div class="field"><label>Encarregado</label><select name="encarregado_id">${opt(S.usuarios.map(u=>[u.id,u.nome]),ed?.encarregado_id,true)}</select></div>
+        <div class="field"><label>Supervisor</label><select name="supervisor_id">${opt(S.usuarios.map(u=>[u.id,u.nome]),ed?.supervisor_id,true)}</select></div>
+        <div class="field"><label>Veículo</label><input name="veiculo" value="${esc(ed?.veiculo||'')}"></div>
+        <div class="field"><label>Equipamento</label><input name="equipamento" value="${esc(ed?.equipamento||'')}"></div>
+        <div class="field"><label>Telefone</label><input name="telefone" value="${esc(ed?.telefone||'')}"></div>
+      </div>
+      <button class="btn btn-primary btn-block" style="margin-top:12px;">${ed?'Salvar alterações':'Cadastrar Equipe'}</button>
+      ${ed?`<button type="button" class="btn btn-secondary btn-block" style="margin-top:8px;" onclick="cancelarEdicaoEquipe()">Cancelar</button>`:''}
+    </form>
+  </div>
+  ${S.equipes.map(e=>`<div class="mcard"><div class="mc-title">${esc(e.nome)}</div>
+    <div class="mc-meta">Encarregado: ${esc(usuMap()[e.encarregado_id]?.nome||'—')}</div>
+    <div class="mc-meta">Obra: ${esc(obraMap()[e.obra_id]?.nome||'—')}</div>
+    <div class="mc-actions"><button class="btn-icon" onclick="iniciarEdicaoEquipe('${e.id}')">✏️</button><button class="btn-icon danger" onclick="excluirEquipe('${e.id}')">🗑</button></div>
+  </div>`).join('') || '<div class="empty-state">Nenhuma equipe cadastrada.</div>'}`;
+}
+function renderCadastroUsuarios(){
+  const ed = S.editUsuario;
+  return `<div class="section-header">Cadastro de Usuários</div>
+  <div class="card">
+    <div class="muted" style="margin-bottom:10px;font-weight:700;">${ed?'Editando usuário':'Novo usuário'}</div>
+    <form onsubmit="event.preventDefault();${ed?'salvarEdicaoUsuario(this)':'criarUsuario(this)'};">
+      <div class="form-grid">
+        <div class="field"><label>Nome *</label><input name="nome" required value="${esc(ed?.nome||'')}"></div>
+        <div class="field"><label>CPF</label><input name="cpf" value="${esc(ed?.cpf||'')}"></div>
+        <div class="field"><label>Cargo</label><input name="cargo" value="${esc(ed?.cargo||'')}"></div>
+        <div class="field"><label>Perfil *</label>${chipGroup('perfil',Object.entries(PERFIL_LABELS),ed?.perfil||'equipe')}</div>
+        <div class="field"><label>E-mail</label><input type="email" name="email" value="${esc(ed?.email||'')}"></div>
+        <div class="field"><label>Telefone</label><input name="telefone" value="${esc(ed?.telefone||'')}"></div>
+        <div class="field"><label>Equipe</label><select name="equipe_id">${opt(S.equipes.map(e=>[e.id,e.nome]),ed?.equipe_id,true)}</select></div>
+        <div class="field"><label>Obra</label><select name="obra_id">${opt(S.obras.map(o=>[o.id,o.nome]),ed?.obra_id,true)}</select></div>
+        <div class="field"><label>Plataforma de Acesso</label>${chipGroup('plataforma_acesso',[['ambos','Ambos'],['desktop','Somente Desktop'],['mobile','Somente Mobile']],ed?.plataforma_acesso||'ambos')}</div>
+        ${ed?`<div class="field"><label>Status</label>${chipGroup('status',[['ativo','Ativo'],['inativo','Inativo']],ed.status)}</div>`:''}
+      </div>
+      <div class="field" style="margin-top:14px;">
+        <label>Obras com Acesso Liberado</label>
+        <div style="max-height:220px;overflow-y:auto;border:1px solid var(--mega-cinza-bdr);border-radius:var(--radius-sm);padding:4px 12px;background:#fff;">
+          ${S.obras.map(o=>`<label class="perm-check"><input type="checkbox" name="obras_acesso" value="${o.id}" ${(ed?.obras_acesso||[]).includes(o.id)?'checked':''}> ${esc(o.nome)}</label>`).join('') || '<div class="muted" style="padding:8px 0;">Nenhuma obra cadastrada ainda.</div>'}
+        </div>
+        <div class="muted" style="margin-top:6px;">Nenhuma marcada = acesso irrestrito. Marcando, o usuário só vê OS, checklists, veículos e equipamentos dessas obras.</div>
+      </div>
+      <button class="btn btn-primary btn-block" style="margin-top:12px;">${ed?'Salvar alterações':'Cadastrar Usuário'}</button>
+      ${ed?`<button type="button" class="btn btn-secondary btn-block" style="margin-top:8px;" onclick="cancelarEdicaoUsuario()">Cancelar</button>`:''}
+      <div class="muted" style="margin-top:8px;">Após o PIN, o sistema redireciona automaticamente para a plataforma configurada acima.</div>
+    </form>
+  </div>
+  ${S.usuarios.map(u=>{
+    const om=obraMap();
+    const obrasTxt = (u.obras_acesso&&u.obras_acesso.length) ? u.obras_acesso.map(id=>om[id]?.nome||'?').join(', ') : 'Todas as obras';
+    return `<div class="mcard"><div class="mc-title">${esc(u.nome)}</div>
+    <div class="mc-meta">${PERFIL_LABELS[u.perfil]} · ${esc(u.cargo||'—')}</div>
+    <div class="mc-meta">${badge(u.plataforma_acesso==='ambos'?'andamento':'concluido', u.plataforma_acesso==='desktop'?'Desktop':u.plataforma_acesso==='mobile'?'Mobile':'Ambos')}</div>
+    <div class="mc-meta">🏗️ ${esc(obrasTxt)}</div>
+    <div class="mc-meta">${badge(u.status==='ativo'?'ok':'critico',u.status)}</div>
+    <div class="mc-actions"><button class="btn-icon" onclick="iniciarEdicaoUsuario('${u.id}')">✏️</button>
+    <button class="btn-icon" onclick="redefinirPin('${u.id}')">🔑</button>
+    <button class="btn-icon danger" onclick="excluirUsuario('${u.id}')">🗑</button></div>
+  </div>`;
+  }).join('') || '<div class="empty-state">Nenhum usuário cadastrado.</div>'}`;
+}
+function renderCadastroVeiculos(){
+  const ed = S.editVeiculo;
+  return `<div class="section-header">Cadastro de Veículos</div>
+  <div class="card">
+    <div class="muted" style="margin-bottom:10px;font-weight:700;">${ed?'Editando veículo':'Novo veículo'}</div>
+    <form onsubmit="event.preventDefault();${ed?'salvarEdicaoVeiculo(this)':'criarVeiculo(this)'};">
+      <div class="form-grid">
+        <div class="field"><label>Placa</label><input name="placa" value="${esc(ed?.placa||'')}"></div>
+        <div class="field"><label>Código do Ativo</label><input name="codigo_ativo" value="${esc(ed?.codigo_ativo||'')}"></div>
+        <div class="field"><label>Tipo</label>${chipGroup('tipo',VEICULO_TIPOS.map(t=>[t,t]),ed?.tipo||'')}</div>
+        <div class="field"><label>Marca</label><input name="marca" value="${esc(ed?.marca||'')}"></div>
+        <div class="field"><label>Modelo</label><input name="modelo" value="${esc(ed?.modelo||'')}"></div>
+        <div class="field"><label>Ano</label><input type="number" name="ano" value="${ed?.ano||''}"></div>
+        <div class="field"><label>Empresa Subcontratada</label><input name="empresa_subcontratada" value="${esc(ed?.empresa_subcontratada||'')}"></div>
+        <div class="field"><label>Obra</label><select name="obra_id">${opt(S.obras.map(o=>[o.id,o.nome]),ed?.obra_id,true)}</select></div>
+        ${ed?`<div class="field"><label>Status</label>${chipGroup('status',[['ativo','Ativo'],['inativo','Inativo']],ed.status)}</div>`:''}
+      </div>
+      <button class="btn btn-primary btn-block" style="margin-top:12px;">${ed?'Salvar alterações':'Cadastrar Veículo'}</button>
+      ${ed?`<button type="button" class="btn btn-secondary btn-block" style="margin-top:8px;" onclick="cancelarEdicaoVeiculo()">Cancelar</button>`:''}
+    </form>
+  </div>
+  ${S.veiculos.map(v=>`<div class="mcard"><div class="mc-title">${esc(v.placa||v.codigo_ativo||'Veículo')}</div>
+    <div class="mc-meta">${esc(v.tipo||'—')} · ${esc(v.marca||'')} ${esc(v.modelo||'')}</div>
+    <div class="mc-meta">${badge(v.status==='ativo'?'ok':'critico',v.status)}</div>
+    <div class="mc-actions"><button class="btn-icon" onclick="iniciarEdicaoVeiculo('${v.id}')">✏️</button><button class="btn-icon danger" onclick="excluirVeiculo('${v.id}')">🗑</button></div>
+  </div>`).join('') || '<div class="empty-state">Nenhum veículo cadastrado.</div>'}`;
+}
+function renderCadastroEquipamentos(){
+  const ed = S.editEquipamento;
+  return `<div class="section-header">Cadastro de Equipamentos</div>
+  <div class="card">
+    <div class="muted" style="margin-bottom:10px;font-weight:700;">${ed?'Editando equipamento':'Novo equipamento'}</div>
+    <form onsubmit="event.preventDefault();${ed?'salvarEdicaoEquipamento(this)':'criarEquipamento(this)'};">
+      <div class="form-grid">
+        <div class="field"><label>Nome *</label><input name="nome" required value="${esc(ed?.nome||'')}"></div>
+        <div class="field"><label>Código do Ativo</label><input name="codigo_ativo" value="${esc(ed?.codigo_ativo||'')}"></div>
+        <div class="field"><label>Tipo</label>${chipGroup('tipo',EQUIPAMENTO_TIPOS.map(t=>[t,t]),ed?.tipo||'')}</div>
+        <div class="field"><label>Empresa Subcontratada</label><input name="empresa_subcontratada" value="${esc(ed?.empresa_subcontratada||'')}"></div>
+        <div class="field"><label>Obra</label><select name="obra_id">${opt(S.obras.map(o=>[o.id,o.nome]),ed?.obra_id,true)}</select></div>
+        ${ed?`<div class="field"><label>Status</label>${chipGroup('status',[['ativo','Ativo'],['inativo','Inativo']],ed.status)}</div>`:''}
+      </div>
+      <button class="btn btn-primary btn-block" style="margin-top:12px;">${ed?'Salvar alterações':'Cadastrar Equipamento'}</button>
+      ${ed?`<button type="button" class="btn btn-secondary btn-block" style="margin-top:8px;" onclick="cancelarEdicaoEquipamento()">Cancelar</button>`:''}
+    </form>
+  </div>
+  ${S.equipamentos.map(e=>`<div class="mcard"><div class="mc-title">${esc(e.nome)}</div>
+    <div class="mc-meta">${esc(e.tipo||'—')}</div>
+    <div class="mc-meta">${badge(e.status==='ativo'?'ok':'critico',e.status)}</div>
+    <div class="mc-actions"><button class="btn-icon" onclick="iniciarEdicaoEquipamento('${e.id}')">✏️</button><button class="btn-icon danger" onclick="excluirEquipamento('${e.id}')">🗑</button></div>
+  </div>`).join('') || '<div class="empty-state">Nenhum equipamento cadastrado.</div>'}`;
+}
+
+/* ==========================================================
+   PERMISSÕES
+   ========================================================== */
+function renderPermissoes(){
+  return `<div class="wrap">
+    <div class="section-header">Permissões de Acesso</div>
+    ${S.usuarios.map(u=>{
+      const perms=(u.permissoes&&Object.keys(u.permissoes).length)?u.permissoes:defaultPermissoes(u.perfil);
+      const ativos=MODULES.filter(([k])=>perms[k]).length;
+      return `<div class="mcard"><div class="mc-title">${esc(u.nome)}</div>
+      <div class="mc-meta">${PERFIL_LABELS[u.perfil]} · ${ativos} módulo(s) liberado(s)</div>
+      <div class="mc-actions"><button class="btn-icon" onclick="iniciarEdicaoPermissoes('${u.id}')">⚙️</button></div></div>`;
+    }).join('')}
+    ${S.editPermUserId?renderEditPermForm():''}
+  </div>`;
+}
+function renderEditPermForm(){
+  const u = S.usuarios.find(x=>x.id===S.editPermUserId);
+  if(!u) return '';
+  const perms = (u.permissoes&&Object.keys(u.permissoes).length)?u.permissoes:defaultPermissoes(u.perfil);
+  return `<div class="modal-overlay" onclick="if(event.target===this){cancelarEdicaoPermissoes();}"><div class="modal-panel">
+    <div class="modal-head"><b>Permissões — ${esc(u.nome)}</b><button class="btn-logout" onclick="cancelarEdicaoPermissoes()">✕</button></div>
+    <div class="modal-body">
+      <form onsubmit="event.preventDefault();salvarPermissoes(this,'${u.id}');">
+        ${MODULES.map(([k,l])=>`<label class="perm-check"><input type="checkbox" name="perm_${k}" ${perms[k]?'checked':''}> ${l}</label>`).join('')}
+        <button class="btn btn-primary btn-block" style="margin-top:16px;">Salvar permissões</button>
+      </form>
+    </div></div></div>`;
+}
+
+/* ==========================================================
+   CHECKLISTS
+   ========================================================== */
+function renderChecklists(){
+  return `<div class="wrap">
+    <div class="section-header">Checklists de Segurança
+      <div class="flex-row" style="margin-top:8px;">
+        <button class="btn ${S.checklistView==='novo'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.checklistView='novo';render()">+ Novo</button>
+        <button class="btn ${S.checklistView==='historico'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.checklistView='historico';loadChecklists().then(render);">Histórico</button>
+      </div>
+    </div>
+    ${S.checklistView==='novo'?renderChecklistNovo():''}
+    ${S.checklistView==='historico'?renderChecklistHistorico():''}
+    ${S.checklistView==='detalhe'?renderChecklistDetalheView():''}
+  </div>`;
+}
+function renderChecklistNovo(){
+  return `<form class="card" onsubmit="event.preventDefault();salvarChecklist(this);">
+    <div class="field" style="margin-bottom:12px;"><label>Tipo de Checklist</label>${chipGroup('checklist_tipo_display',CHECKLIST_TIPOS,S.checklistTipo,'selectChecklistTipo')}</div>
+    <div class="form-grid">
+      <div class="field"><label>Obra</label><select name="obra_id">${opt(S.obras.map(o=>[o.id,o.nome]),'',true)}</select></div>
+      <div class="field"><label>Veículo</label><select name="veiculo_id">${opt(S.veiculos.map(v=>[v.id,(v.placa||v.codigo_ativo||'Veículo')]),'',true)}</select></div>
+      <div class="field"><label>Equipamento</label><select name="equipamento_id">${opt(S.equipamentos.map(e=>[e.id,e.nome]),'',true)}</select></div>
+      <div class="field"><label>Tipo de Inspeção</label>${chipGroup('tipo_inspecao',[['rotineira','Rotineira'],['programada','Programada'],['eventual','Eventual']],'rotineira')}</div>
+      <div class="field"><label>Setor/Área</label><input name="setor_area"></div>
+      <div class="field"><label>Motorista/Colaborador</label><input name="motorista_colaborador" value="${esc(S.user.nome)}"></div>
+      <div class="field"><label>Matrícula</label><input name="matricula"></div>
+      <div class="field"><label>Contrato</label><input name="contrato"></div>
+    </div>
+    <div class="divider"></div>
+    <div id="checklist-itens-container">${renderChecklistItensHTML(S.checklistTipo)}</div>
+    <div class="divider"></div>
+    <div class="field" style="margin-bottom:12px;"><label>Resultado da Inspeção</label>${chipGroup('resultado_geral',RESULTADO_OPTS,'conforme_liberado')}</div>
+    <button class="btn btn-primary btn-block" ${S.loading?'disabled':''}>${S.loading?'Salvando…':'Salvar Checklist'}</button>
+  </form>`;
+}
+function renderChecklistHistorico(){
+  if(!S.checklistsLoaded){ S.checklistsLoaded=true; loadChecklists().then(render).catch(e=>{toast('Erro ao carregar checklists: '+e.message); render();}); }
+  const om=obraMap(), vm=veiculoMap(), em=equipamentoMap();
+  return S.checklists.map(c=>`<div class="mcard" onclick="abrirChecklist('${c.id}')">
+    <div class="mc-top"><span>${(CHECKLIST_TIPOS.find(t=>t[0]===c.tipo)||[,c.tipo])[1]}</span>${resultadoBadge(c.resultado_geral)}</div>
+    <div class="mc-meta">${fmtDateOnly(c.data_inspecao)} · ${esc(vm[c.veiculo_id]?.placa||em[c.equipamento_id]?.nome||'—')}</div>
+    <div class="mc-actions"><button class="btn-icon danger" onclick="event.stopPropagation();excluirChecklist('${c.id}')">🗑</button></div>
+  </div>`).join('') || '<div class="empty-state">Nenhum checklist registrado.</div>';
+}
+function renderChecklistDetalheView(){
+  const c = S.currentChecklist; if(!c) return '';
+  const om=obraMap(), vm=veiculoMap(), em=equipamentoMap(), um=usuMap();
+  return `<div class="card">
+    <button class="btn btn-secondary btn-sm" onclick="S.checklistView='historico';render()">← Voltar</button>
+    <div class="divider"></div>
+    <div style="font-size:13px;">
+      <div><b>Tipo:</b> ${(CHECKLIST_TIPOS.find(t=>t[0]===c.tipo)||[,c.tipo])[1]}</div>
+      <div><b>Data:</b> ${fmtDateOnly(c.data_inspecao)}</div>
+      <div><b>Responsável:</b> ${esc(um[c.usuario_id]?.nome||c.motorista_colaborador||'—')}</div>
+      <div><b>Resultado:</b> ${resultadoBadge(c.resultado_geral)}</div>
+    </div>
+    <div class="divider"></div>
+    ${S.currentChecklistItens.map(it=>`<div class="item-row"><b>${iconeItem(it.item_texto)} ${it.item_numero}. ${esc(it.item_texto)}</b>
+      <div style="margin-top:6px;">${badge(it.resposta==='ok'?'ok':it.resposta==='pendente'?'critico':'concluido',it.resposta.toUpperCase())}</div>
+      ${it.descricao_pendencia?`<div class="muted" style="margin-top:4px;">${esc(it.descricao_pendencia)}</div>`:''}</div>`).join('')}
+  </div>`;
+}
+
+/* ==========================================================
+   CHECK-IN / CHECK-OUT DE VEÍCULO
+   ========================================================== */
+function renderCheckinVeiculo(){
+  return `<div class="wrap">
+    <div class="section-header">Check-in / Check-out de Veículo</div>
+    <div class="flex-row" style="margin-bottom:12px;">
+      <button class="btn ${S.veiculoUsoView==='novo'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.veiculoUsoView='novo';render()">+ Novo Check-in</button>
+      <button class="btn ${S.veiculoUsoView==='pendentes'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.veiculoUsoView='pendentes';loadVeiculoUsos().then(render);">Pendentes</button>
+      <button class="btn ${S.veiculoUsoView==='historico'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.veiculoUsoView='historico';loadVeiculoUsos().then(render);">Histórico</button>
+    </div>
+    ${S.veiculoUsoView==='novo'?renderCheckinNovo():''}
+    ${S.veiculoUsoView==='pendentes'?renderCheckinPendentes():''}
+    ${S.veiculoUsoView==='historico'?renderCheckinHistorico():''}
+    ${S.veiculoUsoView==='checkout'?renderCheckoutForm():''}
+  </div>`;
+}
+function renderCheckinNovo(){
+  return `<form class="card" onsubmit="event.preventDefault();criarCheckin(this);">
+    <div class="form-grid">
+      <div class="field"><label>Veículo *</label><select name="veiculo_id" required>${opt(S.veiculos.filter(v=>v.status==='ativo').map(v=>[v.id,(v.placa||v.codigo_ativo||'Veículo')+(v.modelo?' - '+v.modelo:'')]),'',true)}</select></div>
+      <div class="field"><label>Motorista</label><input name="motorista_nome" value="${esc(S.user.nome)}"></div>
+      <div class="field"><label>KM Inicial</label>${stepperField('km_inicial',0,1,0,0)}</div>
+      <div class="field"><label>Observação</label><input name="observacao_checkin"></div>
+    </div>
+    <div class="divider"></div>
+    <div class="section-header">Documentação (antes de sair)</div>
+    ${VEICULO_DOC_ITENS.map((t,i)=>`<div class="item-row"><b>${iconeItem(t)} ${esc(t)}</b><div style="margin-top:8px;">${chipGroup('doc_'+i,[['ok','Conferido'],['nao','Pendente']],'ok')}</div></div>`).join('')}
+    <div class="divider"></div>
+    <div class="section-header">Inventário do Equipamento</div>
+    ${VEICULO_INVENTARIO_ITENS.map((t,i)=>`<div class="item-row"><b>${iconeItem(t)} ${esc(t)}</b><div style="margin-top:8px;">${chipGroup('inv_'+i,[['ok','Presente'],['nao','Ausente']],'ok')}</div></div>`).join('')}
+    <div class="field" style="margin-top:10px;"><label>Caixa de Ferramenta (itens)</label><textarea name="caixa_ferramenta"></textarea></div>
+    <div class="divider"></div>
+    <div class="section-header">Sistema de Pintura</div>
+    ${VEICULO_PINTURA_ITENS.map((t,i)=>`<div class="item-row"><b>${iconeItem(t)} ${esc(t)}</b><div style="margin-top:8px;">${chipGroup('pint_'+i,[['ok','Conforme'],['nao','Não Conforme']],'ok')}</div></div>`).join('')}
+    <div class="divider"></div>
+    <div class="section-header">Condições Gerais do Veículo</div>
+    ${VEICULO_CONDICOES_ITENS.map((t,i)=>`<div class="item-row"><b>${iconeItem(t)} ${esc(t)}</b><div style="margin-top:8px;">${chipGroup('cond_'+i,[['ok','Conforme'],['nao','Não Conforme']],'ok')}</div></div>`).join('')}
+    <div class="divider"></div>
+    <div class="section-header">Sinalização de Obras (crítico)</div>
+    <div class="form-grid">
+      ${VEICULO_SINALIZACAO_ITENS.map((t,i)=>`<div class="field"><label>${esc(t)}</label><input name="sinal_${i}" placeholder="Quantidade / observação"></div>`).join('')}
+    </div>
+    <div class="divider"></div>
+    <button class="btn btn-primary btn-block" ${S.loading?'disabled':''}>${S.loading?'Salvando…':'Registrar Check-in'}</button>
+  </form>`;
+}
+function renderCheckinPendentes(){
+  if(!S.veiculoUsosLoaded){ S.veiculoUsosLoaded=true; loadVeiculoUsos().then(render).catch(e=>{toast('Erro ao carregar veículos em uso: '+e.message); render();}); }
+  const vm = veiculoMap();
+  const pendentes = S.veiculoUsos.filter(u=>u.status==='aberto');
+  return pendentes.map(u=>`<div class="mcard" onclick="abrirCheckout('${u.id}')">
+    <div class="mc-title">${esc(vm[u.veiculo_id]?.placa||vm[u.veiculo_id]?.codigo_ativo||'Veículo')}</div>
+    <div class="mc-meta">Motorista: ${esc(u.motorista_nome||'—')}</div>
+    <div class="mc-meta">Check-in: ${fmtDate(u.data_checkin)} · KM ${u.km_inicial??'—'}</div>
+    <div class="mc-actions"><button class="btn btn-primary btn-sm" onclick="event.stopPropagation();abrirCheckout('${u.id}')">Fazer Check-out</button></div>
+  </div>`).join('') || '<div class="empty-state">Nenhum veículo aguardando check-out.</div>';
+}
+function renderCheckoutForm(){
+  const u = S.currentUso; if(!u) return '<div class="empty-state">Selecione um check-in pendente.</div>';
+  const vm = veiculoMap();
+  const catLabel = {documentacao:'Documentação',inventario:'Inventário',pintura:'Sistema de Pintura',condicoes:'Condições Gerais'};
+  const cats = ['documentacao','inventario','pintura','condicoes'];
+  return `<div class="card">
+    <button class="btn btn-secondary btn-sm" onclick="S.veiculoUsoView='pendentes';render()">← Voltar</button>
+    <div class="divider"></div>
+    <div class="muted"><b>Veículo:</b> ${esc(vm[u.veiculo_id]?.placa||'—')}<br><b>Motorista:</b> ${esc(u.motorista_nome||'—')}<br><b>Check-in:</b> ${fmtDate(u.data_checkin)}</div>
+    <div class="divider"></div>
+    <form onsubmit="event.preventDefault();finalizarCheckout(this);">
+      ${cats.map(cat=>`<div class="section-header">${catLabel[cat]}</div>
+        ${S.currentUsoItens.filter(it=>it.categoria===cat).map(it=>`<div class="item-row"><b>${iconeItem(it.item_texto)} ${esc(it.item_texto)}</b>
+          <div class="muted" style="margin:4px 0;">Check-in: ${badge(it.check_in?'ok':'critico', it.check_in?'OK':'Pendente')}</div>
+          ${chipGroup('out_'+it.id,[['ok','Conforme'],['nao','Não Conforme']],'ok')}</div>`).join('')}`).join('')}
+      <div class="divider"></div>
+      <div class="form-grid">
+        <div class="field"><label>KM Final</label>${stepperField('km_final', u.km_inicial||0, 1, 0, 0)}</div>
+        <div class="field"><label>Observação da devolução</label><input name="observacao_checkout"></div>
+        <div class="field"><label>Assinatura CCO</label><input name="assinatura_cco"></div>
+        <div class="field"><label>Assinatura Motorista</label><input name="assinatura_motorista" value="${esc(u.motorista_nome||S.user.nome)}"></div>
+        <div class="field"><label>Assinatura Gerente</label><input name="assinatura_gerente"></div>
+      </div>
+      <div class="divider"></div>
+      <button class="btn btn-verde btn-block" ${S.loading?'disabled':''}>${S.loading?'Salvando…':'Finalizar Check-out'}</button>
+    </form>
+  </div>`;
+}
+function renderCheckinHistorico(){
+  if(!S.veiculoUsosLoaded){ S.veiculoUsosLoaded=true; loadVeiculoUsos().then(render).catch(e=>{toast('Erro ao carregar veículos em uso: '+e.message); render();}); }
+  const vm = veiculoMap();
+  const fechados = S.veiculoUsos.filter(u=>u.status==='fechado');
+  return fechados.map(u=>`<div class="mcard">
+    <div class="mc-title">${esc(vm[u.veiculo_id]?.placa||'—')}</div>
+    <div class="mc-meta">${esc(u.motorista_nome||'—')} · ${fmtDateOnly(u.data_checkin)} → ${fmtDateOnly(u.data_checkout)}</div>
+    <div class="mc-meta">KM rodado: ${(u.km_final!=null && u.km_inicial!=null)?(u.km_final-u.km_inicial):'—'}</div>
+    <div class="mc-actions"><button class="btn-icon danger" onclick="excluirUso('${u.id}')">🗑</button></div>
+  </div>`).join('') || '<div class="empty-state">Nenhum registro fechado ainda.</div>';
+}
+
+/* ==========================================================
+   FINANCEIRO — NOTAS FISCAIS
+   ========================================================== */
+function renderFinanceiro(){
+  return `<div class="wrap">
+    <div class="section-header">Financeiro</div>
+    <div class="flex-row" style="margin-bottom:12px;">
+      <button class="btn ${S.financeiroView==='enviar'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.financeiroView='enviar';render()">+ Enviar</button>
+      <button class="btn ${S.financeiroView==='meu_painel'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.financeiroView='meu_painel';loadMinhasNotas().then(render);">Meu Painel</button>
+      ${canAccess('financeiro_geral')?`<button class="btn ${S.financeiroView==='geral'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.financeiroView='geral';loadTodasNotas().then(render);">Geral</button>`:''}
+    </div>
+    ${S.financeiroView==='enviar'?renderFinanceiroEnviar():''}
+    ${S.financeiroView==='meu_painel'?renderFinanceiroMeuPainel():''}
+    ${S.financeiroView==='geral'?renderFinanceiroGeral():''}
+    ${S.financeiroView==='detalhe'?renderFinanceiroDetalhe():''}
+  </div>`;
+}
+function renderFinanceiroEnviar(){
+  return `<form class="card" onsubmit="event.preventDefault();criarNota(this);">
+    <div class="form-grid">
+      <div class="field"><label>Foto(s) da Nota *</label>${photoWidget('nota_foto')}</div>
+      <div class="field"><label>Tipo de Despesa</label>${chipGroup('tipo_despesa', TIPO_DESPESA_OPTS.map(t=>[t,t]), '')}</div>
+      <div class="field"><label>Data</label><input type="date" name="data_despesa" value="${new Date().toISOString().slice(0,10)}"></div>
+      <div class="field"><label>Valor (R$)</label><input type="number" step="0.01" name="valor" placeholder="0,00"></div>
+      <div class="field"><label>Forma de Pagamento</label>${chipGroup('forma_pagamento', FORMA_PAGAMENTO_OPTS.map(f=>[f,f]), '')}</div>
+      <div class="field"><label>Obra (opcional)</label><select name="obra_id">${opt(S.obras.map(o=>[o.id,o.nome]),'',true)}</select></div>
+      <div class="field"><label>Observação (opcional)</label><textarea name="observacao"></textarea></div>
+    </div>
+    <div class="divider"></div>
+    <button class="btn btn-primary btn-block" ${S.loading?'disabled':''}>${S.loading?'Enviando…':'Enviar Nota Fiscal'}</button>
+  </form>`;
+}
+function renderFinanceiroMeuPainel(){
+  if(!S.minhasNotasLoaded){ S.minhasNotasLoaded=true; loadMinhasNotas().then(render).catch(e=>{toast('Erro ao carregar notas: '+e.message); render();}); }
+  const list = S.minhasNotas;
+  const cnt = s=>list.filter(n=>n.status===s).length;
+  const somaAprovado = list.filter(n=>n.status==='aprovado').reduce((a,n)=>a+(parseFloat(n.valor)||0),0);
+  return `
+  <div class="kpi-grid" style="grid-template-columns:repeat(2,1fr);">
+    <div class="kpi-card"><div class="kpi-label">Enviadas</div><div class="kpi-value">${list.length}</div></div>
+    <div class="kpi-card" style="border-left-color:var(--mega-verde);"><div class="kpi-label">Aprovadas</div><div class="kpi-value">${cnt('aprovado')}</div></div>
+    <div class="kpi-card" style="border-left-color:var(--mega-amarelo);"><div class="kpi-label">Atenção</div><div class="kpi-value">${cnt('atencao')}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Total Aprovado</div><div class="kpi-value" style="font-size:18px;">${fmtMoney(somaAprovado)}</div></div>
+  </div>
+  ${list.map(n=>`<div class="mcard" onclick="abrirNota('${n.id}','meu_painel')">
+    <div class="mc-top"><span>${esc(n.tipo_despesa||'Despesa')}</span>${finStatusBadge(n.status)}</div>
+    <div class="mc-meta">${fmtDateOnly(n.data_despesa)} · ${fmtMoney(n.valor)}</div>
+  </div>`).join('') || '<div class="empty-state">Nenhuma nota enviada ainda.</div>'}`;
+}
+function renderFinanceiroGeral(){
+  if(!S.todasNotasLoaded){ S.todasNotasLoaded=true; loadTodasNotas().then(render).catch(e=>{toast('Erro ao carregar notas: '+e.message); render();}); }
+  const list = S.todasNotas;
+  const cnt = s=>list.filter(n=>n.status===s).length;
+  const somaAprovado = list.filter(n=>n.status==='aprovado').reduce((a,n)=>a+(parseFloat(n.valor)||0),0);
+  const um = usuMap();
+  const porColab = {};
+  list.forEach(n=>{ const k=n.usuario_id; porColab[k]=porColab[k]||{total:0,aprovado:0,soma:0}; porColab[k].total++; if(n.status==='aprovado'){porColab[k].aprovado++; porColab[k].soma+=parseFloat(n.valor)||0;} });
+  const pendentesRevisao = list.filter(n=>n.status==='enviado'||n.status==='atencao');
+  return `
+  <div class="kpi-grid" style="grid-template-columns:repeat(2,1fr);">
+    <div class="kpi-card"><div class="kpi-label">Total</div><div class="kpi-value">${list.length}</div></div>
+    <div class="kpi-card" style="border-left-color:var(--mega-amarelo);"><div class="kpi-label">Aguard./Atenção</div><div class="kpi-value">${pendentesRevisao.length}</div></div>
+    <div class="kpi-card" style="border-left-color:var(--mega-verde);"><div class="kpi-label">Aprovadas</div><div class="kpi-value">${cnt('aprovado')}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Total Aprovado</div><div class="kpi-value" style="font-size:16px;">${fmtMoney(somaAprovado)}</div></div>
+  </div>
+  <div class="section-header">Aguardando Ação (${pendentesRevisao.length})</div>
+  ${pendentesRevisao.map(n=>`<div class="mcard" onclick="abrirNota('${n.id}','geral')">
+    <div class="mc-top"><span>${esc(um[n.usuario_id]?.nome||'—')}</span>${finStatusBadge(n.status)}</div>
+    <div class="mc-meta">${fmtDateOnly(n.data_despesa)} · ${esc(n.tipo_despesa||'—')} · ${fmtMoney(n.valor)}</div>
+  </div>`).join('') || '<div class="empty-state">Nada pendente.</div>'}
+  <div class="section-header">Por Colaborador</div>
+  ${Object.entries(porColab).map(([uid,d])=>`<div class="mcard">
+    <div class="mc-title">${esc(um[uid]?.nome||'—')}</div>
+    <div class="mc-meta">${d.total} notas · ${d.aprovado} aprovadas · ${fmtMoney(d.soma)}</div>
+  </div>`).join('') || '<div class="empty-state">Sem dados.</div>'}
+  <div class="section-header">Histórico Completo</div>
+  ${list.map(n=>`<div class="mcard" onclick="abrirNota('${n.id}','geral')">
+    <div class="mc-top"><span>${esc(um[n.usuario_id]?.nome||'—')}</span>${finStatusBadge(n.status)}</div>
+    <div class="mc-meta">${fmtDateOnly(n.data_despesa)} · ${esc(n.tipo_despesa||'—')} · ${fmtMoney(n.valor)}</div>
+  </div>`).join('') || '<div class="empty-state">Nenhuma nota registrada.</div>'}`;
+}
+function renderFinanceiroDetalhe(){
+  const n = S.currentNota; if(!n) return '<div class="empty-state">Nota não encontrada.</div>';
+  const um = usuMap(); const om = obraMap();
+  const isMine = n.usuario_id===S.user.id;
+  const podeRevisar = canAccess('financeiro_geral');
+  return `<div class="card">
+    <button class="btn btn-secondary btn-sm" onclick="S.financeiroView='${S.financeiroNotaOrigem||'meu_painel'}';render()">← Voltar</button>
+    <div class="divider"></div>
+    <div class="flex-row" style="margin-bottom:10px;">${finStatusBadge(n.status)}</div>
+    <div style="font-size:13px;">
+      <div><b>Colaborador:</b> ${esc(um[n.usuario_id]?.nome||'—')}</div>
+      <div><b>Data:</b> ${fmtDateOnly(n.data_despesa)}</div>
+      <div><b>Tipo:</b> ${esc(n.tipo_despesa||'—')}</div>
+      <div><b>Valor:</b> ${fmtMoney(n.valor)}</div>
+      <div><b>Forma de pagamento:</b> ${esc(n.forma_pagamento||'—')}</div>
+      <div><b>Obra:</b> ${esc(om[n.obra_id]?.nome||'—')}</div>
+    </div>
+    ${n.observacao?`<div class="divider"></div><div><b>Observação:</b> ${esc(n.observacao)}</div>`:''}
+    <div class="divider"></div>
+    <div class="foto-grid">${(n.fotos_urls||[]).map(url=>`<img src="${url}" onclick="S.lightboxUrl='${url}';render()">`).join('') || '<div class="muted">Sem foto.</div>'}</div>
+    ${n.comentario_financeiro?`<div class="divider"></div><div><b>Comentário do financeiro:</b> ${esc(n.comentario_financeiro)}</div>`:''}
+    ${n.resposta_colaborador?`<div style="margin-top:8px;"><b>Resposta do colaborador:</b> ${esc(n.resposta_colaborador)}</div>`:''}
+    ${isMine && n.status==='atencao' ? `<div class="divider"></div><form onsubmit="event.preventDefault();responderAtencaoNota(this);">
+      <div class="field"><label>Sua resposta</label><textarea name="resposta" required></textarea></div>
+      <button class="btn btn-primary btn-block" style="margin-top:10px;">Enviar resposta</button>
+    </form>`:''}
+    ${podeRevisar && n.status!=='aprovado' ? `<div class="divider"></div>
+      <button class="btn btn-verde btn-block" onclick="aprovarNota('${n.id}')" style="margin-bottom:12px;">✓ Aprovar</button>
+      <form onsubmit="event.preventDefault();reprovarNota(this);" style="margin-bottom:14px;">
+        <div class="field"><label>Motivo da reprovação</label><input name="comentario" placeholder="Explique o motivo"></div>
+        <button class="btn btn-vermelho btn-block" style="margin-top:8px;">Reprovar</button>
+      </form>
+      <form onsubmit="event.preventDefault();marcarAtencaoNota(this);">
+        <div class="field"><label>Pedir retorno ao colaborador</label><input name="comentario" placeholder="O que precisa esclarecer?"></div>
+        <button class="btn btn-secondary btn-block" style="margin-top:8px;">Marcar Atenção</button>
+      </form>`:''}
+    ${podeRevisar?`<div class="divider"></div><button class="btn btn-vermelho btn-sm btn-block" onclick="excluirNota('${n.id}')">🗑 Excluir nota</button>`:''}
+  </div>
+  ${S.lightboxUrl?`<div class="modal-overlay" style="align-items:center;justify-content:center;" onclick="S.lightboxUrl=null;render()"><img src="${S.lightboxUrl}" style="max-width:92%;max-height:80vh;border-radius:8px;"></div>`:''}`;
+}
+
+/* ==========================================================
+   RENDER PRINCIPAL
+   ========================================================== */
+/* ==========================================================
+   MÓDULO PESSOAS / RH
+   ========================================================== */
+function isRHStaff(){ return S.user && (S.user.perfil==='administrador'||S.user.perfil==='escritorio'); }
+function renderRH(){
+  const tabs=[['pessoas','Meus Dados'],['atestados','Atestados'],['ponto','Ponto'],['documentos','Documentos'],['indicacoes','Indique um Amigo']];
+  return `<div class="wrap">
+    <div class="section-header">Pessoas / RH</div>
+    <div class="flex-row" style="margin-bottom:12px;flex-wrap:wrap;gap:6px;">
+      ${tabs.map(([k,l])=>`<button class="btn ${S.rhTab===k?'btn-primary':'btn-secondary'} btn-sm" onclick="S.rhTab='${k}';carregarRHTab('${k}');">${l}</button>`).join('')}
+    </div>
+    ${S.rhTab==='pessoas'?renderPessoas():''}
+    ${S.rhTab==='atestados'?renderAtestados():''}
+    ${S.rhTab==='ponto'?renderPonto():''}
+    ${S.rhTab==='documentos'?renderDocumentos():''}
+    ${S.rhTab==='indicacoes'?renderIndicacoes():''}
+  </div>`;
+}
+function carregarRHTab(tab){
+  S.view='rh'; S.rhTab=tab; S.loading=true; render();
+  const done=()=>{ S.loading=false; render(); };
+  const fail=e=>{ toast('Erro: '+e.message); done(); };
+  if(tab==='pessoas'){ isRHStaff()? loadSolicitacoesCadastrais().then(done).catch(fail) : done(); }
+  else if(tab==='atestados'){ loadAtestados().then(done).catch(fail); }
+  else if(tab==='ponto'){ loadMeuPonto().then(done).catch(fail); }
+  else if(tab==='documentos'){ loadDocumentos().then(done).catch(fail); }
+  else if(tab==='indicacoes'){ loadIndicacoes().then(done).catch(fail); }
+  else done();
+}
+
+/* ---------- PESSOAS ---------- */
+async function loadSolicitacoesCadastrais(){
+  S.pessoasSolicitacoes = await sb('solicitacoes_atualizacao_cadastral?select=*&order=criado_em.desc&limit=200');
+  S.pessoasSolicitacoesLoaded = true;
+}
+function renderPessoas(){
+  if(isRHStaff()){
+    const pendentes = (S.pessoasSolicitacoes||[]).filter(s=>s.status==='enviada'||s.status==='em_analise');
+    return `<div class="section-header">Solicitações de atualização cadastral</div>
+    ${pendentes.map(s=>{ const u=usuMap()[s.usuario_id];
+      return `<div class="card">
+        <div><b>${esc(u?.nome||'—')}</b> — ${esc(s.campo_alterado)}</div>
+        <div class="muted">De: ${esc(s.valor_anterior||'—')} → Para: ${esc(s.valor_solicitado||'—')}</div>
+        ${s.justificativa?`<div class="muted">${esc(s.justificativa)}</div>`:''}
+        <div class="flex-row" style="margin-top:8px;gap:6px;">
+          <button class="btn btn-primary btn-sm" onclick="aprovarSolicitacaoCadastral('${s.id}','${s.usuario_id}','${s.campo_alterado}','${esc(s.valor_solicitado||'').replace(/'/g,"\\'")}')">Aprovar</button>
+          <button class="btn btn-danger btn-sm" onclick="rejeitarSolicitacaoCadastral('${s.id}')">Rejeitar</button>
+        </div></div>`; }).join('') || '<div class="empty-state">Nenhuma solicitação pendente.</div>'}
+    <div class="divider"></div>
+    <div class="section-header">Colaboradores</div>
+    ${S.usuarios.map(u=>`<div class="mcard"><div class="mc-top"><span>${esc(u.nome)}</span></div>
+      <div class="mc-meta">${esc(u.cargo||'—')} · ${esc(PERFIL_LABELS[u.perfil]||u.perfil)}</div></div>`).join('')}`;
+  }
+  const u = S.user;
+  return `<form class="card" onsubmit="event.preventDefault();solicitarAtualizacaoCadastral(this);">
+    <div class="form-grid">
+      <div class="field"><label>Nome</label><input value="${esc(u.nome)}" disabled></div>
+      <div class="field"><label>Cargo</label><input value="${esc(u.cargo||'—')}" disabled></div>
+      <div class="field"><label>Data de admissão</label><input value="${esc(u.data_admissao||'—')}" disabled></div>
+      <div class="field"><label>Telefone/WhatsApp</label><input value="${esc(u.telefone_whatsapp||u.telefone||'—')}" disabled></div>
+    </div>
+    <div class="muted" style="margin:10px 0;">Para alterar um dado, envie a solicitação abaixo — o RH analisa e aplica.</div>
+    <div class="divider"></div>
+    <div class="form-grid">
+      <div class="field"><label>Campo a alterar</label>${chipGroup('campo_alterado',[['telefone_whatsapp','Telefone/WhatsApp'],['estado_civil','Estado civil'],['naturalidade','Naturalidade'],['rg','RG'],['endereco','Endereço'],['dados_bancarios','Dados bancários'],['outro','Outro']],'telefone_whatsapp')}</div>
+      <div class="field"><label>Novo valor</label><input name="valor_solicitado" required></div>
+      <div class="field field-span2"><label>Justificativa</label><input name="justificativa"></div>
+    </div>
+    <button class="btn btn-primary btn-block" ${S.loading?'disabled':''}>${S.loading?'Enviando…':'Enviar solicitação'}</button>
+  </form>`;
+}
+async function solicitarAtualizacaoCadastral(form){
+  const fd = new FormData(form);
+  const payload = {usuario_id:S.user.id, campo_alterado:fd.get('campo_alterado'), valor_solicitado:fd.get('valor_solicitado'), justificativa:fd.get('justificativa')||null, status:'enviada'};
+  S.loading=true; render();
+  try{ await sb('solicitacoes_atualizacao_cadastral',{method:'POST',body:payload}); toast('Solicitação enviada ao RH.'); form.reset(); }
+  catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+async function aprovarSolicitacaoCadastral(id, usuarioId, campo, valor){
+  S.loading=true; render();
+  try{
+    if(campo!=='dados_bancarios' && campo!=='outro' && campo!=='endereco'){ await sb(`usuarios?id=eq.${usuarioId}`,{method:'PATCH',body:{[campo]:valor}}); }
+    await sb(`solicitacoes_atualizacao_cadastral?id=eq.${id}`,{method:'PATCH',body:{status:'aprovada',analisado_por:S.user.id,analisado_em:new Date().toISOString()}});
+    toast('Solicitação aprovada.'); await loadSolicitacoesCadastrais(); await loadBaseData();
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+async function rejeitarSolicitacaoCadastral(id){
+  const motivo = prompt('Motivo da rejeição:'); if(motivo==null) return;
+  S.loading=true; render();
+  try{ await sb(`solicitacoes_atualizacao_cadastral?id=eq.${id}`,{method:'PATCH',body:{status:'rejeitada',motivo_rejeicao:motivo,analisado_por:S.user.id,analisado_em:new Date().toISOString()}});
+    toast('Solicitação rejeitada.'); await loadSolicitacoesCadastrais();
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+
+/* ---------- ATESTADOS ---------- */
+async function loadAtestados(){
+  let q='atestados?select=*&order=criado_em.desc&limit=200';
+  if(!isRHStaff()) q += `&usuario_id=eq.${S.user.id}`;
+  S.atestados = await sb(q); S.atestadosLoaded = true;
+}
+function renderAtestados(){
+  const lista = S.atestados||[];
+  return `${!isRHStaff()?`
+    <form class="card" onsubmit="event.preventDefault();enviarAtestado(this);">
+      <div class="form-grid">
+        <div class="field"><label>Data de emissão</label><input type="date" name="data_emissao" required></div>
+        <div class="field"><label>Início do afastamento</label><input type="date" name="afastamento_inicio"></div>
+        <div class="field"><label>Fim do afastamento</label><input type="date" name="afastamento_fim"></div>
+        <div class="field"><label>Tipo de documento</label><input name="tipo_documento" placeholder="Atestado médico…"></div>
+        <div class="field field-span2"><label>Observação</label><input name="observacao"></div>
+      </div>
+      <div class="field" style="margin:10px 0;"><label>Arquivo</label>${photoWidget('atestado_arquivo')}</div>
+      <button class="btn btn-primary btn-block" ${S.loading?'disabled':''}>${S.loading?'Enviando…':'Enviar atestado'}</button>
+    </form><div class="divider"></div>`:''}
+  <div class="section-header">${isRHStaff()?'Atestados recebidos':'Meus atestados'}</div>
+  ${lista.map(a=>`<div class="mcard"><div class="mc-top"><span>${esc(a.tipo_documento||'Atestado')}</span>${badge(a.status==='aprovado'?'ok':a.status==='reprovado'?'critico':'pendente',a.status)}</div>
+    <div class="mc-meta">${fmtDateOnly(a.data_emissao)}${isRHStaff()?' · '+esc(usuMap()[a.usuario_id]?.nome||''):''}</div>
+    ${isRHStaff()&&['enviado','aguardando_analise','em_analise'].includes(a.status)?`
+      <div class="mc-actions">
+        <button class="btn btn-primary btn-sm" onclick="analisarAtestado('${a.id}','aprovado')">Aprovar</button>
+        <button class="btn btn-danger btn-sm" onclick="analisarAtestado('${a.id}','reprovado')">Reprovar</button>
+      </div>`:''}
+  </div>`).join('') || '<div class="empty-state">Nenhum atestado.</div>'}`;
+}
+async function enviarAtestado(form){
+  const fd = new FormData(form);
+  const files = window.pendingFiles['atestado_arquivo']||[];
+  S.loading=true; render();
+  try{
+    let arquivoUrl=null;
+    if(files[0]) arquivoUrl = await uploadArquivo(files[0], `${S.user.id}/${Date.now()}_${files[0].name}`, 'atestados');
+    const ini=fd.get('afastamento_inicio'), fim=fd.get('afastamento_fim');
+    let dias=null; if(ini&&fim){ dias=Math.round((new Date(fim)-new Date(ini))/86400000)+1; }
+    const payload={usuario_id:S.user.id, data_emissao:fd.get('data_emissao')||null, afastamento_inicio:ini||null, afastamento_fim:fim||null,
+      quantidade_dias:dias, tipo_documento:fd.get('tipo_documento')||null, observacao:fd.get('observacao')||null, arquivo:arquivoUrl, status:'enviado'};
+    await sb('atestados',{method:'POST',body:payload});
+    clearPending('atestado_arquivo'); toast('Atestado enviado.'); form.reset(); await loadAtestados();
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+async function analisarAtestado(id, status){
+  const motivo = status==='reprovado' ? prompt('Motivo da reprovação:') : null;
+  if(status==='reprovado' && motivo==null) return;
+  S.loading=true; render();
+  try{
+    await sb(`atestados?id=eq.${id}`,{method:'PATCH',body:{status, analisado_por:S.user.id, analisado_em:new Date().toISOString(), motivo_reprovacao:motivo||null}});
+    await sb('historico_atestados',{method:'POST',body:{atestado_id:id, status_novo:status, comentario:motivo||null, usuario_id:S.user.id}});
+    toast('Atestado atualizado.'); await loadAtestados();
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+
+/* ---------- PONTO ---------- */
+const TIPOS_BATIDA=[['entrada','Entrada'],['saida_intervalo','Saída intervalo'],['retorno_intervalo','Retorno intervalo'],['saida_final','Saída final'],['entrada_extraordinaria','Entrada extra'],['saida_extraordinaria','Saída extra']];
+let __tipoBatidaSel='entrada';
+function selecionarTipoBatida(v){ __tipoBatidaSel=v; }
+async function loadMeuPonto(){
+  let q='pontos?select=*&order=data_hora_servidor.desc&limit=100';
+  if(!isRHStaff()) q += `&usuario_id=eq.${S.user.id}`;
+  S.pontos = await sb(q); S.pontosLoaded = true;
+  if(isRHStaff()){ S.ajustesPonto = await sb('ajustes_ponto?select=*&status=eq.pendente&order=criado_em.desc'); }
+}
+function renderPonto(){
+  return `${!isRHStaff()?`
+    <div class="card">
+      <div class="field"><label>Tipo de batida</label>${chipGroup('tipo_batida_ponto',TIPOS_BATIDA,'entrada','selecionarTipoBatida')}</div>
+      <div class="field" style="margin:10px 0;"><label>Selfie</label>${photoWidget('ponto_selfie')}</div>
+      <button class="btn btn-primary btn-block" onclick="registrarPonto()" ${S.loading?'disabled':''}>${S.loading?'Registrando…':'Registrar ponto'}</button>
+    </div><div class="divider"></div>`:''}
+  ${isRHStaff()?`<div class="section-header">Ajustes de ponto pendentes</div>
+    ${(S.ajustesPonto||[]).map(a=>`<div class="card"><div><b>${esc(usuMap()[a.usuario_id]?.nome||'—')}</b> — ${esc(a.tipo_batida||'')}</div>
+      ${a.justificativa?`<div class="muted">${esc(a.justificativa)}</div>`:''}
+      <div class="flex-row" style="margin-top:8px;gap:6px;">
+        <button class="btn btn-primary btn-sm" onclick="aprovarAjustePonto('${a.id}')">Aprovar</button>
+        <button class="btn btn-danger btn-sm" onclick="rejeitarAjustePonto('${a.id}')">Rejeitar</button>
+      </div></div>`).join('') || '<div class="empty-state">Nenhum ajuste pendente.</div>'}
+    <div class="divider"></div>`:''}
+  <div class="section-header">${isRHStaff()?'Registros recentes':'Meu histórico'}</div>
+  ${(S.pontos||[]).map(p=>`<div class="mcard"><div class="mc-top"><span>${(TIPOS_BATIDA.find(t=>t[0]===p.tipo_batida)||[,p.tipo_batida])[1]}</span>${badge(p.alterado?'pendente':'ok',p.alterado?'Corrigido':p.status)}</div>
+    <div class="mc-meta">${fmtDate(p.data_hora_servidor)}${isRHStaff()?' · '+esc(usuMap()[p.usuario_id]?.nome||''):''}</div>
+    ${isRHStaff()?`<div class="mc-actions"><button class="btn btn-secondary btn-sm" onclick="corrigirPonto('${p.id}')">Corrigir</button></div>`:''}
+  </div>`).join('') || '<div class="empty-state">Nenhum registro.</div>'}`;
+}
+async function registrarPonto(){
+  const files = window.pendingFiles['ponto_selfie']||[];
+  if(!files[0]){ toast('Tire a selfie antes de registrar.'); return; }
+  S.loading=true; render();
+  try{
+    const fotoUrl = await uploadArquivo(files[0], `${S.user.id}/${Date.now()}.jpg`, 'ponto-selfies');
+    let lat=null,lng=null;
+    try{ const pos = await new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(res,rej,{timeout:5000})); lat=pos.coords.latitude; lng=pos.coords.longitude; }catch(e){}
+    await sb('pontos',{method:'POST',body:{usuario_id:S.user.id, tipo_batida:__tipoBatidaSel, foto_selfie:fotoUrl, latitude:lat, longitude:lng,
+      dispositivo:navigator.userAgent.slice(0,120), origem_registro:'colaborador', status:'original'}});
+    clearPending('ponto_selfie'); toast('Ponto registrado.'); await loadMeuPonto();
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+async function corrigirPonto(id){
+  const novoTipo = prompt('Novo tipo de batida:\nentrada / saida_intervalo / retorno_intervalo / saida_final'); if(!novoTipo) return;
+  const motivo = prompt('Motivo da correção:'); if(!motivo) return;
+  S.loading=true; render();
+  try{
+    const original = S.pontos.find(p=>p.id===id);
+    await sb('alteracoes_ponto',{method:'POST',body:{ponto_id:id, usuario_rh_id:S.user.id, tipo_alteracao:'correcao_tipo',
+      dados_originais:{tipo_batida:original?.tipo_batida}, dados_corrigidos:{tipo_batida:novoTipo}, motivo}});
+    await sb(`pontos?id=eq.${id}`,{method:'PATCH',body:{tipo_batida:novoTipo, status:'corrigida', alterado:true, alterado_por:S.user.id, alterado_em:new Date().toISOString(), motivo_alteracao:motivo}});
+    toast('Ponto corrigido.'); await loadMeuPonto();
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+async function aprovarAjustePonto(id){
+  S.loading=true; render();
+  try{ await sb(`ajustes_ponto?id=eq.${id}`,{method:'PATCH',body:{status:'aprovado',analisado_por:S.user.id,analisado_em:new Date().toISOString()}}); toast('Ajuste aprovado.'); await loadMeuPonto(); }
+  catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+async function rejeitarAjustePonto(id){
+  S.loading=true; render();
+  try{ await sb(`ajustes_ponto?id=eq.${id}`,{method:'PATCH',body:{status:'rejeitado',analisado_por:S.user.id,analisado_em:new Date().toISOString()}}); toast('Ajuste rejeitado.'); await loadMeuPonto(); }
+  catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+
+/* ---------- DOCUMENTOS ---------- */
+let __destinoDocSel='individual';
+function selecionarDestinoDoc(v){ __destinoDocSel=v; }
+async function loadDocumentos(){
+  S.documentos = await sb('documentos_colaborador?select=*&order=publicado_em.desc&limit=200'); S.documentosLoaded = true;
+}
+function renderDocumentos(){
+  const meus = (S.documentos||[]).filter(d=>d.usuario_id===S.user.id || d.destino==='todos' || (d.destino==='equipe'&&d.equipe_id===S.user.equipe_id) || (d.destino==='obra'&&d.obra_id===S.user.obra_id));
+  return `${isRHStaff()?`
+    <form class="card" onsubmit="event.preventDefault();publicarDocumento(this);">
+      <div class="form-grid">
+        <div class="field"><label>Destino</label>${chipGroup('destino',[['individual','Colaborador'],['equipe','Equipe'],['obra','Obra'],['todos','Todos']],'individual','selecionarDestinoDoc')}</div>
+        <div class="field"><label>Colaborador (se individual)</label><select name="usuario_id">${opt(S.usuarios.map(u=>[u.id,u.nome]),'',true)}</select></div>
+        <div class="field"><label>Equipe (se equipe)</label><select name="equipe_id">${opt(S.equipes.map(e=>[e.id,e.nome]),'',true)}</select></div>
+        <div class="field"><label>Obra (se obra)</label><select name="obra_id">${opt(S.obras.map(o=>[o.id,o.nome]),'',true)}</select></div>
+        <div class="field"><label>Título</label><input name="titulo" required></div>
+        <div class="field"><label>Categoria</label><input name="categoria" placeholder="Holerite, comunicado…"></div>
+        <div class="field"><label>Exige aceite?</label>${chipGroup('exige_aceite',[['sim','Sim'],['nao','Não']],'nao')}</div>
+      </div>
+      <div class="field" style="margin:10px 0;"><label>Arquivo</label>${photoWidget('doc_arquivo')}</div>
+      <button class="btn btn-primary btn-block" ${S.loading?'disabled':''}>${S.loading?'Publicando…':'Publicar documento'}</button>
+    </form><div class="divider"></div>`:''}
+  <div class="section-header">${isRHStaff()?'Documentos publicados':'Meus documentos'}</div>
+  ${(isRHStaff()?S.documentos:meus).map(d=>`<div class="mcard"><div class="mc-top"><span>${esc(d.titulo)}</span>${badge(d.status==='aceito'?'ok':d.status==='rejeitado'?'critico':'pendente',d.status)}</div>
+    <div class="mc-meta">${esc(d.categoria||'')} · ${fmtDateOnly(d.publicado_em)}</div>
+    ${!isRHStaff()&&d.exige_aceite&&!['aceito','rejeitado'].includes(d.status)?`
+      <div class="mc-actions">
+        <button class="btn btn-primary btn-sm" onclick="responderDocumento('${d.id}','aceito')">Aceitar</button>
+        <button class="btn btn-danger btn-sm" onclick="responderDocumento('${d.id}','rejeitado')">Rejeitar</button>
+      </div>`:''}
+  </div>`).join('') || '<div class="empty-state">Nenhum documento.</div>'}`;
+}
+async function publicarDocumento(form){
+  const fd = new FormData(form);
+  const files = window.pendingFiles['doc_arquivo']||[];
+  S.loading=true; render();
+  try{
+    let arquivoUrl=null;
+    if(files[0]) arquivoUrl = await uploadArquivo(files[0], `${Date.now()}_${files[0].name}`, 'documentos-rh');
+    const payload={destino:__destinoDocSel, usuario_id:__destinoDocSel==='individual'?(fd.get('usuario_id')||null):null,
+      equipe_id:__destinoDocSel==='equipe'?(fd.get('equipe_id')||null):null, obra_id:__destinoDocSel==='obra'?(fd.get('obra_id')||null):null,
+      titulo:fd.get('titulo'), categoria:fd.get('categoria')||null, arquivo:arquivoUrl,
+      exige_aceite:fd.get('exige_aceite')==='sim', status:'publicado', publicado_por:S.user.id};
+    await sb('documentos_colaborador',{method:'POST',body:payload});
+    clearPending('doc_arquivo'); toast('Documento publicado.'); form.reset(); await loadDocumentos();
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+async function responderDocumento(id, decisao){
+  const motivo = decisao==='rejeitado' ? prompt('Motivo da rejeição:') : null;
+  if(decisao==='rejeitado' && motivo==null) return;
+  S.loading=true; render();
+  try{
+    await sb('aceites_documentos',{method:'POST',body:{documento_id:id, usuario_id:S.user.id, decisao, motivo_rejeicao:motivo||null, dispositivo:navigator.userAgent.slice(0,120)}});
+    await sb(`documentos_colaborador?id=eq.${id}`,{method:'PATCH',body:{status:decisao}});
+    toast('Resposta registrada.'); await loadDocumentos();
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+
+/* ---------- INDICAÇÕES ---------- */
+const STATUS_INDICACAO=[['enviada','Enviada'],['recebida_rh','Recebida'],['em_analise','Em análise'],['contato_realizado','Contato realizado'],['entrevista_agendada','Entrevista agendada'],['aprovado','Aprovado'],['reprovado','Reprovado'],['banco_talentos','Banco de talentos'],['contratado','Contratado']];
+async function loadIndicacoes(){
+  let q='indicacoes?select=*&order=criado_em.desc&limit=200';
+  if(!isRHStaff()) q += `&colaborador_id=eq.${S.user.id}`;
+  S.indicacoes = await sb(q); S.indicacoesLoaded = true;
+}
+function renderIndicacoes(){
+  return `${!isRHStaff()?`
+    <form class="card" onsubmit="event.preventDefault();enviarIndicacao(this);">
+      <div class="form-grid">
+        <div class="field"><label>Nome do indicado</label><input name="nome_indicado" required></div>
+        <div class="field"><label>Telefone</label><input name="telefone"></div>
+        <div class="field"><label>E-mail</label><input name="email" type="email"></div>
+        <div class="field"><label>Cidade</label><input name="cidade"></div>
+        <div class="field"><label>Cargo de interesse</label><input name="cargo_interesse"></div>
+        <div class="field"><label>CNH?</label>${chipGroup('cnh',[['sim','Sim'],['nao','Não']],'nao')}</div>
+        <div class="field field-span2"><label>Observação</label><input name="observacao"></div>
+      </div>
+      <div class="field" style="margin:10px 0;"><label>Currículo</label>${photoWidget('indicacao_curriculo')}</div>
+      <button class="btn btn-primary btn-block" ${S.loading?'disabled':''}>${S.loading?'Enviando…':'Indicar'}</button>
+    </form><div class="divider"></div>`:''}
+  <div class="section-header">${isRHStaff()?'Indicações recebidas':'Minhas indicações'}</div>
+  ${(S.indicacoes||[]).map(i=>`<div class="mcard"><div class="mc-top"><span>${esc(i.nome_indicado)}</span>${badge('andamento',(STATUS_INDICACAO.find(s=>s[0]===i.status)||[,i.status])[1])}</div>
+    <div class="mc-meta">${esc(i.cargo_interesse||'')}</div>
+    ${isRHStaff()?`<div class="mc-actions"><select onchange="mudarStatusIndicacao('${i.id}',this.value)">${opt(STATUS_INDICACAO,i.status)}</select></div>`:''}
+  </div>`).join('') || '<div class="empty-state">Nenhuma indicação.</div>'}`;
+}
+async function enviarIndicacao(form){
+  const fd = new FormData(form);
+  const files = window.pendingFiles['indicacao_curriculo']||[];
+  S.loading=true; render();
+  try{
+    let curriculoUrl=null;
+    if(files[0]) curriculoUrl = await uploadArquivo(files[0], `${Date.now()}_${files[0].name}`, 'curriculos');
+    const payload={colaborador_id:S.user.id, nome_indicado:fd.get('nome_indicado'), telefone:fd.get('telefone')||null, email:fd.get('email')||null,
+      cidade:fd.get('cidade')||null, cargo_interesse:fd.get('cargo_interesse')||null, cnh:fd.get('cnh')==='sim', observacao:fd.get('observacao')||null,
+      curriculo:curriculoUrl, status:'enviada'};
+    await sb('indicacoes',{method:'POST',body:payload});
+    clearPending('indicacao_curriculo'); toast('Indicação enviada.'); form.reset(); await loadIndicacoes();
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+async function mudarStatusIndicacao(id, status){
+  S.loading=true; render();
+  try{ await sb(`indicacoes?id=eq.${id}`,{method:'PATCH',body:{status, responsavel_selecao:S.user.id}}); toast('Status atualizado.'); await loadIndicacoes(); }
+  catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+
+function render(){
+  const app = document.getElementById('app');
+  if(!S.user){ app.innerHTML = renderLogin(); return; }
+  let body='';
+  if(S.view==='dashboard') body=renderDashboard();
+  else if(S.view==='lista') body=renderLista();
+  else if(S.view==='nova') body=renderNovaOS();
+  else if(S.view==='cadastros') body=renderCadastros();
+  else if(S.view==='checklists') body=renderChecklists();
+  else if(S.view==='veiculo_checkin') body=renderCheckinVeiculo();
+  else if(S.view==='financeiro') body=renderFinanceiro();
+  else if(S.view==='permissoes') body=renderPermissoes();
+  else if(S.view==='rh') body=renderRH();
+  else if(S.view==='detalhe') body=renderDetalheOS();
+  app.innerHTML = renderTopBar() + body + (S.loading?'<div class="spinner"></div>':'') + renderBottomNav();
+  if(S.view==='nova'){
+    const c = document.getElementById('itens-container');
+    if(c && c.children.length===0) addItemRow('itens-container');
+  }
+}
+window.addEventListener('error', function(ev){
+  const app = document.getElementById('app');
+  if(app) app.innerHTML = '<div style="padding:24px;font-family:sans-serif;color:#C0392B;"><b>Erro ao carregar o sistema.</b><br><br>'+esc(ev.message||String(ev.error))+'<br><br><span style="color:#5A5A5A;font-size:13px;">Verifique sua conexão com a internet e recarregue a página.</span></div>';
+});
+try{ render(); }
+catch(e){
+  document.getElementById('app').innerHTML = '<div style="padding:24px;font-family:sans-serif;color:#C0392B;"><b>Erro ao iniciar o sistema.</b><br><br>'+String(e.message||e)+'</div>';
+}
+</script>
+</body>
+</html>
