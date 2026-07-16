@@ -240,7 +240,7 @@ const STATUS_CLASS={criada:'andamento',programada:'andamento',enviada_equipe:'an
   aguardando_equipamento:'pendente',aguardando_liberacao_pista:'pendente',executada:'pendente',enviada_conferencia:'pendente',
   aprovada:'ok',reprovada:'critico',correcao_solicitada:'pendente',cancelada:'concluido'};
 const CRIT_CLASS={baixa:'concluido',media:'andamento',alta:'pendente',critica:'critico'};
-const PERFIL_LABELS={administrador:'Administrador',escritorio:'Escritório',coordenador:'Coordenador/Supervisor',equipe:'Equipe de Campo'};
+const PERFIL_LABELS={administrador:'Administrador',engenharia:'Engenharia',financeiro:'Financeiro',suprimentos:'Suprimentos',departamento_pessoal:'Departamento Pessoal',supervisor:'Supervisor',coordenador:'Coordenador',encarregado:'Encarregado'};
 
 const VEICULO_TIPOS=['Caminhão Operacional','Caminhão Carroceria','Caminhonete','Utilitário','Ônibus','Outro'];
 const EQUIPAMENTO_TIPOS=['Furadeira','Gerador','Compressor','Betoneira','Rompedor','Outro'];
@@ -391,9 +391,13 @@ function defaultPermissoes(perfil){
   if(perfil==='administrador') return {dashboard:true,os_lista:true,os_nova:true,cadastros_obras:true,cadastros_equipes:true,
     cadastros_usuarios:true,cadastros_veiculos:true,cadastros_equipamentos:true,checklists:true,permissoes:true,checkin_veiculo:true,
     financeiro:true,financeiro_geral:true};
-  if(perfil==='escritorio') return {...all,dashboard:true,os_nova:true,cadastros_veiculos:true,cadastros_equipamentos:true,checkin_veiculo:true,financeiro_geral:true};
+  if(perfil==='departamento_pessoal') return {...all,dashboard:true,os_nova:true,cadastros_usuarios:true,cadastros_veiculos:true,cadastros_equipamentos:true,checkin_veiculo:true,financeiro_geral:true};
+  if(perfil==='engenharia') return {...all,dashboard:true,os_nova:true,cadastros_obras:true,cadastros_equipes:true,checkin_veiculo:true};
+  if(perfil==='financeiro') return {...all,dashboard:true,financeiro_geral:true};
+  if(perfil==='suprimentos') return {...all,cadastros_veiculos:true,cadastros_equipamentos:true};
+  if(perfil==='supervisor') return {...all,dashboard:true,checkin_veiculo:true};
   if(perfil==='coordenador') return {...all,dashboard:true};
-  return {...all, checkin_veiculo:true}; // equipe (motorista)
+  return {...all, checkin_veiculo:true}; // encarregado (campo)
 }
 function canAccess(mod){ return !!(S.user && S.user.permissoes && S.user.permissoes[mod]); }
 
@@ -566,7 +570,8 @@ const S = {
   usuariosLoginLoaded:false, checklistsLoaded:false, veiculoUsosLoaded:false, minhasNotasLoaded:false, todasNotasLoaded:false,
   rhTab:'pessoas', pessoasSolicitacoes:[], pessoasSolicitacoesLoaded:false,
   atestados:[], atestadosLoaded:false, pontos:[], pontosLoaded:false, ajustesPonto:[],
-  documentos:[], documentosLoaded:false, indicacoes:[], indicacoesLoaded:false
+  documentos:[], documentosLoaded:false, indicacoes:[], indicacoesLoaded:false,
+  solicitacoesDocRH:[], minhasSolicitacoesDoc:[]
 };
 
 function usuMap(){ const m={}; S.usuarios.forEach(u=>m[u.id]=u); return m; }
@@ -2184,7 +2189,7 @@ function renderFinanceiroDetalhe(){
 /* ==========================================================
    MÓDULO PESSOAS / RH
    ========================================================== */
-function isRHStaff(){ return S.user && (S.user.perfil==='administrador'||S.user.perfil==='escritorio'); }
+function isRHStaff(){ return S.user && (S.user.perfil==='administrador'||S.user.perfil==='departamento_pessoal'); }
 function renderRH(){
   const tabs=[['pessoas','Meus Dados'],['atestados','Atestados'],['ponto','Ponto'],['documentos','Documentos'],['indicacoes','Indique um Amigo']];
   return `<div class="wrap">
@@ -2206,7 +2211,7 @@ function carregarRHTab(tab){
   if(tab==='pessoas'){ isRHStaff()? loadSolicitacoesCadastrais().then(done).catch(fail) : done(); }
   else if(tab==='atestados'){ loadAtestados().then(done).catch(fail); }
   else if(tab==='ponto'){ loadMeuPonto().then(done).catch(fail); }
-  else if(tab==='documentos'){ loadDocumentos().then(done).catch(fail); }
+  else if(tab==='documentos'){ Promise.all([loadDocumentos(), isRHStaff()?loadSolicitacoesDocumentosRH():loadMinhasSolicitacoesDocumentos()]).then(done).catch(fail); }
   else if(tab==='indicacoes'){ loadIndicacoes().then(done).catch(fail); }
   else done();
 }
@@ -2418,8 +2423,31 @@ async function loadDocumentos(){
 }
 function renderDocumentos(){
   const meus = (S.documentos||[]).filter(d=>d.usuario_id===S.user.id || d.destino==='todos' || (d.destino==='equipe'&&d.equipe_id===S.user.equipe_id) || (d.destino==='obra'&&d.obra_id===S.user.obra_id));
-  return `${isRHStaff()?`
+  if(isRHStaff()){
+    return `
+    <form class="card" onsubmit="event.preventDefault();criarSolicitacaoDocumentos(this);">
+      <div class="section-header" style="margin:0 0 8px;">Solicitar documentos a um colaborador</div>
+      <div class="form-grid">
+        <div class="field"><label>Colaborador</label><select name="usuario_id" required>${opt(S.usuarios.map(u=>[u.id,u.nome]),'')}</select></div>
+        <div class="field field-span2"><label>Título (opcional)</label><input name="titulo" placeholder="Ex: Documentos de admissão"></div>
+        <div class="field field-span2"><label>Observação geral (opcional)</label><input name="descricao_geral"></div>
+      </div>
+      <div class="field" style="margin:10px 0;"><label>Documentos solicitados — um por linha</label>
+        <textarea name="itens_lista" rows="4" required placeholder="RG&#10;Comprovante de residência&#10;Certidão de nascimento do dependente" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;font:inherit;"></textarea>
+      </div>
+      <button class="btn btn-primary btn-block" ${S.loading?'disabled':''}>${S.loading?'Enviando…':'Enviar solicitação'}</button>
+    </form>
+    <div class="divider"></div>
+    <div class="section-header">Solicitações enviadas</div>
+    <div class="table-scroll"><table class="mega-table">
+      <thead><tr><th>Colaborador</th><th>Título</th><th>Itens</th><th>Status</th></tr></thead>
+      <tbody>${(S.solicitacoesDocRH||[]).map(s=>`<tr><td>${esc(usuMap()[s.usuario_id]?.nome||'—')}</td><td>${esc(s.titulo||'—')}</td>
+        <td><ul style="margin:0 0 0 16px;padding:0;">${s.itens.map(i=>`<li>${esc(i.descricao)} — ${badge(i.status==='enviado'?'ok':'pendente',i.status)}${i.arquivo?` · <a href="${i.arquivo}" target="_blank">ver</a>`:''}</li>`).join('')}</ul></td>
+        <td>${badge(s.status==='concluida'?'ok':'pendente',s.status)}</td></tr>`).join('') || `<tr><td colspan="4" class="empty-state">Nenhuma solicitação enviada.</td></tr>`}
+      </tbody></table></div>
+    <div class="divider"></div>
     <form class="card" onsubmit="event.preventDefault();publicarDocumento(this);">
+      <div class="section-header" style="margin:0 0 8px;">Publicar documento (RH envia direto)</div>
       <div class="form-grid">
         <div class="field"><label>Destino</label>${chipGroup('destino',[['individual','Colaborador'],['equipe','Equipe'],['obra','Obra'],['todos','Todos']],'individual','selecionarDestinoDoc')}</div>
         <div class="field"><label>Colaborador (se individual)</label><select name="usuario_id">${opt(S.usuarios.map(u=>[u.id,u.nome]),'',true)}</select></div>
@@ -2431,13 +2459,33 @@ function renderDocumentos(){
       </div>
       <div class="field" style="margin:10px 0;"><label>Arquivo</label>${photoWidget('doc_arquivo')}</div>
       <button class="btn btn-primary btn-block" ${S.loading?'disabled':''}>${S.loading?'Publicando…':'Publicar documento'}</button>
-    </form><div class="divider"></div>`:''}
-  <div class="section-header">${isRHStaff()?'Documentos publicados':'Meus documentos'}</div>
+    </form>
+    <div class="divider"></div>
+    <div class="section-header">Documentos publicados</div>
+    <div class="table-scroll"><table class="mega-table">
+      <thead><tr><th>Título</th><th>Categoria</th><th>Publicado</th><th>Status</th></tr></thead>
+      <tbody>${S.documentos.map(d=>`<tr><td>${esc(d.titulo)}</td><td>${esc(d.categoria||'')}</td><td>${fmtDateOnly(d.publicado_em)}</td><td>${badge(d.status==='aceito'?'ok':d.status==='rejeitado'?'critico':'pendente',d.status)}</td></tr>`).join('') || `<tr><td colspan="4" class="empty-state">Nenhum documento.</td></tr>`}
+      </tbody></table></div>`;
+  }
+  return `${(S.minhasSolicitacoesDoc||[]).length?`
+    <div class="section-header">Documentos solicitados a mim</div>
+    ${S.minhasSolicitacoesDoc.map(s=>`<div class="card">
+      ${s.titulo?`<div><b>${esc(s.titulo)}</b></div>`:''}
+      ${s.descricao_geral?`<div class="muted">${esc(s.descricao_geral)}</div>`:''}
+      ${s.itens.map(i=>i.status==='pendente'?`
+        <div class="field" style="margin:12px 0;">
+          <label>${esc(i.descricao)}</label>
+          ${documentPickerWidget('solicit_item_'+i.id)}
+          <button class="btn btn-primary btn-sm" style="margin-top:6px;" onclick="enviarItemSolicitado('${i.id}','solicit_item_${i.id}')">Enviar este documento</button>
+        </div>`:`<div class="field"><label>${esc(i.descricao)}</label> ✅ Enviado</div>`).join('')}
+    </div>`).join('')}
+    <div class="divider"></div>`:''}
+  <div class="section-header">Meus documentos</div>
   <div class="table-scroll"><table class="mega-table">
     <thead><tr><th>Título</th><th>Categoria</th><th>Publicado</th><th>Status</th><th></th></tr></thead>
-    <tbody>${(isRHStaff()?S.documentos:meus).map(d=>`<tr><td>${esc(d.titulo)}</td><td>${esc(d.categoria||'')}</td><td>${fmtDateOnly(d.publicado_em)}</td>
+    <tbody>${meus.map(d=>`<tr><td>${esc(d.titulo)}</td><td>${esc(d.categoria||'')}</td><td>${fmtDateOnly(d.publicado_em)}</td>
       <td>${badge(d.status==='aceito'?'ok':d.status==='rejeitado'?'critico':'pendente',d.status)}</td>
-      <td>${!isRHStaff()&&d.exige_aceite&&!['aceito','rejeitado'].includes(d.status)?`<button class="btn btn-verde btn-sm" onclick="responderDocumento('${d.id}','aceito')">Aceitar</button>
+      <td>${d.exige_aceite&&!['aceito','rejeitado'].includes(d.status)?`<button class="btn btn-verde btn-sm" onclick="responderDocumento('${d.id}','aceito')">Aceitar</button>
         <button class="btn btn-vermelho btn-sm" onclick="responderDocumento('${d.id}','rejeitado')">Rejeitar</button>`:''}</td></tr>`).join('') || `<tr><td colspan="5" class="empty-state">Nenhum documento.</td></tr>`}
     </tbody></table></div>`;
 }
@@ -2517,6 +2565,60 @@ async function mudarStatusIndicacao(id, status){
   S.loading=true; render();
   try{ await sb(`indicacoes?id=eq.${id}`,{method:'PATCH',body:{status, responsavel_selecao:S.user.id}}); toast('Status atualizado.'); await loadIndicacoes(); }
   catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+
+/* ---------- WIDGET: foto OU buscar arquivo no aparelho ---------- */
+function documentPickerWidget(key){
+  if(!window.pendingFiles[key]) window.pendingFiles[key]=[];
+  return `<div class="photo-widget" id="pw-${key}">
+    <div id="pw-thumbs-${key}" style="display:contents;">${renderPwThumbs(key)}</div>
+    <button type="button" class="btn-add-photo" onclick="document.getElementById('pw-cam-${key}').click()">📷<span>Foto</span></button>
+    <button type="button" class="btn-add-photo" onclick="document.getElementById('pw-file-${key}').click()">📁<span>Buscar</span></button>
+    <input type="file" id="pw-cam-${key}" accept="image/*" capture="environment" style="display:none" onchange="onPhotoPicked('${key}',this)">
+    <input type="file" id="pw-file-${key}" accept="image/*,application/pdf" style="display:none" onchange="onPhotoPicked('${key}',this)">
+  </div>`;
+}
+
+/* ---------- SOLICITAÇÃO DE DOCUMENTOS (escritório/RH pede, colaborador envia) ---------- */
+async function loadSolicitacoesDocumentosRH(){
+  const cabs = await sb('solicitacoes_documentos?select=*&order=criado_em.desc&limit=100');
+  const itens = await sb('solicitacoes_documentos_itens?select=*&order=criado_em.asc');
+  S.solicitacoesDocRH = cabs.map(c=>({...c, itens: itens.filter(i=>i.solicitacao_id===c.id)}));
+}
+async function loadMinhasSolicitacoesDocumentos(){
+  const cabs = await sb(`solicitacoes_documentos?select=*&usuario_id=eq.${S.user.id}&status=eq.aberta&order=criado_em.desc`);
+  const itens = await sb('solicitacoes_documentos_itens?select=*&order=criado_em.asc');
+  S.minhasSolicitacoesDoc = cabs.map(c=>({...c, itens: itens.filter(i=>i.solicitacao_id===c.id)}));
+}
+async function criarSolicitacaoDocumentos(form){
+  const fd = new FormData(form);
+  const itens = (fd.get('itens_lista')||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  if(!itens.length){ toast('Informe ao menos um documento, um por linha.'); return; }
+  S.loading=true; render();
+  try{
+    const sol = await sb('solicitacoes_documentos',{method:'POST',prefer:'return=representation',body:{
+      solicitante_id:S.user.id, usuario_id:fd.get('usuario_id'), titulo:fd.get('titulo')||null, descricao_geral:fd.get('descricao_geral')||null, status:'aberta'}});
+    await sb('solicitacoes_documentos_itens',{method:'POST',body:itens.map(descricao=>({solicitacao_id:sol[0].id, descricao, status:'pendente'}))});
+    toast('Solicitação enviada.'); form.reset(); await loadSolicitacoesDocumentosRH();
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+async function enviarItemSolicitado(itemId, widgetKey){
+  const files = window.pendingFiles[widgetKey]||[];
+  if(!files[0]){ toast('Selecione o documento (foto ou arquivo) antes de enviar.'); return; }
+  S.loading=true; render();
+  try{
+    const url = await uploadArquivo(files[0], `${S.user.id}/${Date.now()}_${files[0].name}`, 'documentos-rh');
+    await sb(`solicitacoes_documentos_itens?id=eq.${itemId}`,{method:'PATCH',body:{status:'enviado', arquivo:url, enviado_em:new Date().toISOString()}});
+    clearPending(widgetKey);
+    const solicitacao = S.minhasSolicitacoesDoc.find(s=>s.itens.some(i=>i.id===itemId));
+    if(solicitacao){
+      const restantes = await sb(`solicitacoes_documentos_itens?solicitacao_id=eq.${solicitacao.id}&status=eq.pendente&select=id`);
+      if(!restantes.length){ await sb(`solicitacoes_documentos?id=eq.${solicitacao.id}`,{method:'PATCH',body:{status:'concluida'}}); }
+    }
+    toast('Documento enviado.'); await loadMinhasSolicitacoesDocumentos();
+  }catch(e){ toast('Erro: '+e.message); }
   S.loading=false; render();
 }
 
