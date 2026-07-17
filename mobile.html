@@ -409,11 +409,11 @@ function defaultPermissoes(perfil){
   const all = {dashboard:false,os_lista:true,os_nova:false,cadastros_obras:false,cadastros_equipes:false,cadastros_usuarios:false,
     cadastros_veiculos:false,cadastros_equipamentos:false,checklists:true,permissoes:false,checkin_veiculo:false,
     financeiro:true,financeiro_geral:false};
-  if(perfil==='administrador') return {dashboard:true,os_lista:true,os_nova:true,cadastros_obras:true,cadastros_equipes:true,suprimentos:true,
+  if(perfil==='administrador') return {dashboard:true,os_lista:true,os_nova:true,cadastros_obras:true,cadastros_equipes:true,suprimentos:true,dre_sinalizacao:true,
     cadastros_usuarios:true,cadastros_veiculos:true,cadastros_equipamentos:true,checklists:true,permissoes:true,checkin_veiculo:true,
     financeiro:true,financeiro_geral:true};
   if(perfil==='departamento_pessoal') return {...all,dashboard:true,os_nova:true,cadastros_usuarios:true,cadastros_veiculos:true,cadastros_equipamentos:true,checkin_veiculo:true,financeiro_geral:true};
-  if(perfil==='engenharia') return {...all,dashboard:true,os_nova:true,cadastros_obras:true,cadastros_equipes:true,checkin_veiculo:true};
+  if(perfil==='engenharia') return {...all,dashboard:true,os_nova:true,cadastros_obras:true,cadastros_equipes:true,checkin_veiculo:true,dre_sinalizacao:true};
   if(perfil==='financeiro') return {...all,dashboard:true,financeiro_geral:true};
   if(perfil==='suprimentos') return {...all,cadastros_veiculos:true,cadastros_equipamentos:true,suprimentos:true};
   if(perfil==='supervisor') return {...all,dashboard:true,checkin_veiculo:true};
@@ -473,7 +473,7 @@ function iconeItem(texto){
    ========================================================== */
 function chipGroup(name, list, selected, onSelectExtra){
   return `<div class="chip-group" data-field="${esc(name)}">
-    ${list.map(([v,l])=>`<button type="button" class="chip ${v===selected?'sel':''}" data-value="${esc(v)}" onclick="selectChip(this)${onSelectExtra?';'+onSelectExtra+'(this)':''}">${esc(l)}</button>`).join('')}
+    ${list.map(([v,l])=>`<button type="button" class="chip ${v===selected?'sel':''}" data-value="${esc(v)}" onclick="selectChip(this)${onSelectExtra?';'+onSelectExtra+'(this.dataset.value)':''}">${esc(l)}</button>`).join('')}
     <input type="hidden" name="${esc(name)}" value="${esc(selected||'')}">
   </div>`;
 }
@@ -594,7 +594,8 @@ const S = {
   documentos:[], documentosLoaded:false, indicacoes:[], indicacoesLoaded:false,
   solicitacoesDocRH:[], minhasSolicitacoesDoc:[],
   ddsScreen:'sorteio', ddsTemaAtual:null, ddsHistorico:[], ddsHistoricoLoaded:false,
-  suprimentosTab:'materiais', materiais:[], materiaisLoaded:false, movimentacoesMateriais:[], movimentacoesLoaded:false
+  suprimentosTab:'materiais', materiais:[], materiaisLoaded:false, movimentacoesMateriais:[], movimentacoesLoaded:false,
+  dreForm:{rod:'',trecho:'',kmi:'',kmf:'',tipoPintura:'mec_aut',basePintura:'solvente',temEixo:1,tipoEixo:'simples',largEixo:0.12,lEc:'',temBordo:1,largBordo:0.15,lBc:'',temTacha:0,cadE:12,cadB:12,tipoTE:'biamarel',tipoTB:'bobibranca'}, dreRes:null
 };
 
 function usuMap(){ const m={}; S.usuarios.forEach(u=>m[u.id]=u); return m; }
@@ -1358,6 +1359,7 @@ function renderMaisSheet(){
   if(canAccess('financeiro')) items.push(['financeiro','💰','Financeiro — Notas Fiscais']);
   if(canAccess('permissoes')) items.push(['permissoes','🔐','Permissões de Acesso']);
   if(canAccess('suprimentos')) items.push(['suprimentos','📦','Suprimentos']);
+  if(canAccess('dre_sinalizacao')) items.push(['dre_sinalizacao','🎨','DRE Sinalização Horizontal']);
   return `<div class="modal-overlay" onclick="if(event.target===this){S.showMais=false;render();}">
     <div class="modal-panel"><div class="modal-head"><b>Mais opções</b>
       <button class="btn-logout" onclick="S.showMais=false;render()">✕</button></div>
@@ -1373,6 +1375,7 @@ function irPara(destino){
   if(destino==='veiculo_checkin'){ S.view='veiculo_checkin'; S.veiculoUsoView='pendentes'; loadVeiculoUsos().then(render); return; }
   if(destino==='lista'){ S.view='lista'; loadOSList().then(render); return; }
   if(destino==='suprimentos'){ S.view='suprimentos'; carregarSuprimentosTab(S.suprimentosTab); return; }
+  if(destino==='dre_sinalizacao'){ S.view='dre_sinalizacao'; render(); return; }
   S.view=destino; render();
 }
 
@@ -2741,6 +2744,116 @@ function renderHistoricoMateriais(){
   </div>`; }).join('') || '<div class="empty-state">Nenhuma movimentação registrada.</div>'}`;
 }
 
+/* ==========================================================
+   DRE — SINALIZAÇÃO HORIZONTAL (calculadora de pintura)
+   ========================================================== */
+const DRE_LARG_OPTS=[[0.10,'0,10 m'],[0.12,'0,12 m'],[0.15,'0,15 m'],[0.20,'0,20 m'],[0.25,'0,25 m'],['custom','Outro']];
+const DRE_CAD_OPTS=[6,8,10,12,15,20,24].map(c=>[c,c+' m']);
+const DRE_PROCS={mec_aut:'Mecânica / Automática',manual:'Manual'};
+const DRE_BASES={solvente:'Solvente a Frio',agua:'Base Água a Frio',termoplastica:'Termoplástica a Quente'};
+function dreFmt(n,d=2){ return isNaN(n)?'—':Number(n).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d}); }
+function dreSet(field,val){
+  S.dreForm[field] = (val==='custom'||isNaN(parseFloat(val))||String(val).trim()==='')?val:parseFloat(val);
+  render();
+}
+function renderDreSinalizacao(){
+  const f=S.dreForm;
+  return `<div class="wrap">
+    <div class="section-header">📐 DRE — Sinalização Horizontal</div>
+    <form class="card" onsubmit="event.preventDefault();calcularDre();">
+      <div class="form-grid">
+        <div class="field"><label>Rodovia</label><input name="dre_rod" value="${esc(f.rod)}" oninput="S.dreForm.rod=this.value"></div>
+        <div class="field"><label>Trecho</label><input name="dre_trecho" value="${esc(f.trecho)}" oninput="S.dreForm.trecho=this.value"></div>
+        <div class="field"><label>KM inicial</label><input type="number" step="0.001" value="${esc(f.kmi)}" oninput="S.dreForm.kmi=this.value"></div>
+        <div class="field"><label>KM final</label><input type="number" step="0.001" value="${esc(f.kmf)}" oninput="S.dreForm.kmf=this.value"></div>
+      </div>
+      <div class="divider"></div>
+      <div class="field"><label>Processo de pintura</label>${chipGroup('dre_tipo_pintura',[['mec_aut','Mecânica/Automática'],['manual','Manual']],f.tipoPintura,"(v=>dreSet('tipoPintura',v))")}</div>
+      <div class="field"><label>Base da tinta</label>${chipGroup('dre_base_pintura',[['solvente','Solvente a Frio'],['agua','Base Água a Frio'],['termoplastica','Termoplástica a Quente']],f.basePintura,"(v=>dreSet('basePintura',v))")}</div>
+      <div class="divider"></div>
+      <div class="field"><label>Pintura de eixo?</label>${chipGroup('dre_tem_eixo',[[1,'Sim'],[0,'Não']],f.temEixo,"(v=>dreSet('temEixo',v))")}</div>
+      ${f.temEixo?`<div class="form-grid">
+        <div class="field"><label>Tipo de eixo</label>${chipGroup('dre_tipo_eixo',[['simples','Simples'],['duplo','Duplo']],f.tipoEixo,"(v=>dreSet('tipoEixo',v))")}</div>
+        <div class="field"><label>Largura do eixo</label>${chipGroup('dre_larg_eixo',DRE_LARG_OPTS,f.largEixo,"(v=>dreSet('largEixo',v))")}</div>
+        ${f.largEixo==='custom'?`<div class="field"><label>Largura eixo (m)</label><input type="number" step="0.01" value="${esc(f.lEc)}" oninput="S.dreForm.lEc=this.value"></div>`:''}
+      </div>`:''}
+      <div class="divider"></div>
+      <div class="field"><label>Pintura de bordo?</label>${chipGroup('dre_tem_bordo',[[1,'Sim'],[0,'Não']],f.temBordo,"(v=>dreSet('temBordo',v))")}</div>
+      ${f.temBordo?`<div class="form-grid">
+        <div class="field"><label>Largura do bordo</label>${chipGroup('dre_larg_bordo',DRE_LARG_OPTS,f.largBordo,"(v=>dreSet('largBordo',v))")}</div>
+        ${f.largBordo==='custom'?`<div class="field"><label>Largura bordo (m)</label><input type="number" step="0.01" value="${esc(f.lBc)}" oninput="S.dreForm.lBc=this.value"></div>`:''}
+      </div>`:''}
+      <div class="divider"></div>
+      <div class="field"><label>Aplicação de tachas?</label>${chipGroup('dre_tem_tacha',[[1,'Sim'],[0,'Não']],f.temTacha,"(v=>dreSet('temTacha',v))")}</div>
+      ${f.temTacha?`<div class="form-grid">
+        ${f.temEixo?`<div class="field"><label>Cadência eixo</label>${chipGroup('dre_cad_e',DRE_CAD_OPTS,f.cadE,"(v=>dreSet('cadE',v))")}</div>
+        <div class="field"><label>Tacha do eixo</label>${chipGroup('dre_tte',[['biamarel','Bi-Amarela'],['bobibranca','Bo-Bi Branca']],f.tipoTE,"(v=>dreSet('tipoTE',v))")}</div>`:''}
+        ${f.temBordo?`<div class="field"><label>Cadência bordo</label>${chipGroup('dre_cad_b',DRE_CAD_OPTS,f.cadB,"(v=>dreSet('cadB',v))")}</div>
+        <div class="field"><label>Tacha do bordo</label>${chipGroup('dre_ttb',[['biamarel','Bi-Amarela'],['bobibranca','Bo-Bi Branca']],f.tipoTB,"(v=>dreSet('tipoTB',v))")}</div>`:''}
+      </div>`:''}
+      <button class="btn btn-primary btn-block" style="margin-top:14px;" ${S.loading?'disabled':''}>${S.loading?'Calculando…':'⚡ Calcular'}</button>
+    </form>
+    ${S.dreRes?renderDreResultado():''}
+  </div>`;
+}
+function calcularDre(){
+  const f=S.dreForm;
+  const ki=parseFloat(f.kmi), kf=parseFloat(f.kmf);
+  if(isNaN(ki)||isNaN(kf)||kf<=ki){ toast('KM Final deve ser maior que KM Inicial.'); return; }
+  const dk=kf-ki, dm=dk*1000;
+  const lE=f.largEixo==='custom'?(parseFloat(f.lEc)||0):parseFloat(f.largEixo);
+  const lB=f.largBordo==='custom'?(parseFloat(f.lBc)||0):parseFloat(f.largBordo);
+  const aE=f.temEixo?dm*lE*(f.tipoEixo==='duplo'?2:1):0;
+  const aB=f.temBordo?dm*lB*2:0;
+  const aT=aE+aB;
+  const lit=aT/35, e2a=aT*250, e2c=aT*150;
+  const cadE=f.cadE||12, cadB=f.cadB||12;
+  const qtE=f.temTacha&&f.temEixo?Math.ceil(dm/cadE):0;
+  const qtB=f.temTacha&&f.temBordo?Math.ceil(dm/cadB)*2:0;
+  const cola=(qtE+qtB)*100;
+  const metaPint=f.tipoPintura==='mec_aut'?2500:250;
+  const diasP=aT/metaPint;
+  const diasT=f.temTacha&&(qtE+qtB)>0?(qtE+qtB)/800:0;
+  S.dreRes={dk,dm,aE,aB,aT,lit,e2a,e2c,qtE,qtB,cola,lE,lB,metaPint,diasP,diasT};
+  salvarDre();
+  render();
+}
+async function salvarDre(){
+  const f=S.dreForm, r=S.dreRes;
+  try{
+    await sb('dre_sinalizacao',{method:'POST',body:{
+      rodovia:f.rod||null, trecho:f.trecho||null, km_inicial:parseFloat(f.kmi), km_final:parseFloat(f.kmf),
+      tipo_pintura:f.tipoPintura, base_pintura:f.basePintura, tem_eixo:!!f.temEixo, tipo_eixo:f.tipoEixo, larg_eixo:r.lE,
+      tem_bordo:!!f.temBordo, larg_bordo:r.lB, tem_tacha:!!f.temTacha, cad_eixo:f.cadE, cad_bordo:f.cadB,
+      tipo_tacha_eixo:f.tipoTE, tipo_tacha_bordo:f.tipoTB, resultado:r, usuario_id:S.user.id}});
+  }catch(e){ /* silencioso - resultado já está na tela */ }
+}
+function renderDreResultado(){
+  const f=S.dreForm, r=S.dreRes;
+  const tipoTachaLabel=v=>v==='biamarel'?'Bi-Amarela':'Bo-Bi Branca';
+  return `<div class="card" style="margin-top:14px;">
+    <div class="section-header" style="margin:0 0 8px;">Resultado</div>
+    <div class="muted">${esc(f.rod||'—')} · ${esc(f.trecho||'—')} · KM ${dreFmt(parseFloat(f.kmi),3)} → ${dreFmt(parseFloat(f.kmf),3)} (${dreFmt(r.dk,3)} km)</div>
+    <div class="flex-row" style="gap:10px;flex-wrap:wrap;margin:10px 0;">
+      ${[['ÁREA TOTAL',dreFmt(r.aT,0),'m²'],['EXTENSÃO',dreFmt(r.dm,0),'m'],f.temEixo?['EIXO',dreFmt(r.aE,0),'m²']:null,f.temBordo?['BORDO E+D',dreFmt(r.aB,0),'m²']:null].filter(Boolean)
+        .map(([l,v,u])=>`<div style="background:var(--mega-cinza-bg);border-radius:8px;padding:8px 12px;min-width:100px;"><div style="font-size:10px;color:var(--mega-cinza-sub);">${l}</div><div style="font-weight:700;font-size:18px;">${v}</div><div style="font-size:10px;color:var(--mega-cinza-sub);">${u}</div></div>`).join('')}
+    </div>
+    <div class="divider"></div>
+    <div class="section-header" style="margin:0 0 6px;font-size:14px;">Materiais</div>
+    <div>Tinta (rend. 35 m²/L): <b>${dreFmt(r.lit,1)} L</b></div>
+    <div>Microesfera IIA (250 g/m²): <b>${dreFmt(r.e2a/1000,2)} kg</b></div>
+    <div>Microesfera IIC (150 g/m²): <b>${dreFmt(r.e2c/1000,2)} kg</b></div>
+    ${f.temTacha?`<div>Tachas Eixo (${tipoTachaLabel(f.tipoTE)}): <b>${dreFmt(r.qtE,0)} un</b></div>
+      <div>Tachas Bordo (${tipoTachaLabel(f.tipoTB)}): <b>${dreFmt(r.qtB,0)} un</b></div>
+      <div>Cola (100g/tacha): <b>${dreFmt(r.cola/1000,2)} kg</b></div>`:''}
+    <div class="divider"></div>
+    <div class="section-header" style="margin:0 0 6px;font-size:14px;">Prazo</div>
+    <div>Processo: <b>${DRE_PROCS[f.tipoPintura]}</b> · Meta: <b>${dreFmt(r.metaPint,0)} m²/dia</b></div>
+    <div>Prazo pintura: <b>${dreFmt(r.diasP,1)} dias</b></div>
+    ${f.temTacha&&r.diasT>0?`<div>Prazo tachas: <b>${dreFmt(r.diasT,1)} dias</b></div>`:''}
+  </div>`;
+}
+
 function render(){
   const app = document.getElementById('app');
   if(!S.user){ app.innerHTML = renderLogin(); return; }
@@ -2756,6 +2869,7 @@ function render(){
   else if(S.view==='rh') body=renderRH();
   else if(S.view==='dds') body=renderDDS();
   else if(S.view==='suprimentos') body=renderSuprimentos();
+  else if(S.view==='dre_sinalizacao') body=renderDreSinalizacao();
   else if(S.view==='detalhe') body=renderDetalheOS();
   app.innerHTML = renderTopBar() + body + (S.loading?'<div class="spinner"></div>':'') + renderBottomNav();
   if(S.view==='nova'){
