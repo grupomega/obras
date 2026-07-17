@@ -423,13 +423,13 @@ function defaultPermissoes(perfil){
   const all = {dashboard:false,os_lista:true,os_nova:false,cadastros_obras:false,cadastros_equipes:false,cadastros_usuarios:false,
     cadastros_veiculos:false,cadastros_equipamentos:false,checklists:true,permissoes:false,checkin_veiculo:false,
     financeiro:true,financeiro_geral:false};
-  if(perfil==='administrador') return {dashboard:true,os_lista:true,os_nova:true,cadastros_obras:true,cadastros_equipes:true,
+  if(perfil==='administrador') return {dashboard:true,os_lista:true,os_nova:true,cadastros_obras:true,cadastros_equipes:true,suprimentos:true,
     cadastros_usuarios:true,cadastros_veiculos:true,cadastros_equipamentos:true,checklists:true,permissoes:true,checkin_veiculo:true,
     financeiro:true,financeiro_geral:true};
   if(perfil==='departamento_pessoal') return {...all,dashboard:true,os_nova:true,cadastros_usuarios:true,cadastros_veiculos:true,cadastros_equipamentos:true,checkin_veiculo:true,financeiro_geral:true};
   if(perfil==='engenharia') return {...all,dashboard:true,os_nova:true,cadastros_obras:true,cadastros_equipes:true,checkin_veiculo:true};
   if(perfil==='financeiro') return {...all,dashboard:true,financeiro_geral:true};
-  if(perfil==='suprimentos') return {...all,cadastros_veiculos:true,cadastros_equipamentos:true};
+  if(perfil==='suprimentos') return {...all,cadastros_veiculos:true,cadastros_equipamentos:true,suprimentos:true};
   if(perfil==='supervisor') return {...all,dashboard:true,checkin_veiculo:true};
   if(perfil==='coordenador') return {...all,dashboard:true};
   return {...all, checkin_veiculo:true}; // encarregado (campo)
@@ -607,7 +607,8 @@ const S = {
   atestados:[], atestadosLoaded:false, pontos:[], pontosLoaded:false, ajustesPonto:[],
   documentos:[], documentosLoaded:false, indicacoes:[], indicacoesLoaded:false,
   solicitacoesDocRH:[], minhasSolicitacoesDoc:[],
-  ddsScreen:'sorteio', ddsTemaAtual:null, ddsHistorico:[], ddsHistoricoLoaded:false
+  ddsScreen:'sorteio', ddsTemaAtual:null, ddsHistorico:[], ddsHistoricoLoaded:false,
+  suprimentosTab:'materiais', materiais:[], materiaisLoaded:false, movimentacoesMateriais:[], movimentacoesLoaded:false
 };
 
 function usuMap(){ const m={}; S.usuarios.forEach(u=>m[u.id]=u); return m; }
@@ -1333,6 +1334,7 @@ function renderHeader(){
   if(canAccess('permissoes')) tabs.push(['permissoes','Permissões']);
   tabs.push(['rh','Pessoas / RH']);
   tabs.push(['dds','🦺 Segurança']);
+  if(canAccess('suprimentos')) tabs.push(['suprimentos','📦 Suprimentos']);
   return `
   <div class="app-header">
     <div style="display:flex;align-items:center;gap:10px;"><img src="${MEGA_LOGO_URL}" alt="Grupo MEGA" style="height:28px;"><span class="sub">DESKTOP</span></div>
@@ -1344,7 +1346,7 @@ function renderHeader(){
   </div>
   ${S.showNotif?renderNotifDropdown():''}
   <div class="app-nav">
-    ${tabs.map(([k,l])=>`<button class="${S.view===k?'active':''}" onclick="${k==='lista'?"S.view='lista';loadOSList().then(render);":k==='veiculo_checkin'?"S.view='veiculo_checkin';S.veiculoUsoView='pendentes';loadVeiculoUsos().then(render);":k==='rh'?"carregarRHTab(S.rhTab);":"S.view='"+k+"';render();"}">${l}</button>`).join('')}
+    ${tabs.map(([k,l])=>`<button class="${S.view===k?'active':''}" onclick="${k==='lista'?"S.view='lista';loadOSList().then(render);":k==='veiculo_checkin'?"S.view='veiculo_checkin';S.veiculoUsoView='pendentes';loadVeiculoUsos().then(render);":k==='rh'?"carregarRHTab(S.rhTab);":k==='suprimentos'?"carregarSuprimentosTab(S.suprimentosTab);":"S.view='"+k+"';render();"}">${l}</button>`).join('')}
   </div>`;
 }
 function renderNotifDropdown(){
@@ -2749,6 +2751,107 @@ function renderDDSHistorico(){
   </div>`;
 }
 
+/* ==========================================================
+   MÓDULO SUPRIMENTOS — Cadastro de Materiais + Movimentação de Estoque
+   ========================================================== */
+function carregarSuprimentosTab(tab){
+  S.view='suprimentos'; S.suprimentosTab=tab; S.loading=true; render();
+  const done=()=>{ S.loading=false; render(); };
+  const fail=e=>{ toast('Erro: '+e.message); done(); };
+  if(tab==='materiais') loadMateriais().then(done).catch(fail);
+  else if(tab==='movimentar') loadMateriais().then(done).catch(fail);
+  else if(tab==='historico') Promise.all([loadMateriais(), loadMovimentacoesMateriais()]).then(done).catch(fail);
+  else done();
+}
+async function loadMateriais(){
+  S.materiais = await sb('materiais?select=*&order=item.asc&limit=500'); S.materiaisLoaded=true;
+}
+async function loadMovimentacoesMateriais(){
+  S.movimentacoesMateriais = await sb('movimentacoes_materiais?select=*&order=criado_em.desc&limit=200'); S.movimentacoesLoaded=true;
+}
+function matMap(){ const m={}; (S.materiais||[]).forEach(x=>m[x.id]=x); return m; }
+function renderSuprimentos(){
+  const tabs=[['materiais','Cadastro de Materiais'],['movimentar','Movimentar Estoque'],['historico','Histórico']];
+  return `<div class="wrap">
+    <div class="section-header">📦 Suprimentos</div>
+    <div class="flex-row" style="margin-bottom:12px;gap:6px;">
+      ${tabs.map(([k,l])=>`<button class="btn ${S.suprimentosTab===k?'btn-primary':'btn-secondary'} btn-sm" onclick="carregarSuprimentosTab('${k}')">${l}</button>`).join('')}
+    </div>
+    ${S.suprimentosTab==='materiais'?renderMateriais():''}
+    ${S.suprimentosTab==='movimentar'?renderMovimentarEstoque():''}
+    ${S.suprimentosTab==='historico'?renderHistoricoMateriais():''}
+  </div>`;
+}
+function renderMateriais(){
+  return `
+  <form class="card" onsubmit="event.preventDefault();cadastrarMaterial(this);">
+    <div class="section-header" style="margin:0 0 8px;">Novo material</div>
+    <div class="form-grid">
+      <div class="field field-span2"><label>Item</label><input name="item" required></div>
+      <div class="field field-span2"><label>Descrição</label><input name="descricao"></div>
+      <div class="field"><label>Unidade</label>${chipGroup('unidade',[['un','Un'],['litro','Litro'],['kg','Kg'],['caixa','Caixa'],['pacote','Pacote'],['balde','Balde'],['metro','Metro'],['m2','m²'],['m3','m³']],'un')}</div>
+      <div class="field"><label>Estoque inicial</label><input type="number" name="estoque_inicial" value="0" min="0" step="0.01"></div>
+      <div class="field"><label>Estoque mínimo</label><input type="number" name="estoque_minimo" min="0" step="0.01"></div>
+    </div>
+    <button class="btn btn-primary btn-block" ${S.loading?'disabled':''}>${S.loading?'Salvando…':'Cadastrar material'}</button>
+  </form>
+  <div class="divider"></div>
+  <div class="section-header">Materiais cadastrados</div>
+  <div class="table-scroll"><table class="mega-table">
+    <thead><tr><th>Item</th><th>Descrição</th><th>Unidade</th><th>Estoque atual</th></tr></thead>
+    <tbody>${(S.materiais||[]).map(m=>`<tr><td>${esc(m.item)}</td><td>${esc(m.descricao||'')}</td><td>${esc(m.unidade||'')}</td>
+      <td>${badge(m.estoque_minimo!=null&&m.estoque_atual<m.estoque_minimo?'critico':'ok',m.estoque_atual)}</td></tr>`).join('') || `<tr><td colspan="4" class="empty-state">Nenhum material cadastrado.</td></tr>`}
+    </tbody></table></div>`;
+}
+async function cadastrarMaterial(form){
+  const fd = new FormData(form);
+  S.loading=true; render();
+  try{
+    await sb('materiais',{method:'POST',body:{item:fd.get('item'), descricao:fd.get('descricao')||null, unidade:fd.get('unidade')||null,
+      estoque_atual:parseFloat(fd.get('estoque_inicial')||0), estoque_minimo:fd.get('estoque_minimo')?parseFloat(fd.get('estoque_minimo')):null, criado_por:S.user.id}});
+    toast('Material cadastrado.'); form.reset(); await loadMateriais();
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+let __tipoMovSel='entrada';
+function selecionarTipoMov(v){ __tipoMovSel=v; render(); }
+function renderMovimentarEstoque(){
+  return `
+  <form class="card" onsubmit="event.preventDefault();registrarMovimentacaoMaterial(this);">
+    <div class="field"><label>Tipo</label>${chipGroup('tipo_mov',[['entrada','Entrada'],['saida','Saída / Retirada']],'entrada','selecionarTipoMov')}</div>
+    <div class="form-grid">
+      <div class="field field-span2"><label>Material</label><select name="material_id" required>${opt((S.materiais||[]).map(m=>[m.id,`${m.item} (estoque: ${m.estoque_atual} ${m.unidade||''})`]),'')}</select></div>
+      <div class="field"><label>Quantidade</label><input type="number" name="quantidade" min="0.01" step="0.01" required></div>
+      <div class="field"><label>Obra</label><select name="obra_id">${opt(S.obras.map(o=>[o.id,o.nome]),'',true)}</select></div>
+      ${__tipoMovSel==='saida'?`<div class="field field-span2"><label>Retirado por (portador)</label><select name="portador_id">${opt(S.usuarios.map(u=>[u.id,u.nome]),'',true)}</select></div>`:''}
+      <div class="field field-span2"><label>Observação</label><input name="observacao"></div>
+    </div>
+    <button class="btn btn-primary btn-block" ${S.loading?'disabled':''}>${S.loading?'Registrando…':__tipoMovSel==='entrada'?'Registrar entrada':'Registrar saída / retirada'}</button>
+  </form>`;
+}
+async function registrarMovimentacaoMaterial(form){
+  const fd = new FormData(form);
+  const qtd = parseFloat(fd.get('quantidade'));
+  const mat = matMap()[fd.get('material_id')];
+  if(__tipoMovSel==='saida' && mat && qtd>mat.estoque_atual){ if(!confirm(`Estoque atual é ${mat.estoque_atual}. Confirmar saída de ${qtd} mesmo assim (ficará negativo)?`)) return; }
+  S.loading=true; render();
+  try{
+    await sb('movimentacoes_materiais',{method:'POST',body:{material_id:fd.get('material_id'), tipo:__tipoMovSel, quantidade:qtd,
+      obra_id:fd.get('obra_id')||null, portador_id:__tipoMovSel==='saida'?(fd.get('portador_id')||null):null, usuario_id:S.user.id, observacao:fd.get('observacao')||null}});
+    toast('Movimentação registrada.'); form.reset(); __tipoMovSel='entrada'; await loadMateriais();
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+function renderHistoricoMateriais(){
+  return `<div class="section-header">Histórico de movimentações</div>
+  <div class="table-scroll"><table class="mega-table">
+    <thead><tr><th>Material</th><th>Tipo</th><th>Qtd</th><th>Data</th><th>Portador</th><th>Obs</th></tr></thead>
+    <tbody>${(S.movimentacoesMateriais||[]).map(mv=>{ const m=matMap()[mv.material_id];
+      return `<tr><td>${esc(m?.item||'—')}</td><td>${badge(mv.tipo==='entrada'?'ok':'pendente',mv.tipo)}</td><td>${mv.quantidade}</td><td>${fmtDate(mv.criado_em)}</td>
+        <td>${esc(usuMap()[mv.portador_id]?.nome||'—')}</td><td>${esc(mv.observacao||'')}</td></tr>`; }).join('') || `<tr><td colspan="6" class="empty-state">Nenhuma movimentação registrada.</td></tr>`}
+    </tbody></table></div>`;
+}
+
 function render(){
   const app = document.getElementById('app');
   if(!S.user){ app.innerHTML = renderLogin(); return; }
@@ -2763,6 +2866,7 @@ function render(){
   else if(S.view==='permissoes') body=renderPermissoes();
   else if(S.view==='rh') body=renderRH();
   else if(S.view==='dds') body=renderDDS();
+  else if(S.view==='suprimentos') body=renderSuprimentos();
   else if(S.view==='detalhe') body=renderDetalheOS();
   app.innerHTML = renderHeader() + body + (S.loading?'<div class="spinner"></div>':'');
   if(S.view==='nova'){
