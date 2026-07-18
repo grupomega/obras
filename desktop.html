@@ -600,6 +600,7 @@ const S = {
   osList:[], osFilters:{obra:'',equipe:'',status:'',criticidade:'',busca:'',ordenar:'criticidade'},
   currentOS:null, currentItens:[], currentFotos:[], currentRetorno:null, currentMedicoes:[], currentImpedimentos:[], currentHistorico:[], currentComentarios:[],
   lightboxUrl:null, notificacoes:[], showNotif:false, showAddItem:false, editingOS:false,
+  alertasResumo:{mensagens:0, documentos:0, osNovas:0},
   cadastroTab:'obras', editObra:null, editEquipe:null, editUsuario:null, editVeiculo:null, editEquipamento:null,
   checklistTipo:'veiculo_seta_luminosa', checklistView:'novo', checklists:[], currentChecklist:null, currentChecklistItens:[],
   editPermUserId:null,
@@ -615,6 +616,8 @@ const S = {
   dreForm:{rod:'',trecho:'',kmi:'',kmf:'',tipoPintura:'mec_aut',basePintura:'solvente',temEixo:1,tipoEixo:'simples',largEixo:0.12,lEc:'',temBordo:1,largBordo:0.15,lBc:'',temTacha:0,cadE:12,cadB:12,tipoTE:'biamarel',tipoTB:'bobibranca'}, dreRes:null,
   epiTab:'entrega', epis:[], episLoaded:false, epiMatriz:[], epiEstoque:[], epiMovimentacoes:[], epiColaboradorSel:null,
   avisos:[], avisosLoaded:false, avisosLidos:[], avisosEnviados:[], avisoExpandido:null, novoAvisoDestino:'individual',
+  historicoTipo:'colaborador', historicoEntidadeId:null, historicoEventos:[],
+  rdoTipo:'horizontal', rdoView:'novo', rdoList:[], rdoListLoaded:false, rdoMaoObra:[], rdoEquipVeic:[], rdoMateriais:[], rdoSuportes:[], rdoProducao:[],
   dashGeral:null, buscaUsuarios:''
 };
 
@@ -652,7 +655,7 @@ async function loadNotificacoes(){
 }
 async function loadOSList(){
   let q = 'ordens_servico?select=*&order=criado_em.desc&limit=500';
-  if(S.user.perfil==='equipe'){ q += `&equipe_id=eq.${S.user.equipe_id}`; }
+  if(S.user.perfil==='encarregado'){ q += `&equipe_id=eq.${S.user.equipe_id}`; }
   if(S.user.obras_acesso && S.user.obras_acesso.length>0){ q += `&obra_id=in.(${S.user.obras_acesso.join(',')})`; }
   S.osList = await sb(q);
 }
@@ -714,6 +717,7 @@ async function doLogin(){
       S.equipamentos = S.equipamentos.filter(e=>!e.obra_id || permitidas.has(e.obra_id));
     }
     await loadNotificacoes();
+    await carregarAlertasResumo();
     await loadOSList();
     S.view = canAccess('dashboard') ? 'dashboard' : 'lista';
     S.pin=''; S.loginSel=null; S.loginUsuarioEncontrado=null; S.loginMatricula='';
@@ -938,8 +942,9 @@ async function excluirObra(id){
 async function criarEquipe(form){
   const fd=new FormData(form);
   const payload={nome:fd.get('nome'),codigo:fd.get('codigo')||null,encarregado_id:fd.get('encarregado_id')||null,
-    supervisor_id:fd.get('supervisor_id')||null,veiculo:fd.get('veiculo')||null,equipamento:fd.get('equipamento')||null,
-    obra_id:fd.get('obra_id')||null,telefone:fd.get('telefone')||null};
+    supervisor_id:fd.get('supervisor_id')||null,tipo_servico:fd.get('tipo_servico')||null,
+    obra_id:fd.get('obra_id')||null,telefone:fd.get('telefone')||null,
+    custo_mensal:fd.get('custo_mensal')?parseFloat(fd.get('custo_mensal')):null, custo_diario:fd.get('custo_diario')?parseFloat(fd.get('custo_diario')):null, custo_hora:fd.get('custo_hora')?parseFloat(fd.get('custo_hora')):null};
   try{ await sb('equipes',{method:'POST',body:payload}); toast('Equipe cadastrada.'); await loadBaseData(); form.reset(); render(); }
   catch(e){ toast('Erro: '+e.message); }
 }
@@ -948,8 +953,9 @@ function cancelarEdicaoEquipe(){ S.editEquipe=null; render(); }
 async function salvarEdicaoEquipe(form){
   const fd=new FormData(form);
   const payload={nome:fd.get('nome'),codigo:fd.get('codigo')||null,encarregado_id:fd.get('encarregado_id')||null,
-    supervisor_id:fd.get('supervisor_id')||null,veiculo:fd.get('veiculo')||null,equipamento:fd.get('equipamento')||null,
-    obra_id:fd.get('obra_id')||null,telefone:fd.get('telefone')||null};
+    supervisor_id:fd.get('supervisor_id')||null,tipo_servico:fd.get('tipo_servico')||null,
+    obra_id:fd.get('obra_id')||null,telefone:fd.get('telefone')||null,
+    custo_mensal:fd.get('custo_mensal')?parseFloat(fd.get('custo_mensal')):null, custo_diario:fd.get('custo_diario')?parseFloat(fd.get('custo_diario')):null, custo_hora:fd.get('custo_hora')?parseFloat(fd.get('custo_hora')):null};
   try{ await sb(`equipes?id=eq.${S.editEquipe.id}`,{method:'PATCH',body:payload}); toast('Equipe atualizada.'); S.editEquipe=null; await loadBaseData(); }
   catch(e){ toast('Erro: '+e.message); }
   render();
@@ -969,7 +975,7 @@ async function criarUsuario(form){
   if(fotoFiles[0]){ fotoUrl = await uploadArquivo(fotoFiles[0], `${Date.now()}_${fotoFiles[0].name}`, 'colaboradores'); }
   const payload={codigo:fd.get('codigo')||null, foto:fotoUrl, nome:fd.get('nome'),cpf:fd.get('cpf')||null,cargo:fd.get('cargo')||null,email:fd.get('email')||null,
     telefone:fd.get('telefone')||null,perfil,equipe_id:fd.get('equipe_id')||null,obra_id:fd.get('obra_id')||null,
-    plataforma_acesso:fd.get('plataforma_acesso')||'ambos', obras_acesso:fd.getAll('obras_acesso')};
+    plataforma_acesso:fd.get('plataforma_acesso')||'ambos', obras_acesso:fd.getAll('obras_acesso'), custo_mensal:fd.get('custo_mensal')?parseFloat(fd.get('custo_mensal')):null, custo_diario:fd.get('custo_diario')?parseFloat(fd.get('custo_diario')):null, custo_hora:fd.get('custo_hora')?parseFloat(fd.get('custo_hora')):null};
   try{
     const created = await sb('usuarios?select=id',{method:'POST',body:payload,prefer:'return=representation'});
     await sb(`usuarios?id=eq.${created[0].id}`,{method:'PATCH',body:{permissoes:defaultPermissoes(perfil)}});
@@ -985,7 +991,7 @@ async function salvarEdicaoUsuario(form){
   if(fotoFiles[0]){ fotoUrl = await uploadArquivo(fotoFiles[0], `${S.editUsuario.id}_${Date.now()}_${fotoFiles[0].name}`, 'colaboradores'); }
   const payload={codigo:fd.get('codigo')||null, foto:fotoUrl, nome:fd.get('nome'),cpf:fd.get('cpf')||null,cargo:fd.get('cargo')||null,email:fd.get('email')||null,
     telefone:fd.get('telefone')||null,perfil:fd.get('perfil'),equipe_id:fd.get('equipe_id')||null,obra_id:fd.get('obra_id')||null,
-    status:fd.get('status')||'ativo', plataforma_acesso:fd.get('plataforma_acesso')||'ambos', obras_acesso:fd.getAll('obras_acesso')};
+    status:fd.get('status')||'ativo', plataforma_acesso:fd.get('plataforma_acesso')||'ambos', obras_acesso:fd.getAll('obras_acesso'), custo_mensal:fd.get('custo_mensal')?parseFloat(fd.get('custo_mensal')):null, custo_diario:fd.get('custo_diario')?parseFloat(fd.get('custo_diario')):null, custo_hora:fd.get('custo_hora')?parseFloat(fd.get('custo_hora')):null};
   try{ await sb(`usuarios?id=eq.${S.editUsuario.id}`,{method:'PATCH',body:payload}); toast('Usuário atualizado.'); clearPending('usuario_foto'); S.editUsuario=null; await loadBaseData(); }
   catch(e){ toast('Erro: '+e.message); }
   render();
@@ -1015,20 +1021,26 @@ async function marcarNotificacoesLidas(){
 /* VEÍCULOS */
 async function criarVeiculo(form){
   const fd=new FormData(form);
-  const payload={placa:fd.get('placa')||null,codigo_ativo:fd.get('codigo_ativo')||null,tipo:fd.get('tipo')||null,
+  let fotoUrl=null; const ff=window.pendingFiles['veiculo_foto']||[];
+  if(ff[0]){ fotoUrl = await uploadArquivo(ff[0], `${Date.now()}_${ff[0].name}`, 'veiculos'); }
+  const payload={foto:fotoUrl, placa:fd.get('placa')||null,codigo_ativo:fd.get('codigo_ativo')||null,tipo:fd.get('tipo')||null,
     marca:fd.get('marca')||null,modelo:fd.get('modelo')||null,ano:fd.get('ano')||null,
-    empresa_subcontratada:fd.get('empresa_subcontratada')||null,obra_id:fd.get('obra_id')||null};
-  try{ await sb('veiculos',{method:'POST',body:payload}); toast('Veículo cadastrado.'); await loadBaseData(); form.reset(); render(); }
+    empresa_subcontratada:fd.get('empresa_subcontratada')||null,obra_id:fd.get('obra_id')||null,equipe_id:fd.get('equipe_id')||null,
+    custo_mensal:fd.get('custo_mensal')?parseFloat(fd.get('custo_mensal')):null, custo_diario:fd.get('custo_diario')?parseFloat(fd.get('custo_diario')):null, custo_hora:fd.get('custo_hora')?parseFloat(fd.get('custo_hora')):null};
+  try{ await sb('veiculos',{method:'POST',body:payload}); toast('Veículo cadastrado.'); clearPending('veiculo_foto'); await loadBaseData(); form.reset(); render(); }
   catch(e){ toast('Erro: '+e.message); }
 }
 function iniciarEdicaoVeiculo(id){ S.editVeiculo = {...S.veiculos.find(v=>v.id===id)}; render(); }
 function cancelarEdicaoVeiculo(){ S.editVeiculo=null; render(); }
 async function salvarEdicaoVeiculo(form){
   const fd=new FormData(form);
-  const payload={placa:fd.get('placa')||null,codigo_ativo:fd.get('codigo_ativo')||null,tipo:fd.get('tipo')||null,
+  let fotoUrl=S.editVeiculo.foto||null; const ff=window.pendingFiles['veiculo_foto']||[];
+  if(ff[0]){ fotoUrl = await uploadArquivo(ff[0], `${S.editVeiculo.id}_${Date.now()}_${ff[0].name}`, 'veiculos'); }
+  const payload={foto:fotoUrl, placa:fd.get('placa')||null,codigo_ativo:fd.get('codigo_ativo')||null,tipo:fd.get('tipo')||null,
     marca:fd.get('marca')||null,modelo:fd.get('modelo')||null,ano:fd.get('ano')||null,
-    empresa_subcontratada:fd.get('empresa_subcontratada')||null,obra_id:fd.get('obra_id')||null,status:fd.get('status')||'ativo'};
-  try{ await sb(`veiculos?id=eq.${S.editVeiculo.id}`,{method:'PATCH',body:payload}); toast('Veículo atualizado.'); S.editVeiculo=null; await loadBaseData(); }
+    empresa_subcontratada:fd.get('empresa_subcontratada')||null,obra_id:fd.get('obra_id')||null,equipe_id:fd.get('equipe_id')||null,status:fd.get('status')||'ativo',
+    custo_mensal:fd.get('custo_mensal')?parseFloat(fd.get('custo_mensal')):null, custo_diario:fd.get('custo_diario')?parseFloat(fd.get('custo_diario')):null, custo_hora:fd.get('custo_hora')?parseFloat(fd.get('custo_hora')):null};
+  try{ await sb(`veiculos?id=eq.${S.editVeiculo.id}`,{method:'PATCH',body:payload}); toast('Veículo atualizado.'); clearPending('veiculo_foto'); S.editVeiculo=null; await loadBaseData(); }
   catch(e){ toast('Erro: '+e.message); }
   render();
 }
@@ -1042,18 +1054,24 @@ async function excluirVeiculo(id){
 /* EQUIPAMENTOS */
 async function criarEquipamento(form){
   const fd=new FormData(form);
-  const payload={nome:fd.get('nome'),tipo:fd.get('tipo')||null,codigo_ativo:fd.get('codigo_ativo')||null,
-    empresa_subcontratada:fd.get('empresa_subcontratada')||null,obra_id:fd.get('obra_id')||null};
-  try{ await sb('equipamentos',{method:'POST',body:payload}); toast('Equipamento cadastrado.'); await loadBaseData(); form.reset(); render(); }
+  let fotoUrl=null; const ff=window.pendingFiles['equipamento_foto']||[];
+  if(ff[0]){ fotoUrl = await uploadArquivo(ff[0], `${Date.now()}_${ff[0].name}`, 'equipamentos'); }
+  const payload={foto:fotoUrl, nome:fd.get('nome'),tipo:fd.get('tipo')||null,codigo_ativo:fd.get('codigo_ativo')||null,
+    empresa_subcontratada:fd.get('empresa_subcontratada')||null,obra_id:fd.get('obra_id')||null,equipe_id:fd.get('equipe_id')||null,
+    custo_mensal:fd.get('custo_mensal')?parseFloat(fd.get('custo_mensal')):null, custo_diario:fd.get('custo_diario')?parseFloat(fd.get('custo_diario')):null, custo_hora:fd.get('custo_hora')?parseFloat(fd.get('custo_hora')):null};
+  try{ await sb('equipamentos',{method:'POST',body:payload}); toast('Equipamento cadastrado.'); clearPending('equipamento_foto'); await loadBaseData(); form.reset(); render(); }
   catch(e){ toast('Erro: '+e.message); }
 }
 function iniciarEdicaoEquipamento(id){ S.editEquipamento = {...S.equipamentos.find(e=>e.id===id)}; render(); }
 function cancelarEdicaoEquipamento(){ S.editEquipamento=null; render(); }
 async function salvarEdicaoEquipamento(form){
   const fd=new FormData(form);
-  const payload={nome:fd.get('nome'),tipo:fd.get('tipo')||null,codigo_ativo:fd.get('codigo_ativo')||null,
-    empresa_subcontratada:fd.get('empresa_subcontratada')||null,obra_id:fd.get('obra_id')||null,status:fd.get('status')||'ativo'};
-  try{ await sb(`equipamentos?id=eq.${S.editEquipamento.id}`,{method:'PATCH',body:payload}); toast('Equipamento atualizado.'); S.editEquipamento=null; await loadBaseData(); }
+  let fotoUrl=S.editEquipamento.foto||null; const ff=window.pendingFiles['equipamento_foto']||[];
+  if(ff[0]){ fotoUrl = await uploadArquivo(ff[0], `${S.editEquipamento.id}_${Date.now()}_${ff[0].name}`, 'equipamentos'); }
+  const payload={foto:fotoUrl, nome:fd.get('nome'),tipo:fd.get('tipo')||null,codigo_ativo:fd.get('codigo_ativo')||null,
+    empresa_subcontratada:fd.get('empresa_subcontratada')||null,obra_id:fd.get('obra_id')||null,equipe_id:fd.get('equipe_id')||null,status:fd.get('status')||'ativo',
+    custo_mensal:fd.get('custo_mensal')?parseFloat(fd.get('custo_mensal')):null, custo_diario:fd.get('custo_diario')?parseFloat(fd.get('custo_diario')):null, custo_hora:fd.get('custo_hora')?parseFloat(fd.get('custo_hora')):null};
+  try{ await sb(`equipamentos?id=eq.${S.editEquipamento.id}`,{method:'PATCH',body:payload}); toast('Equipamento atualizado.'); clearPending('equipamento_foto'); S.editEquipamento=null; await loadBaseData(); }
   catch(e){ toast('Erro: '+e.message); }
   render();
 }
@@ -1371,11 +1389,13 @@ function renderHeader(){
   if(canAccess('dre_sinalizacao')) tabs.push(['dre_sinalizacao','🎨 DRE Sinalização']);
   if(canAccess('seguranca_epi')) tabs.push(['epi','⛑️ EPI']);
   tabs.push(['mensagens','💬 Mensagens']);
+  tabs.push(['rdo','📝 RDO — Diário de Obra']);
+  if(S.user.perfil==='administrador') tabs.push(['historico','🕘 Histórico']);
   return `
   <div class="app-header">
     <div style="display:flex;align-items:center;gap:10px;"><img src="${MEGA_LOGO_URL}" alt="Grupo MEGA" style="height:28px;"><span class="sub">DESKTOP</span></div>
     <div class="user-box">
-      <span style="position:relative;cursor:pointer;" onclick="S.showNotif=!S.showNotif;render()">🔔${S.notificacoes.length?`<span class="notif-dot"></span>`:''}</span>
+      <span style="position:relative;cursor:pointer;" onclick="S.showNotif=!S.showNotif;render()">🔔${(S.alertasResumo.mensagens+S.alertasResumo.documentos+S.alertasResumo.osNovas)>0?`<span class="notif-dot"></span>`:''}</span>
       <span><b>${esc(S.user.nome)}</b> · ${PERFIL_LABELS[S.user.perfil]}</span>
       <button class="btn-logout" onclick="doLogout()">Sair</button>
     </div>
@@ -1385,14 +1405,31 @@ function renderHeader(){
     ${tabs.map(([k,l])=>`<button class="${S.view===k?'active':''}" onclick="${k==='lista'?"S.view='lista';loadOSList().then(render);":k==='veiculo_checkin'?"S.view='veiculo_checkin';S.veiculoUsoView='pendentes';loadVeiculoUsos().then(render);":k==='rh'?"carregarRHTab(S.rhTab);":k==='suprimentos'?"carregarSuprimentosTab(S.suprimentosTab);":k==='epi'?"carregarEpiTab(S.epiTab);":k==='mensagens'?"carregarMensagens();":"S.view='"+k+"';render();"}">${l}</button>`).join('')}
   </div>`;
 }
+async function carregarAlertasResumo(){
+  try{
+    const [avisosRecebidos, avisosLidos, solicitacoesDoc] = await Promise.all([
+      sb(`avisos?select=id&or=(destino.eq.todos,usuario_id.eq.${S.user.id})&order=criado_em.desc&limit=200`),
+      sb(`avisos_leituras?select=aviso_id&usuario_id=eq.${S.user.id}`),
+      sb(`solicitacoes_documentos?select=id&usuario_id=eq.${S.user.id}&status=eq.aberta`),
+    ]);
+    const lidosSet = new Set(avisosLidos.map(l=>l.aviso_id));
+    const mensagens = avisosRecebidos.filter(a=>!lidosSet.has(a.id)).length;
+    const osNovas = (S.osList||[]).filter(o=>o.status==='enviada_equipe').length;
+    S.alertasResumo = {mensagens, documentos:solicitacoesDoc.length, osNovas};
+  }catch(e){}
+  render();
+}
 function renderNotifDropdown(){
+  const A = S.alertasResumo;
+  const itens = [];
+  if(A.mensagens>0) itens.push(['💬', `${A.mensagens} mensagem(ns) não lida(s)`, "S.showNotif=false;carregarMensagens();"]);
+  if(A.documentos>0) itens.push(['📄', `${A.documentos} documento(s) pendente(s) de envio`, "S.showNotif=false;carregarRHTab('documentos');"]);
+  if(A.osNovas>0) itens.push(['📋', `${A.osNovas} nova(s) OS enviada(s) para a equipe`, "S.showNotif=false;S.view='lista';loadOSList().then(render);"]);
   return `<div style="position:fixed;top:56px;right:20px;background:#fff;border-radius:var(--radius-md);box-shadow:var(--shadow-deep);
     width:320px;max-height:400px;overflow-y:auto;z-index:60;">
-    <div style="padding:12px 16px;font-weight:700;border-bottom:1px solid #eee;display:flex;justify-content:space-between;">
-      Notificações ${S.notificacoes.length?`<a style="font-size:12px;color:var(--mega-laranja);cursor:pointer;" onclick="marcarNotificacoesLidas()">Marcar lidas</a>`:''}
-    </div>
-    ${S.notificacoes.length===0?'<div style="padding:16px;color:#999;font-size:13px;">Nenhuma notificação nova.</div>':
-      S.notificacoes.map(n=>`<div style="padding:10px 16px;border-bottom:1px solid #f0f0f0;font-size:13px;">${esc(n.mensagem)}<div class="muted" style="font-size:11px;">${fmtDate(n.criado_em)}</div></div>`).join('')}
+    <div style="padding:12px 16px;font-weight:700;border-bottom:1px solid #eee;">Alertas</div>
+    ${itens.length===0?'<div style="padding:16px;color:#999;font-size:13px;">Nenhum alerta pendente.</div>':
+      itens.map(([ic,txt,onclick])=>`<div style="padding:10px 16px;border-bottom:1px solid #f0f0f0;font-size:13px;cursor:pointer;" onclick="${onclick}">${ic} ${txt}</div>`).join('')}
   </div>`;
 }
 
@@ -1613,8 +1650,8 @@ function renderDetalheOS(){
   const o = S.currentOS;
   if(!o) return `<div class="wrap"><div class="empty-state">OS não encontrada.</div></div>`;
   const om=obraMap(), em=equipeMap(), um=usuMap();
-  const isEquipeUser = S.user.perfil==='equipe';
-  const isEscritorio = ['administrador','escritorio','coordenador'].includes(S.user.perfil);
+  const isEquipeUser = S.user.perfil==='encarregado';
+  const isEscritorio = ['administrador','departamento_pessoal','coordenador','supervisor'].includes(S.user.perfil);
   const fotosPorTipo = t => S.currentFotos.filter(f=>f.tipo_foto===t);
 
   if(S.editingOS){
@@ -1878,6 +1915,9 @@ function renderCadastroObras(){
 }
 function renderCadastroEquipes(){
   const ed = S.editEquipe;
+  const membros = ed ? S.usuarios.filter(u=>u.equipe_id===ed.id) : [];
+  const veiculosEquipe = ed ? S.veiculos.filter(v=>v.equipe_id===ed.id) : [];
+  const equipamentosEquipe = ed ? S.equipamentos.filter(e=>e.equipe_id===ed.id) : [];
   return `
   <div class="card">
     <div class="muted" style="margin-bottom:10px;font-weight:700;">${ed?'Editando equipe':'Nova equipe'}</div>
@@ -1885,12 +1925,14 @@ function renderCadastroEquipes(){
       <div class="form-grid">
         <div class="field"><label>Nome *</label><input name="nome" required value="${esc(ed?.nome||'')}"></div>
         <div class="field"><label>Código</label><input name="codigo" value="${esc(ed?.codigo||'')}"></div>
+        <div class="field"><label>Tipo de serviço</label><input name="tipo_servico" value="${esc(ed?.tipo_servico||'')}" placeholder="Ex: Sinalização Horizontal"></div>
         <div class="field"><label>Obra</label><select name="obra_id">${opt(S.obras.map(o=>[o.id,o.nome]),ed?.obra_id,true)}</select></div>
         <div class="field"><label>Encarregado</label><select name="encarregado_id">${opt(S.usuarios.map(u=>[u.id,u.nome]),ed?.encarregado_id,true)}</select></div>
         <div class="field"><label>Supervisor</label><select name="supervisor_id">${opt(S.usuarios.map(u=>[u.id,u.nome]),ed?.supervisor_id,true)}</select></div>
-        <div class="field"><label>Veículo</label><input name="veiculo" value="${esc(ed?.veiculo||'')}"></div>
-        <div class="field"><label>Equipamento</label><input name="equipamento" value="${esc(ed?.equipamento||'')}"></div>
         <div class="field"><label>Telefone</label><input name="telefone" value="${esc(ed?.telefone||'')}"></div>
+        <div class="field"><label>Custo mensal (R$)</label><input type="number" step="0.01" name="custo_mensal" value="${ed?.custo_mensal??''}"></div>
+        <div class="field"><label>Custo diário (R$)</label><input type="number" step="0.01" name="custo_diario" value="${ed?.custo_diario??''}"></div>
+        <div class="field"><label>Custo por hora (R$)</label><input type="number" step="0.01" name="custo_hora" value="${ed?.custo_hora??''}"></div>
       </div>
       <div class="flex-row" style="margin-top:12px;">
         <button class="btn btn-primary">${ed?'Salvar alterações':'Cadastrar Equipe'}</button>
@@ -1898,11 +1940,50 @@ function renderCadastroEquipes(){
       </div>
     </form>
   </div>
-  <div class="table-scroll"><table class="mega-table"><thead><tr><th>Nome</th><th>Código</th><th>Encarregado</th><th>Supervisor</th><th>Obra</th><th></th></tr></thead>
-  <tbody>${S.equipes.map(e=>`<tr><td>${esc(e.nome)}</td><td class="mono">${esc(e.codigo||'—')}</td>
-    <td>${esc(usuMap()[e.encarregado_id]?.nome||'—')}</td><td>${esc(usuMap()[e.supervisor_id]?.nome||'—')}</td>
-    <td>${esc(obraMap()[e.obra_id]?.nome||'—')}</td>
+  ${ed?`
+  <div class="card">
+    <div class="muted" style="font-weight:700;margin-bottom:8px;">Colaboradores da equipe (${membros.length})</div>
+    ${membros.map(u=>`<div class="flex-row" style="justify-content:space-between;padding:4px 0;">${esc(u.nome)} <span class="muted">${esc(u.cargo||'')}</span></div>`).join('') || '<div class="muted">Nenhum colaborador vinculado. Edite o colaborador em Cadastros → Usuários e defina a Equipe.</div>'}
+  </div>
+  <div class="card">
+    <div class="muted" style="font-weight:700;margin-bottom:8px;">Veículos da equipe (${veiculosEquipe.length})</div>
+    ${veiculosEquipe.map(v=>`<div class="flex-row" style="justify-content:space-between;padding:4px 0;">${esc(v.placa||v.codigo_ativo||'—')} — ${esc(v.tipo||'')} <button class="btn-icon danger" onclick="desvincularVeiculoEquipe('${v.id}')">Remover</button></div>`).join('') || '<div class="muted">Nenhum veículo vinculado.</div>'}
+    <div class="field" style="margin-top:8px;"><label>Vincular veículo</label><select onchange="if(this.value)vincularVeiculoEquipe(this.value,'${ed.id}');this.value='';">
+      <option value="">Selecione…</option>${opt(S.veiculos.filter(v=>v.equipe_id!==ed.id).map(v=>[v.id,(v.placa||v.codigo_ativo||'—')+' — '+(v.tipo||'')]),'')}
+    </select></div>
+  </div>
+  <div class="card">
+    <div class="muted" style="font-weight:700;margin-bottom:8px;">Equipamentos da equipe (${equipamentosEquipe.length})</div>
+    ${equipamentosEquipe.map(e=>`<div class="flex-row" style="justify-content:space-between;padding:4px 0;">${esc(e.nome)} <button class="btn-icon danger" onclick="desvincularEquipamentoEquipe('${e.id}')">Remover</button></div>`).join('') || '<div class="muted">Nenhum equipamento vinculado.</div>'}
+    <div class="field" style="margin-top:8px;"><label>Vincular equipamento</label><select onchange="if(this.value)vincularEquipamentoEquipe(this.value,'${ed.id}');this.value='';">
+      <option value="">Selecione…</option>${opt(S.equipamentos.filter(e=>e.equipe_id!==ed.id).map(e=>[e.id,e.nome]),'')}
+    </select></div>
+  </div>`:''}
+  <div class="table-scroll"><table class="mega-table"><thead><tr><th>Nome</th><th>Código</th><th>Tipo de serviço</th><th>Encarregado</th><th>Obra</th><th>Custo/mês</th><th></th></tr></thead>
+  <tbody>${S.equipes.map(e=>`<tr><td>${esc(e.nome)}</td><td class="mono">${esc(e.codigo||'—')}</td><td>${esc(e.tipo_servico||'—')}</td>
+    <td>${esc(usuMap()[e.encarregado_id]?.nome||'—')}</td>
+    <td>${esc(obraMap()[e.obra_id]?.nome||'—')}</td><td class="mono">${e.custo_mensal?fmtMoney(e.custo_mensal):'—'}</td>
     <td><button class="btn-icon" onclick="iniciarEdicaoEquipe('${e.id}')">✏️</button> <button class="btn-icon danger" onclick="excluirEquipe('${e.id}')">🗑</button></td></tr>`).join('')}</tbody></table></div>`;
+}
+async function vincularVeiculoEquipe(veiculoId, equipeId){
+  try{ await sb(`veiculos?id=eq.${veiculoId}`,{method:'PATCH',body:{equipe_id:equipeId}}); await loadBaseData(); toast('Veículo vinculado.'); }
+  catch(e){ toast('Erro: '+e.message); }
+  render();
+}
+async function desvincularVeiculoEquipe(veiculoId){
+  try{ await sb(`veiculos?id=eq.${veiculoId}`,{method:'PATCH',body:{equipe_id:null}}); await loadBaseData(); toast('Veículo desvinculado.'); }
+  catch(e){ toast('Erro: '+e.message); }
+  render();
+}
+async function vincularEquipamentoEquipe(equipamentoId, equipeId){
+  try{ await sb(`equipamentos?id=eq.${equipamentoId}`,{method:'PATCH',body:{equipe_id:equipeId}}); await loadBaseData(); toast('Equipamento vinculado.'); }
+  catch(e){ toast('Erro: '+e.message); }
+  render();
+}
+async function desvincularEquipamentoEquipe(equipamentoId){
+  try{ await sb(`equipamentos?id=eq.${equipamentoId}`,{method:'PATCH',body:{equipe_id:null}}); await loadBaseData(); toast('Equipamento desvinculado.'); }
+  catch(e){ toast('Erro: '+e.message); }
+  render();
 }
 function renderCadastroUsuarios(){
   const ed = S.editUsuario;
@@ -1927,6 +2008,9 @@ function renderCadastroUsuarios(){
         <div class="field"><label>Equipe</label><select name="equipe_id">${opt(S.equipes.map(e=>[e.id,e.nome]),ed?.equipe_id,true)}</select></div>
         <div class="field"><label>Obra</label><select name="obra_id">${opt(S.obras.map(o=>[o.id,o.nome]),ed?.obra_id,true)}</select></div>
         <div class="field field-span2"><label>Plataforma de Acesso</label>${chipGroup('plataforma_acesso',[['ambos','Ambos'],['desktop','Somente Desktop'],['mobile','Somente Mobile']],ed?.plataforma_acesso||'ambos')}</div>
+        <div class="field"><label>Custo mensal (R$)</label><input type="number" step="0.01" name="custo_mensal" value="${ed?.custo_mensal??''}"></div>
+        <div class="field"><label>Custo diário (R$)</label><input type="number" step="0.01" name="custo_diario" value="${ed?.custo_diario??''}"></div>
+        <div class="field"><label>Custo por hora (R$)</label><input type="number" step="0.01" name="custo_hora" value="${ed?.custo_hora??''}"></div>
         <div class="field"><label>Status</label><select name="status"><option value="ativo" ${(!ed||ed.status==='ativo')?'selected':''}>Ativo</option><option value="inativo" ${ed?.status==='inativo'?'selected':''}>Inativo</option></select></div>
       </div>
       <div class="field" style="margin-top:14px;">
@@ -1967,6 +2051,11 @@ function renderCadastroVeiculos(){
   <div class="card">
     <div class="muted" style="margin-bottom:10px;font-weight:700;">${ed?'Editando veículo':'Novo veículo'}</div>
     <form onsubmit="event.preventDefault();${ed?'salvarEdicaoVeiculo(this)':'criarVeiculo(this)'};">
+      <div class="field" style="margin-bottom:10px;">
+        <label>Foto do veículo</label>
+        ${ed?.foto?`<img src="${ed.foto}" style="width:100px;height:70px;object-fit:cover;border-radius:6px;display:block;margin-bottom:6px;">`:''}
+        ${photoWidget('veiculo_foto')}
+      </div>
       <div class="form-grid">
         <div class="field"><label>Placa</label><input name="placa" value="${esc(ed?.placa||'')}"></div>
         <div class="field"><label>Código do Ativo</label><input name="codigo_ativo" value="${esc(ed?.codigo_ativo||'')}"></div>
@@ -1976,6 +2065,10 @@ function renderCadastroVeiculos(){
         <div class="field"><label>Ano</label><input type="number" name="ano" value="${ed?.ano||''}"></div>
         <div class="field"><label>Empresa Subcontratada</label><input name="empresa_subcontratada" value="${esc(ed?.empresa_subcontratada||'')}"></div>
         <div class="field"><label>Obra</label><select name="obra_id">${opt(S.obras.map(o=>[o.id,o.nome]),ed?.obra_id,true)}</select></div>
+        <div class="field"><label>Equipe</label><select name="equipe_id">${opt(S.equipes.map(e=>[e.id,e.nome]),ed?.equipe_id,true)}</select></div>
+        <div class="field"><label>Custo mensal (R$)</label><input type="number" step="0.01" name="custo_mensal" value="${ed?.custo_mensal??''}"></div>
+        <div class="field"><label>Custo diário (R$)</label><input type="number" step="0.01" name="custo_diario" value="${ed?.custo_diario??''}"></div>
+        <div class="field"><label>Custo por hora (R$)</label><input type="number" step="0.01" name="custo_hora" value="${ed?.custo_hora??''}"></div>
         ${ed?`<div class="field"><label>Status</label><select name="status"><option value="ativo" ${ed.status==='ativo'?'selected':''}>Ativo</option><option value="inativo" ${ed.status==='inativo'?'selected':''}>Inativo</option></select></div>`:''}
       </div>
       <div class="flex-row" style="margin-top:12px;">
@@ -1984,10 +2077,10 @@ function renderCadastroVeiculos(){
       </div>
     </form>
   </div>
-  <div class="table-scroll"><table class="mega-table"><thead><tr><th>Placa</th><th>Ativo</th><th>Tipo</th><th>Marca/Modelo</th><th>Obra</th><th>Status</th><th></th></tr></thead>
-  <tbody>${S.veiculos.map(v=>`<tr><td class="mono">${esc(v.placa||'—')}</td><td class="mono">${esc(v.codigo_ativo||'—')}</td><td>${esc(v.tipo||'—')}</td>
-    <td>${esc(v.marca||'')} ${esc(v.modelo||'')}</td><td>${esc(obraMap()[v.obra_id]?.nome||'—')}</td><td>${badge(v.status==='ativo'?'ok':'critico',v.status)}</td>
-    <td><button class="btn-icon" onclick="iniciarEdicaoVeiculo('${v.id}')">✏️</button> <button class="btn-icon danger" onclick="excluirVeiculo('${v.id}')">🗑</button></td></tr>`).join('') || `<tr><td colspan="7" class="empty-state">Nenhum veículo cadastrado.</td></tr>`}</tbody></table></div>`;
+  <div class="table-scroll"><table class="mega-table"><thead><tr><th></th><th>Placa</th><th>Ativo</th><th>Tipo</th><th>Marca/Modelo</th><th>Obra</th><th>Equipe</th><th>Custo/mês</th><th>Status</th><th></th></tr></thead>
+  <tbody>${S.veiculos.map(v=>`<tr><td>${v.foto?`<img src="${v.foto}" style="width:44px;height:32px;object-fit:cover;border-radius:4px;">`:'—'}</td><td class="mono">${esc(v.placa||'—')}</td><td class="mono">${esc(v.codigo_ativo||'—')}</td><td>${esc(v.tipo||'—')}</td>
+    <td>${esc(v.marca||'')} ${esc(v.modelo||'')}</td><td>${esc(obraMap()[v.obra_id]?.nome||'—')}</td><td>${esc(equipeMap()[v.equipe_id]?.nome||'—')}</td><td class="mono">${v.custo_mensal?fmtMoney(v.custo_mensal):'—'}</td><td>${badge(v.status==='ativo'?'ok':'critico',v.status)}</td>
+    <td><button class="btn-icon" onclick="iniciarEdicaoVeiculo('${v.id}')">✏️</button> <button class="btn-icon danger" onclick="excluirVeiculo('${v.id}')">🗑</button></td></tr>`).join('') || `<tr><td colspan="10" class="empty-state">Nenhum veículo cadastrado.</td></tr>`}</tbody></table></div>`;
 }
 function renderCadastroEquipamentos(){
   const ed = S.editEquipamento;
@@ -1995,12 +2088,21 @@ function renderCadastroEquipamentos(){
   <div class="card">
     <div class="muted" style="margin-bottom:10px;font-weight:700;">${ed?'Editando equipamento':'Novo equipamento'}</div>
     <form onsubmit="event.preventDefault();${ed?'salvarEdicaoEquipamento(this)':'criarEquipamento(this)'};">
+      <div class="field" style="margin-bottom:10px;">
+        <label>Foto do equipamento</label>
+        ${ed?.foto?`<img src="${ed.foto}" style="width:100px;height:70px;object-fit:cover;border-radius:6px;display:block;margin-bottom:6px;">`:''}
+        ${photoWidget('equipamento_foto')}
+      </div>
       <div class="form-grid">
         <div class="field"><label>Nome *</label><input name="nome" required value="${esc(ed?.nome||'')}"></div>
         <div class="field"><label>Código do Ativo</label><input name="codigo_ativo" value="${esc(ed?.codigo_ativo||'')}"></div>
         <div class="field field-span2"><label>Tipo</label>${chipGroup('tipo',EQUIPAMENTO_TIPOS.map(t=>[t,t]),ed?.tipo||'')}</div>
         <div class="field"><label>Empresa Subcontratada</label><input name="empresa_subcontratada" value="${esc(ed?.empresa_subcontratada||'')}"></div>
         <div class="field"><label>Obra</label><select name="obra_id">${opt(S.obras.map(o=>[o.id,o.nome]),ed?.obra_id,true)}</select></div>
+        <div class="field"><label>Equipe</label><select name="equipe_id">${opt(S.equipes.map(e=>[e.id,e.nome]),ed?.equipe_id,true)}</select></div>
+        <div class="field"><label>Custo mensal (R$)</label><input type="number" step="0.01" name="custo_mensal" value="${ed?.custo_mensal??''}"></div>
+        <div class="field"><label>Custo diário (R$)</label><input type="number" step="0.01" name="custo_diario" value="${ed?.custo_diario??''}"></div>
+        <div class="field"><label>Custo por hora (R$)</label><input type="number" step="0.01" name="custo_hora" value="${ed?.custo_hora??''}"></div>
         ${ed?`<div class="field"><label>Status</label><select name="status"><option value="ativo" ${ed.status==='ativo'?'selected':''}>Ativo</option><option value="inativo" ${ed.status==='inativo'?'selected':''}>Inativo</option></select></div>`:''}
       </div>
       <div class="flex-row" style="margin-top:12px;">
@@ -2009,10 +2111,10 @@ function renderCadastroEquipamentos(){
       </div>
     </form>
   </div>
-  <div class="table-scroll"><table class="mega-table"><thead><tr><th>Nome</th><th>Ativo</th><th>Tipo</th><th>Obra</th><th>Status</th><th></th></tr></thead>
-  <tbody>${S.equipamentos.map(e=>`<tr><td>${esc(e.nome)}</td><td class="mono">${esc(e.codigo_ativo||'—')}</td><td>${esc(e.tipo||'—')}</td>
-    <td>${esc(obraMap()[e.obra_id]?.nome||'—')}</td><td>${badge(e.status==='ativo'?'ok':'critico',e.status)}</td>
-    <td><button class="btn-icon" onclick="iniciarEdicaoEquipamento('${e.id}')">✏️</button> <button class="btn-icon danger" onclick="excluirEquipamento('${e.id}')">🗑</button></td></tr>`).join('') || `<tr><td colspan="6" class="empty-state">Nenhum equipamento cadastrado.</td></tr>`}</tbody></table></div>`;
+  <div class="table-scroll"><table class="mega-table"><thead><tr><th></th><th>Nome</th><th>Ativo</th><th>Tipo</th><th>Obra</th><th>Equipe</th><th>Custo/mês</th><th>Status</th><th></th></tr></thead>
+  <tbody>${S.equipamentos.map(e=>`<tr><td>${e.foto?`<img src="${e.foto}" style="width:44px;height:32px;object-fit:cover;border-radius:4px;">`:'—'}</td><td>${esc(e.nome)}</td><td class="mono">${esc(e.codigo_ativo||'—')}</td><td>${esc(e.tipo||'—')}</td>
+    <td>${esc(obraMap()[e.obra_id]?.nome||'—')}</td><td>${esc(equipeMap()[e.equipe_id]?.nome||'—')}</td><td class="mono">${e.custo_mensal?fmtMoney(e.custo_mensal):'—'}</td><td>${badge(e.status==='ativo'?'ok':'critico',e.status)}</td>
+    <td><button class="btn-icon" onclick="iniciarEdicaoEquipamento('${e.id}')">✏️</button> <button class="btn-icon danger" onclick="excluirEquipamento('${e.id}')">🗑</button></td></tr>`).join('') || `<tr><td colspan="9" class="empty-state">Nenhum equipamento cadastrado.</td></tr>`}</tbody></table></div>`;
 }
 
 /* ==========================================================
@@ -2801,7 +2903,7 @@ async function enviarItemSolicitado(itemId, widgetKey){
     const solicitacao = S.minhasSolicitacoesDoc.find(s=>s.itens.some(i=>i.id===itemId));
     if(solicitacao){
       const restantes = await sb(`solicitacoes_documentos_itens?solicitacao_id=eq.${solicitacao.id}&status=eq.pendente&select=id`);
-      if(!restantes.length){ await sb(`solicitacoes_documentos?id=eq.${solicitacao.id}`,{method:'PATCH',body:{status:'concluida'}}); }
+      if(!restantes.length){ await sb(`solicitacoes_documentos?id=eq.${solicitacao.id}`,{method:'PATCH',body:{status:'concluida'}}); if(S.alertasResumo.documentos>0) S.alertasResumo.documentos--; }
     }
     toast('Documento enviado.'); await loadMinhasSolicitacoesDocumentos();
   }catch(e){ toast('Erro: '+e.message); }
@@ -3346,7 +3448,7 @@ async function loadAvisos(){
 }
 async function marcarAvisoLido(id){
   if(S.avisosLidos.includes(id)) return;
-  try{ await sb('avisos_leituras',{method:'POST',body:{aviso_id:id, usuario_id:S.user.id}}); S.avisosLidos.push(id); }catch(e){}
+  try{ await sb('avisos_leituras',{method:'POST',body:{aviso_id:id, usuario_id:S.user.id}}); S.avisosLidos.push(id); if(S.alertasResumo.mensagens>0) S.alertasResumo.mensagens--; }catch(e){}
 }
 function abrirAviso(id){
   S.avisoExpandido = S.avisoExpandido===id?null:id;
@@ -3401,6 +3503,298 @@ function renderAvisosEnviados(){
     </tbody></table></div>`;
 }
 
+/* ==========================================================
+   HISTÓRICO — ADMIN: TODAS AS OBRAS POR ONDE PASSOU
+   ========================================================== */
+async function carregarHistoricoEntidade(){
+  const tipo = S.historicoTipo, id = S.historicoEntidadeId;
+  if(!id){ S.historicoEventos=[]; render(); return; }
+  S.loading=true; render();
+  let eventos = [];
+  try{
+    if(tipo==='colaborador'){
+      const equipesDele = S.equipes.filter(e=>e.encarregado_id===id||e.supervisor_id===id).map(e=>e.id);
+      const [os1, dds1, epi1, checklists1, rdo1] = await Promise.all([
+        equipesDele.length?sb(`ordens_servico?select=id,numero_os,obra_id,criado_em&equipe_id=in.(${equipesDele.join(',')})`).catch(()=>[]):[],
+        sb(`dds_registros?select=id,obra_id,data_hora&lider_id=eq.${id}`).catch(()=>[]),
+        sb(`epi_movimentacoes?select=id,obra_id,criado_em&usuario_id=eq.${id}`).catch(()=>[]),
+        sb(`checklists?select=id,obra_id,criado_em&usuario_id=eq.${id}`).catch(()=>[]),
+        sb(`rdo?select=id,obra_id,data_rdo&encarregado_id=eq.${id}`).catch(()=>[]),
+      ]);
+      eventos = [
+        ...os1.map(o=>({data:o.criado_em, obra_id:o.obra_id, tipo:'OS', desc:'OS '+o.numero_os})),
+        ...dds1.map(d=>({data:d.data_hora, obra_id:d.obra_id, tipo:'DDS', desc:'DDS realizado como líder'})),
+        ...epi1.map(e=>({data:e.criado_em, obra_id:e.obra_id, tipo:'EPI', desc:'Movimentação de EPI'})),
+        ...checklists1.map(c=>({data:c.criado_em, obra_id:c.obra_id, tipo:'Checklist', desc:'Checklist realizado'})),
+        ...rdo1.map(r=>({data:r.data_rdo, obra_id:r.obra_id, tipo:'RDO', desc:'RDO como encarregado'})),
+      ];
+    } else if(tipo==='equipe'){
+      const [os1, dds1, rdo1] = await Promise.all([
+        sb(`ordens_servico?select=id,numero_os,obra_id,criado_em&equipe_id=eq.${id}`).catch(()=>[]),
+        sb(`dds_registros?select=id,obra_id,data_hora&equipe_id=eq.${id}`).catch(()=>[]),
+        sb(`rdo?select=id,obra_id,data_rdo&equipe_id=eq.${id}`).catch(()=>[]),
+      ]);
+      eventos = [
+        ...os1.map(o=>({data:o.criado_em, obra_id:o.obra_id, tipo:'OS', desc:'OS '+o.numero_os})),
+        ...dds1.map(d=>({data:d.data_hora, obra_id:d.obra_id, tipo:'DDS', desc:'DDS realizado'})),
+        ...rdo1.map(r=>({data:r.data_rdo, obra_id:r.obra_id, tipo:'RDO', desc:'RDO preenchido'})),
+      ];
+    } else if(tipo==='veiculo'){
+      const veic = S.veiculos.find(v=>v.id===id);
+      const [usos1, checklists1] = await Promise.all([
+        sb(`veiculo_usos?select=id,data_checkin&veiculo_id=eq.${id}`).catch(()=>[]),
+        sb(`checklists?select=id,obra_id,criado_em&veiculo_id=eq.${id}`).catch(()=>[]),
+      ]);
+      eventos = [
+        ...usos1.map(u=>({data:u.data_checkin, obra_id:veic?.obra_id, tipo:'Check-in', desc:'Uso do veículo (obra atual no momento da consulta)'})),
+        ...checklists1.map(c=>({data:c.criado_em, obra_id:c.obra_id, tipo:'Checklist', desc:'Checklist do veículo'})),
+      ];
+    } else if(tipo==='equipamento'){
+      const checklists1 = await sb(`checklists?select=id,obra_id,criado_em&equipamento_id=eq.${id}`).catch(()=>[]);
+      eventos = checklists1.map(c=>({data:c.criado_em, obra_id:c.obra_id, tipo:'Checklist', desc:'Checklist do equipamento'}));
+    }
+    eventos.sort((a,b)=>new Date(b.data)-new Date(a.data));
+    S.historicoEventos = eventos;
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+function renderHistorico(){
+  const opcoesEntidade = S.historicoTipo==='colaborador'?S.usuarios.map(u=>[u.id,u.nome])
+    : S.historicoTipo==='equipe'?S.equipes.map(e=>[e.id,e.nome])
+    : S.historicoTipo==='veiculo'?S.veiculos.map(v=>[v.id,(v.placa||v.codigo_ativo||'—')])
+    : S.equipamentos.map(e=>[e.id,e.nome]);
+  const obrasPassadas = [...new Set(S.historicoEventos.map(e=>e.obra_id).filter(Boolean))];
+  return `<div class="wrap">
+    <div class="section-header">🕘 Histórico — visão exclusiva do administrador</div>
+    <div class="card">
+      <div class="form-grid">
+        <div class="field"><label>Tipo</label>${chipGroup('historico_tipo',[['colaborador','Colaborador'],['equipe','Equipe'],['veiculo','Veículo'],['equipamento','Equipamento']],S.historicoTipo,'selecionarHistoricoTipo')}</div>
+        <div class="field field-span2"><label>Selecione</label><select onchange="S.historicoEntidadeId=this.value;carregarHistoricoEntidade();">
+          <option value="">Selecione…</option>${opt(opcoesEntidade, S.historicoEntidadeId)}
+        </select></div>
+      </div>
+    </div>
+    ${S.historicoEntidadeId?`
+    <div class="dash-section-title">Obras por onde passou (${obrasPassadas.length})</div>
+    <div class="kpi-grid">${obrasPassadas.map(oid=>`<div class="kpi-card"><div class="kpi-label">${esc(obraMap()[oid]?.nome||'Obra removida')}</div></div>`).join('') || '<div class="empty-state">Nenhuma obra encontrada nos registros.</div>'}</div>
+    <div class="section-header">Linha do tempo</div>
+    <div class="table-scroll"><table class="mega-table">
+      <thead><tr><th>Data</th><th>Tipo</th><th>Obra</th><th>Descrição</th></tr></thead>
+      <tbody>${S.historicoEventos.map(e=>`<tr><td>${fmtDate(e.data)}</td><td>${badge('andamento',e.tipo)}</td><td>${esc(obraMap()[e.obra_id]?.nome||'—')}</td><td>${esc(e.desc)}</td></tr>`).join('') || `<tr><td colspan="4" class="empty-state">Nenhum registro encontrado.</td></tr>`}
+      </tbody></table></div>`:''}
+  </div>`;
+}
+function selecionarHistoricoTipo(v){ S.historicoTipo=v; S.historicoEntidadeId=null; S.historicoEventos=[]; render(); }
+
+/* ==========================================================
+   RDO — RELATÓRIO DIÁRIO DE OBRA
+   ========================================================== */
+const RDO_MAO_DE_OBRA = ['Encarregado','Motorista','Operador','Ajudante Geral','Aux. Sinalização'];
+const RDO_EQUIP_HORIZ = ['Caminhão de Pintura','Caminhão de Apoio','Veículo Leve','Equip. Remoção','Equip. Pintura Manual'];
+const RDO_EQUIP_VERT = ['Caminhão de Apoio','Veículo Leve','Guincho/Munck','Equip. Remoção','Equip. Fixação'];
+const RDO_MATERIAIS_HORIZ = [['Tinta Branca','Balde'],['Tinta Amarela','Balde'],['Premix','kg'],['µEsfera IIA','kg'],['µEsfera IIC','kg'],
+  ['Tacha','pç'],['Tachão','pç'],['Thermoplástico Ext.','kg'],['Cola','kg'],['Tacha Bi Amarela tipo II','Unid.'],
+  ['Tacha Bi Br/Verm tipo II','Unid.'],['Tacha Mono branca','Unid.'],['Tachão Bi Amarelo','Unid.'],['Balizadores','Unid.'],['Remoção','Unid.']];
+const RDO_SUPORTES_VERT = ['Tubo Redondo','Haste Madeira','Perfil C','Perfil U','Poste Colapsível','Parafuso/Porca','Abraçadeira'];
+let __rdoProducaoRows = [];
+
+function carregarRDOTab(view){
+  S.view='rdo'; S.rdoView=view; S.loading=true; render();
+  const done=()=>{ S.loading=false; render(); };
+  if(view==='historico'){ loadRDOList().then(done).catch(e=>{toast('Erro: '+e.message);done();}); }
+  else done();
+}
+async function loadRDOList(){
+  S.rdoList = await sb('rdo?select=*&order=data_rdo.desc&limit=200'); S.rdoListLoaded=true;
+}
+function selecionarTipoRDO(v){ S.rdoTipo=v; __rdoProducaoRows=[]; render(); }
+function rdoAdicionarLinhaProducao(){
+  __rdoProducaoRows.push(S.rdoTipo==='horizontal'
+    ? {tipo:'',status:'',km_inicial:'',km_final:'',pista:'',cor:'',comp:'',larg:'',area:''}
+    : {tipo_placa:'',status:'',km_inicial:'',km_final:'',substrato:'',pelicula:'',h:'',l:'',area:'',qtda:''});
+  render();
+}
+function rdoRemoverLinhaProducao(idx){ __rdoProducaoRows.splice(idx,1); render(); }
+function rdoAtualizarLinhaProducao(idx, campo, valor){
+  __rdoProducaoRows[idx][campo] = valor;
+  if(S.rdoTipo==='horizontal'){
+    const comp=parseFloat(__rdoProducaoRows[idx].comp)||0, larg=parseFloat(__rdoProducaoRows[idx].larg)||0;
+    if(campo==='comp'||campo==='larg') __rdoProducaoRows[idx].area = (comp*larg)?  (comp*larg).toFixed(2) : '';
+  } else {
+    const h=parseFloat(__rdoProducaoRows[idx].h)||0, l=parseFloat(__rdoProducaoRows[idx].l)||0;
+    if(campo==='h'||campo==='l') __rdoProducaoRows[idx].area = (h*l)? (h*l).toFixed(2) : '';
+  }
+}
+function renderRDO(){
+  const tabs=[['novo','+ Novo RDO'],['historico','Histórico']];
+  return `<div class="wrap">
+    <div class="section-header">📝 RDO — Relatório Diário de Obra
+      <div class="flex-row">${tabs.map(([k,l])=>`<button class="btn ${S.rdoView===k?'btn-primary':'btn-secondary'} btn-sm" onclick="carregarRDOTab('${k}')">${l}</button>`).join('')}</div>
+    </div>
+    ${S.rdoView==='novo'?renderRDONovo():''}
+    ${S.rdoView==='historico'?renderRDOHistorico():''}
+  </div>`;
+}
+function renderRDONovo(){
+  const equipesObra = S.equipes;
+  const equipVeicList = S.rdoTipo==='horizontal'?RDO_EQUIP_HORIZ:RDO_EQUIP_VERT;
+  return `<form onsubmit="event.preventDefault();salvarRDO(this);">
+    <div class="card">
+      <div class="form-grid">
+        <div class="field"><label>Tipo de RDO</label>${chipGroup('tipo_rdo',[['horizontal','Sinalização Horizontal'],['vertical','Sinalização Vertical']],S.rdoTipo,'selecionarTipoRDO')}</div>
+        <div class="field"><label>Programação Nº</label><input name="programacao_num" placeholder="___ / ___"></div>
+        <div class="field"><label>Data</label><input type="date" name="data_rdo" value="${new Date().toISOString().slice(0,10)}" required></div>
+        <div class="field"><label>Obra</label><select name="obra_id">${opt(S.obras.map(o=>[o.id,o.nome]),'',true)}</select></div>
+        <div class="field"><label>Equipe</label><select name="equipe_id">${opt(equipesObra.map(e=>[e.id,e.nome]),'',true)}</select></div>
+        <div class="field"><label>Encarregado MEGA</label><select name="encarregado_id">${opt(S.usuarios.map(u=>[u.id,u.nome]),'',true)}</select></div>
+        <div class="field"><label>Fiscal / Cliente</label><input name="fiscal_cliente"></div>
+      </div>
+      <div class="form-grid" style="margin-top:10px;">
+        <div class="field"><label>1. Todos utilizando EPIs obrigatórios?</label>${chipGroup('epis_ok',[['sim','Sim'],['nao','Não']],'sim')}</div>
+        <div class="field"><label>2. Resíduos devidamente recolhidos?</label>${chipGroup('residuos_ok',[['sim','Sim'],['nao','Não']],'sim')}</div>
+        <div class="field field-span2"><label>Tema DDS do dia</label><input name="tema_dds"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-header" style="margin:0 0 8px;">Condições climáticas</div>
+      <div class="form-grid">
+        <div class="field"><label>Manhã</label>${chipGroup('clima_manha',[['bom','Bom'],['nublado','Nublado'],['chuva','Chuva']],'bom')}</div>
+        <div class="field"><label>Tarde</label>${chipGroup('clima_tarde',[['bom','Bom'],['nublado','Nublado'],['chuva','Chuva']],'bom')}</div>
+        <div class="field"><label>Noite</label>${chipGroup('clima_noite',[['bom','Bom'],['nublado','Nublado'],['chuva','Chuva']],'bom')}</div>
+      </div>
+      <div class="section-header" style="margin:14px 0 8px;">Interdição da pista</div>
+      <div class="form-grid">
+        <div class="field"><label>Local</label><input name="local_interdicao"></div>
+        <div class="field"><label>KM Programado</label><input name="km_prog"></div>
+        <div class="field"><label>KM Interditado</label><input name="km_inter"></div>
+      </div>
+      <div class="section-header" style="margin:14px 0 8px;">Início e término</div>
+      <div class="form-grid">
+        <div class="field"><label>Hora inicial</label><input type="time" name="hora_inicial"></div>
+        <div class="field"><label>Hora final</label><input type="time" name="hora_final"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-header" style="margin:0 0 8px;">Mão de obra</div>
+      <div class="form-grid">
+        ${RDO_MAO_DE_OBRA.map(m=>`<div class="field"><label>${m}</label><input type="number" min="0" name="mo_${m.replace(/[^a-zA-Z]/g,'_')}" value="0"></div>`).join('')}
+      </div>
+      <div class="section-header" style="margin:14px 0 8px;">Equipamentos / Veículos</div>
+      <div class="form-grid">
+        ${equipVeicList.map(m=>`<div class="field"><label>${m}</label><input type="number" min="0" name="ev_${m.replace(/[^a-zA-Z]/g,'_')}" value="0"></div>`).join('')}
+      </div>
+    </div>
+
+    ${S.rdoTipo==='horizontal'?`
+    <div class="card">
+      <div class="section-header" style="margin:0 0 8px;">Materiais consumidos</div>
+      <div class="form-grid">
+        ${RDO_MATERIAIS_HORIZ.map(([nome,un])=>`<div class="field"><label>${nome} (${un})</label><input type="number" step="0.01" min="0" name="mat_${nome.replace(/[^a-zA-Z]/g,'_')}" value="0"></div>`).join('')}
+      </div>
+    </div>`:`
+    <div class="card">
+      <div class="section-header" style="margin:0 0 8px;">Suportes / Materiais</div>
+      <div class="table-scroll"><table class="mega-table"><thead><tr><th>Material</th><th>Tamanho</th><th>Estoque</th><th>Instalado</th><th>Saldo</th></tr></thead>
+        <tbody>${RDO_SUPORTES_VERT.map(m=>`<tr><td>${m}</td>
+          <td><input name="sup_${m.replace(/[^a-zA-Z]/g,'_')}_tam" style="width:80px;"></td>
+          <td><input type="number" name="sup_${m.replace(/[^a-zA-Z]/g,'_')}_est" style="width:70px;"></td>
+          <td><input type="number" name="sup_${m.replace(/[^a-zA-Z]/g,'_')}_ins" style="width:70px;"></td>
+          <td><input type="number" name="sup_${m.replace(/[^a-zA-Z]/g,'_')}_sal" style="width:70px;"></td></tr>`).join('')}</tbody>
+      </table></div>
+    </div>`}
+
+    <div class="card">
+      <div class="section-header" style="margin:0 0 8px;">Localização da atividade / Produção</div>
+      <div class="table-scroll"><table class="mega-table">
+        <thead><tr>${S.rdoTipo==='horizontal'
+          ?'<th>Tipo</th><th>Status</th><th>Km Inicial</th><th>Km Final</th><th>Pista O/L</th><th>Cor B/A</th><th>Comp (m)</th><th>Larg (m)</th><th>Área m²</th><th></th>'
+          :'<th>Tipo Placa</th><th>Status</th><th>Km Inicial</th><th>Km Final</th><th>Substrato</th><th>Película</th><th>H (m)</th><th>L (m)</th><th>Área m²</th><th>Qtda</th><th></th>'}</tr></thead>
+        <tbody>${__rdoProducaoRows.map((row,idx)=>S.rdoTipo==='horizontal'?`<tr>
+            <td><input value="${esc(row.tipo)}" oninput="rdoAtualizarLinhaProducao(${idx},'tipo',this.value)" style="width:90px;"></td>
+            <td><select onchange="rdoAtualizarLinhaProducao(${idx},'status',this.value)">${opt([['sim','Sim'],['nao','Não'],['parc','Parc.']],row.status)}</select></td>
+            <td><input value="${esc(row.km_inicial)}" oninput="rdoAtualizarLinhaProducao(${idx},'km_inicial',this.value)" style="width:80px;"></td>
+            <td><input value="${esc(row.km_final)}" oninput="rdoAtualizarLinhaProducao(${idx},'km_final',this.value)" style="width:80px;"></td>
+            <td><input value="${esc(row.pista)}" oninput="rdoAtualizarLinhaProducao(${idx},'pista',this.value)" style="width:60px;"></td>
+            <td><input value="${esc(row.cor)}" oninput="rdoAtualizarLinhaProducao(${idx},'cor',this.value)" style="width:50px;"></td>
+            <td><input type="number" step="0.01" value="${esc(row.comp)}" oninput="rdoAtualizarLinhaProducao(${idx},'comp',this.value)" style="width:70px;"></td>
+            <td><input type="number" step="0.01" value="${esc(row.larg)}" oninput="rdoAtualizarLinhaProducao(${idx},'larg',this.value)" style="width:70px;"></td>
+            <td class="mono">${row.area||'—'}</td>
+            <td><button type="button" class="btn-icon danger" onclick="rdoRemoverLinhaProducao(${idx})">🗑</button></td></tr>`
+          :`<tr>
+            <td><input value="${esc(row.tipo_placa)}" oninput="rdoAtualizarLinhaProducao(${idx},'tipo_placa',this.value)" style="width:90px;"></td>
+            <td><select onchange="rdoAtualizarLinhaProducao(${idx},'status',this.value)">${opt([['sim','Sim'],['nao','Não'],['parc','Parc.']],row.status)}</select></td>
+            <td><input value="${esc(row.km_inicial)}" oninput="rdoAtualizarLinhaProducao(${idx},'km_inicial',this.value)" style="width:80px;"></td>
+            <td><input value="${esc(row.km_final)}" oninput="rdoAtualizarLinhaProducao(${idx},'km_final',this.value)" style="width:80px;"></td>
+            <td><input value="${esc(row.substrato)}" oninput="rdoAtualizarLinhaProducao(${idx},'substrato',this.value)" style="width:80px;"></td>
+            <td><input value="${esc(row.pelicula)}" oninput="rdoAtualizarLinhaProducao(${idx},'pelicula',this.value)" style="width:80px;"></td>
+            <td><input type="number" step="0.01" value="${esc(row.h)}" oninput="rdoAtualizarLinhaProducao(${idx},'h',this.value)" style="width:60px;"></td>
+            <td><input type="number" step="0.01" value="${esc(row.l)}" oninput="rdoAtualizarLinhaProducao(${idx},'l',this.value)" style="width:60px;"></td>
+            <td class="mono">${row.area||'—'}</td>
+            <td><input type="number" value="${esc(row.qtda)}" oninput="rdoAtualizarLinhaProducao(${idx},'qtda',this.value)" style="width:60px;"></td>
+            <td><button type="button" class="btn-icon danger" onclick="rdoRemoverLinhaProducao(${idx})">🗑</button></td></tr>`
+        ).join('') || `<tr><td colspan="10" class="empty-state">Nenhuma linha adicionada.</td></tr>`}
+        </tbody>
+      </table></div>
+      <button type="button" class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="rdoAdicionarLinhaProducao()">+ Adicionar linha</button>
+    </div>
+
+    <div class="card">
+      <div class="form-grid">
+        <div class="field"><label>Descrição dos serviços executados</label><textarea name="descricao_servicos" rows="3" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;font:inherit;"></textarea></div>
+        <div class="field"><label>Observações</label><textarea name="observacoes" rows="3" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;font:inherit;"></textarea></div>
+        <div class="field"><label>Assinatura — Encarregado / Resp. Técnico MEGA</label><input name="assinatura_encarregado" required></div>
+        <div class="field"><label>Assinatura — Cliente / Fiscalização (nome, cargo, matrícula)</label><input name="assinatura_cliente"></div>
+      </div>
+      <button class="btn btn-primary btn-block" style="margin-top:12px;" ${S.loading?'disabled':''}>${S.loading?'Salvando…':'Salvar RDO'}</button>
+    </div>
+  </form>`;
+}
+async function salvarRDO(form){
+  const fd = new FormData(form);
+  const equipVeicList = S.rdoTipo==='horizontal'?RDO_EQUIP_HORIZ:RDO_EQUIP_VERT;
+  const mao_de_obra = RDO_MAO_DE_OBRA.map(m=>({descricao:m, qtd:parseFloat(fd.get('mo_'+m.replace(/[^a-zA-Z]/g,'_')))||0}));
+  const equipamentos_veiculos = equipVeicList.map(m=>({descricao:m, qtd:parseFloat(fd.get('ev_'+m.replace(/[^a-zA-Z]/g,'_')))||0}));
+  let materiais_consumidos=[], suportes_materiais=[];
+  if(S.rdoTipo==='horizontal'){
+    materiais_consumidos = RDO_MATERIAIS_HORIZ.map(([nome,un])=>({descricao:nome, unidade:un, qtd:parseFloat(fd.get('mat_'+nome.replace(/[^a-zA-Z]/g,'_')))||0}));
+  } else {
+    suportes_materiais = RDO_SUPORTES_VERT.map(m=>{ const k=m.replace(/[^a-zA-Z]/g,'_');
+      return {material:m, tamanho:fd.get('sup_'+k+'_tam')||'', estoque:fd.get('sup_'+k+'_est')||'', instalado:fd.get('sup_'+k+'_ins')||'', saldo:fd.get('sup_'+k+'_sal')||''}; });
+  }
+  const totalM2 = S.rdoTipo==='horizontal'
+    ? __rdoProducaoRows.reduce((a,r)=>a+(parseFloat(r.area)||0),0)
+    : __rdoProducaoRows.reduce((a,r)=>a+(parseFloat(r.area)||0)*(parseFloat(r.qtda)||1),0);
+  const totalItens = S.rdoTipo==='vertical' ? __rdoProducaoRows.reduce((a,r)=>a+(parseFloat(r.qtda)||0),0) : __rdoProducaoRows.length;
+  S.loading=true; render();
+  try{
+    await sb('rdo',{method:'POST',body:{
+      tipo:S.rdoTipo, programacao_num:fd.get('programacao_num')||null, data_rdo:fd.get('data_rdo'),
+      obra_id:fd.get('obra_id')||null, equipe_id:fd.get('equipe_id')||null, encarregado_id:fd.get('encarregado_id')||null,
+      fiscal_cliente:fd.get('fiscal_cliente')||null, epis_ok:fd.get('epis_ok')==='sim', residuos_recolhidos:fd.get('residuos_ok')==='sim',
+      tema_dds:fd.get('tema_dds')||null,
+      clima:{manha:fd.get('clima_manha'), tarde:fd.get('clima_tarde'), noite:fd.get('clima_noite')},
+      local_interdicao:fd.get('local_interdicao')||null, km_prog:fd.get('km_prog')||null, km_inter:fd.get('km_inter')||null,
+      horarios:{inicial:fd.get('hora_inicial')||null, final:fd.get('hora_final')||null},
+      mao_de_obra, equipamentos_veiculos, materiais_consumidos, suportes_materiais, producao:__rdoProducaoRows,
+      total_m2:totalM2, total_itens:totalItens,
+      descricao_servicos:fd.get('descricao_servicos')||null, observacoes:fd.get('observacoes')||null,
+      assinatura_encarregado:fd.get('assinatura_encarregado'), assinatura_cliente:fd.get('assinatura_cliente')||null,
+      status:'fechado', criado_por:S.user.id}});
+    toast('RDO salvo com sucesso.'); __rdoProducaoRows=[]; form.reset(); S.rdoView='historico'; await loadRDOList();
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+function renderRDOHistorico(){
+  return `<div class="table-scroll"><table class="mega-table">
+    <thead><tr><th>Data</th><th>Tipo</th><th>Obra</th><th>Equipe</th><th>Encarregado</th><th>Total m²</th></tr></thead>
+    <tbody>${(S.rdoList||[]).map(r=>`<tr><td>${fmtDateOnly(r.data_rdo)}</td><td>${badge('andamento',r.tipo==='horizontal'?'Horizontal':'Vertical')}</td>
+      <td>${esc(obraMap()[r.obra_id]?.nome||'—')}</td><td>${esc(equipeMap()[r.equipe_id]?.nome||'—')}</td><td>${esc(usuMap()[r.encarregado_id]?.nome||'—')}</td>
+      <td class="mono">${r.total_m2?parseFloat(r.total_m2).toFixed(1):'—'}</td></tr>`).join('') || `<tr><td colspan="6" class="empty-state">Nenhum RDO registrado ainda.</td></tr>`}
+    </tbody></table></div>`;
+}
+
 function render(){
   const app = document.getElementById('app');
   if(!S.user){ app.innerHTML = renderLogin(); return; }
@@ -3419,6 +3813,8 @@ function render(){
   else if(S.view==='dre_sinalizacao') body=renderDreSinalizacao();
   else if(S.view==='epi') body=renderEpi();
   else if(S.view==='mensagens') body=renderMensagens();
+  else if(S.view==='rdo') body=renderRDO();
+  else if(S.view==='historico') body=renderHistorico();
   else if(S.view==='detalhe') body=renderDetalheOS();
   app.innerHTML = renderHeader() + body + (S.loading?'<div class="spinner"></div>':'');
   if(S.view==='nova'){

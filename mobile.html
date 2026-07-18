@@ -585,6 +585,7 @@ const S = {
   osList:[], osFilters:{obra:'',equipe:'',status:'',criticidade:'',busca:'',ordenar:'criticidade'},
   currentOS:null, currentItens:[], currentFotos:[], currentRetorno:null, currentMedicoes:[], currentImpedimentos:[], currentHistorico:[], currentComentarios:[],
   lightboxUrl:null, notificacoes:[], showNotif:false, showAddItem:false, editingOS:false,
+  alertasResumo:{mensagens:0, documentos:0, osNovas:0},
   cadastroTab:'obras', editObra:null, editEquipe:null, editUsuario:null, editVeiculo:null, editEquipamento:null,
   checklistTipo:'veiculo_seta_luminosa', checklistView:'novo', checklists:[], currentChecklist:null, currentChecklistItens:[],
   editPermUserId:null,
@@ -599,7 +600,8 @@ const S = {
   suprimentosTab:'materiais', materiais:[], materiaisLoaded:false, movimentacoesMateriais:[], movimentacoesLoaded:false,
   dreForm:{rod:'',trecho:'',kmi:'',kmf:'',tipoPintura:'mec_aut',basePintura:'solvente',temEixo:1,tipoEixo:'simples',largEixo:0.12,lEc:'',temBordo:1,largBordo:0.15,lBc:'',temTacha:0,cadE:12,cadB:12,tipoTE:'biamarel',tipoTB:'bobibranca'}, dreRes:null,
   epiTab:'entrega', epis:[], episLoaded:false, epiMatriz:[], epiEstoque:[], epiMovimentacoes:[], epiColaboradorSel:null,
-  avisos:[], avisosLoaded:false, avisosLidos:[], avisosEnviados:[], avisoExpandido:null, novoAvisoDestino:'individual'
+  avisos:[], avisosLoaded:false, avisosLidos:[], avisosEnviados:[], avisoExpandido:null, novoAvisoDestino:'individual',
+  rdoTipo:'horizontal', rdoView:'novo', rdoList:[], rdoListLoaded:false
 };
 
 function usuMap(){ const m={}; S.usuarios.forEach(u=>m[u.id]=u); return m; }
@@ -636,7 +638,7 @@ async function loadNotificacoes(){
 }
 async function loadOSList(){
   let q = 'ordens_servico?select=*&order=criado_em.desc&limit=500';
-  if(S.user.perfil==='equipe'){ q += `&equipe_id=eq.${S.user.equipe_id}`; }
+  if(S.user.perfil==='encarregado'){ q += `&equipe_id=eq.${S.user.equipe_id}`; }
   if(S.user.obras_acesso && S.user.obras_acesso.length>0){ q += `&obra_id=in.(${S.user.obras_acesso.join(',')})`; }
   S.osList = await sb(q);
 }
@@ -698,6 +700,7 @@ async function doLogin(){
       S.equipamentos = S.equipamentos.filter(e=>!e.obra_id || permitidas.has(e.obra_id));
     }
     await loadNotificacoes();
+    await carregarAlertasResumo();
     await loadOSList();
     S.view = canAccess('dashboard') ? 'dashboard' : 'lista';
     S.pin=''; S.loginSel=null; S.loginUsuarioEncontrado=null; S.loginMatricula='';
@@ -1343,21 +1346,39 @@ function renderTopBar(){
   return `<div class="top-bar">
     <span class="brand">GRUPO MEGA</span>
     <div class="right">
-      <span style="position:relative;" onclick="S.showNotif=!S.showNotif;render()">🔔${S.notificacoes.length?`<span class="notif-dot"></span>`:''}</span>
+      <span style="position:relative;" onclick="S.showNotif=!S.showNotif;render()">🔔${(S.alertasResumo.mensagens+S.alertasResumo.documentos+S.alertasResumo.osNovas)>0?`<span class="notif-dot"></span>`:''}</span>
       <span><b style="color:#fff;">${esc(S.user.nome)}</b></span>
       <button class="btn-logout" onclick="doLogout()">Sair</button>
     </div>
   </div>
   ${S.showNotif?renderNotifSheet():''}`;
 }
+async function carregarAlertasResumo(){
+  try{
+    const [avisosRecebidos, avisosLidos, solicitacoesDoc] = await Promise.all([
+      sb(`avisos?select=id&or=(destino.eq.todos,usuario_id.eq.${S.user.id})&order=criado_em.desc&limit=200`),
+      sb(`avisos_leituras?select=aviso_id&usuario_id=eq.${S.user.id}`),
+      sb(`solicitacoes_documentos?select=id&usuario_id=eq.${S.user.id}&status=eq.aberta`),
+    ]);
+    const lidosSet = new Set(avisosLidos.map(l=>l.aviso_id));
+    const mensagens = avisosRecebidos.filter(a=>!lidosSet.has(a.id)).length;
+    const osNovas = (S.osList||[]).filter(o=>o.status==='enviada_equipe').length;
+    S.alertasResumo = {mensagens, documentos:solicitacoesDoc.length, osNovas};
+  }catch(e){}
+  render();
+}
 function renderNotifSheet(){
+  const A = S.alertasResumo;
+  const itens = [];
+  if(A.mensagens>0) itens.push(['💬', `${A.mensagens} mensagem(ns) não lida(s)`, "S.showNotif=false;irPara('mensagens');"]);
+  if(A.documentos>0) itens.push(['📄', `${A.documentos} documento(s) pendente(s) de envio`, "S.showNotif=false;carregarRHTab('documentos');"]);
+  if(A.osNovas>0) itens.push(['📋', `${A.osNovas} nova(s) OS enviada(s) para a equipe`, "S.showNotif=false;S.view='lista';loadOSList().then(render);"]);
   return `<div class="modal-overlay" onclick="if(event.target===this){S.showNotif=false;render();}">
-    <div class="modal-panel"><div class="modal-head"><b>Notificações</b>
+    <div class="modal-panel"><div class="modal-head"><b>Alertas</b>
       <button class="btn-logout" onclick="S.showNotif=false;render()">✕</button></div>
     <div class="modal-body">
-      ${S.notificacoes.length?`<button class="btn btn-secondary btn-block" style="margin-bottom:10px;" onclick="marcarNotificacoesLidas()">Marcar todas como lidas</button>`:''}
-      ${S.notificacoes.length===0?'<div class="empty-state">Nenhuma notificação nova.</div>':
-        S.notificacoes.map(n=>`<div class="card">${esc(n.mensagem)}<div class="muted" style="margin-top:4px;">${fmtDate(n.criado_em)}</div></div>`).join('')}
+      ${itens.length===0?'<div class="empty-state">Nenhum alerta pendente.</div>':
+        itens.map(([ic,txt,onclick])=>`<div class="card" style="cursor:pointer;" onclick="${onclick}">${ic} ${txt}</div>`).join('')}
     </div></div></div>`;
 }
 function renderBottomNav(){
@@ -1389,6 +1410,7 @@ function renderMaisSheet(){
   if(canAccess('permissoes')) items.push(['permissoes','🔐','Permissões de Acesso']);
   if(canAccess('suprimentos')) items.push(['suprimentos','📦','Suprimentos']);
   if(canAccess('dre_sinalizacao')) items.push(['dre_sinalizacao','🎨','DRE Sinalização Horizontal']);
+  items.push(['rdo','📝','RDO — Diário de Obra']);
   items.push(['mensagens','💬','Mensagens']);
   return `<div class="modal-overlay" onclick="if(event.target===this){S.showMais=false;render();}">
     <div class="modal-panel"><div class="modal-head"><b>Mais opções</b>
@@ -1408,6 +1430,7 @@ function irPara(destino){
   if(destino==='dre_sinalizacao'){ S.view='dre_sinalizacao'; render(); return; }
   if(destino==='epi'){ S.view='epi'; carregarEpiTab(S.epiTab); return; }
   if(destino==='mensagens'){ S.view='mensagens'; carregarMensagens(); return; }
+  if(destino==='rdo'){ S.view='rdo'; S.rdoView='novo'; render(); return; }
   S.view=destino; render();
 }
 
@@ -1519,8 +1542,8 @@ function renderDetalheOS(){
   const o = S.currentOS;
   if(!o) return `<div class="wrap"><div class="empty-state">OS não encontrada.</div></div>`;
   const om=obraMap(), em=equipeMap(), um=usuMap();
-  const isEquipeUser = S.user.perfil==='equipe';
-  const isEscritorio = ['administrador','escritorio','coordenador'].includes(S.user.perfil);
+  const isEquipeUser = S.user.perfil==='encarregado';
+  const isEscritorio = ['administrador','departamento_pessoal','coordenador','supervisor'].includes(S.user.perfil);
   const fotosPorTipo = t => S.currentFotos.filter(f=>f.tipo_foto===t);
 
   if(S.editingOS){
@@ -2601,7 +2624,7 @@ async function enviarItemSolicitado(itemId, widgetKey){
     const solicitacao = S.minhasSolicitacoesDoc.find(s=>s.itens.some(i=>i.id===itemId));
     if(solicitacao){
       const restantes = await sb(`solicitacoes_documentos_itens?solicitacao_id=eq.${solicitacao.id}&status=eq.pendente&select=id`);
-      if(!restantes.length){ await sb(`solicitacoes_documentos?id=eq.${solicitacao.id}`,{method:'PATCH',body:{status:'concluida'}}); }
+      if(!restantes.length){ await sb(`solicitacoes_documentos?id=eq.${solicitacao.id}`,{method:'PATCH',body:{status:'concluida'}}); if(S.alertasResumo.documentos>0) S.alertasResumo.documentos--; }
     }
     toast('Documento enviado.'); await loadMinhasSolicitacoesDocumentos();
   }catch(e){ toast('Erro: '+e.message); }
@@ -3147,7 +3170,7 @@ async function loadAvisos(){
 }
 async function marcarAvisoLido(id){
   if(S.avisosLidos.includes(id)) return;
-  try{ await sb('avisos_leituras',{method:'POST',body:{aviso_id:id, usuario_id:S.user.id}}); S.avisosLidos.push(id); }catch(e){}
+  try{ await sb('avisos_leituras',{method:'POST',body:{aviso_id:id, usuario_id:S.user.id}}); S.avisosLidos.push(id); if(S.alertasResumo.mensagens>0) S.alertasResumo.mensagens--; }catch(e){}
 }
 function abrirAviso(id){
   S.avisoExpandido = S.avisoExpandido===id?null:id;
@@ -3198,6 +3221,201 @@ function renderAvisosEnviados(){
   <div class="mc-meta">${fmtDate(a.criado_em)}</div></div>`).join('') || '<div class="empty-state">Nenhum aviso enviado ainda.</div>'}`;
 }
 
+/* ==========================================================
+   RDO — RELATÓRIO DIÁRIO DE OBRA
+   ========================================================== */
+const RDO_MAO_DE_OBRA = ['Encarregado','Motorista','Operador','Ajudante Geral','Aux. Sinalização'];
+const RDO_EQUIP_HORIZ = ['Caminhão de Pintura','Caminhão de Apoio','Veículo Leve','Equip. Remoção','Equip. Pintura Manual'];
+const RDO_EQUIP_VERT = ['Caminhão de Apoio','Veículo Leve','Guincho/Munck','Equip. Remoção','Equip. Fixação'];
+const RDO_MATERIAIS_HORIZ = [['Tinta Branca','Balde'],['Tinta Amarela','Balde'],['Premix','kg'],['µEsfera IIA','kg'],['µEsfera IIC','kg'],
+  ['Tacha','pç'],['Tachão','pç'],['Thermoplástico Ext.','kg'],['Cola','kg'],['Tacha Bi Amarela tipo II','Unid.'],
+  ['Tacha Bi Br/Verm tipo II','Unid.'],['Tacha Mono branca','Unid.'],['Tachão Bi Amarelo','Unid.'],['Balizadores','Unid.'],['Remoção','Unid.']];
+const RDO_SUPORTES_VERT = ['Tubo Redondo','Haste Madeira','Perfil C','Perfil U','Poste Colapsível','Parafuso/Porca','Abraçadeira'];
+let __rdoProducaoRows = [];
+
+function carregarRDOTab(view){
+  S.view='rdo'; S.rdoView=view; S.loading=true; render();
+  const done=()=>{ S.loading=false; render(); };
+  if(view==='historico'){ loadRDOList().then(done).catch(e=>{toast('Erro: '+e.message);done();}); }
+  else done();
+}
+async function loadRDOList(){
+  S.rdoList = await sb('rdo?select=*&order=data_rdo.desc&limit=200'); S.rdoListLoaded=true;
+}
+function selecionarTipoRDO(v){ S.rdoTipo=v; __rdoProducaoRows=[]; render(); }
+function rdoAdicionarLinhaProducao(){
+  __rdoProducaoRows.push(S.rdoTipo==='horizontal'
+    ? {tipo:'',status:'',km_inicial:'',km_final:'',pista:'',cor:'',comp:'',larg:'',area:''}
+    : {tipo_placa:'',status:'',km_inicial:'',km_final:'',substrato:'',pelicula:'',h:'',l:'',area:'',qtda:''});
+  render();
+}
+function rdoRemoverLinhaProducao(idx){ __rdoProducaoRows.splice(idx,1); render(); }
+function rdoAtualizarLinhaProducao(idx, campo, valor){
+  __rdoProducaoRows[idx][campo] = valor;
+  if(S.rdoTipo==='horizontal'){
+    const comp=parseFloat(__rdoProducaoRows[idx].comp)||0, larg=parseFloat(__rdoProducaoRows[idx].larg)||0;
+    if(campo==='comp'||campo==='larg') __rdoProducaoRows[idx].area = (comp*larg)? (comp*larg).toFixed(2) : '';
+  } else {
+    const h=parseFloat(__rdoProducaoRows[idx].h)||0, l=parseFloat(__rdoProducaoRows[idx].l)||0;
+    if(campo==='h'||campo==='l') __rdoProducaoRows[idx].area = (h*l)? (h*l).toFixed(2) : '';
+  }
+  render();
+}
+function renderRDO(){
+  const tabs=[['novo','+ Novo RDO'],['historico','Histórico']];
+  return `<div class="wrap">
+    <div class="section-header">📝 RDO — Diário de Obra</div>
+    <div class="flex-row" style="margin-bottom:12px;gap:6px;">${tabs.map(([k,l])=>`<button class="btn ${S.rdoView===k?'btn-primary':'btn-secondary'} btn-sm" onclick="carregarRDOTab('${k}')">${l}</button>`).join('')}</div>
+    ${S.rdoView==='novo'?renderRDONovo():''}
+    ${S.rdoView==='historico'?renderRDOHistorico():''}
+  </div>`;
+}
+function renderRDONovo(){
+  const equipVeicList = S.rdoTipo==='horizontal'?RDO_EQUIP_HORIZ:RDO_EQUIP_VERT;
+  return `<form onsubmit="event.preventDefault();salvarRDO(this);">
+    <div class="card">
+      <div class="field"><label>Tipo de RDO</label>${chipGroup('tipo_rdo',[['horizontal','Sinalização Horizontal'],['vertical','Sinalização Vertical']],S.rdoTipo,'selecionarTipoRDO')}</div>
+      <div class="form-grid">
+        <div class="field"><label>Programação Nº</label><input name="programacao_num" placeholder="___ / ___"></div>
+        <div class="field"><label>Data</label><input type="date" name="data_rdo" value="${new Date().toISOString().slice(0,10)}" required></div>
+        <div class="field"><label>Obra</label><select name="obra_id">${opt(S.obras.map(o=>[o.id,o.nome]),'',true)}</select></div>
+        <div class="field"><label>Equipe</label><select name="equipe_id">${opt(S.equipes.map(e=>[e.id,e.nome]),'',true)}</select></div>
+        <div class="field"><label>Encarregado MEGA</label><select name="encarregado_id">${opt(S.usuarios.map(u=>[u.id,u.nome]),'',true)}</select></div>
+        <div class="field"><label>Fiscal / Cliente</label><input name="fiscal_cliente"></div>
+      </div>
+      <div class="field"><label>1. Todos utilizando EPIs obrigatórios?</label>${chipGroup('epis_ok',[['sim','Sim'],['nao','Não']],'sim')}</div>
+      <div class="field"><label>2. Resíduos devidamente recolhidos?</label>${chipGroup('residuos_ok',[['sim','Sim'],['nao','Não']],'sim')}</div>
+      <div class="field"><label>Tema DDS do dia</label><input name="tema_dds"></div>
+    </div>
+
+    <div class="card">
+      <div class="section-header" style="margin:0 0 8px;">Condições climáticas</div>
+      <div class="field"><label>Manhã</label>${chipGroup('clima_manha',[['bom','Bom'],['nublado','Nublado'],['chuva','Chuva']],'bom')}</div>
+      <div class="field"><label>Tarde</label>${chipGroup('clima_tarde',[['bom','Bom'],['nublado','Nublado'],['chuva','Chuva']],'bom')}</div>
+      <div class="field"><label>Noite</label>${chipGroup('clima_noite',[['bom','Bom'],['nublado','Nublado'],['chuva','Chuva']],'bom')}</div>
+      <div class="section-header" style="margin:14px 0 8px;">Interdição da pista</div>
+      <div class="form-grid">
+        <div class="field"><label>Local</label><input name="local_interdicao"></div>
+        <div class="field"><label>KM Programado</label><input name="km_prog"></div>
+        <div class="field"><label>KM Interditado</label><input name="km_inter"></div>
+      </div>
+      <div class="section-header" style="margin:14px 0 8px;">Início e término</div>
+      <div class="form-grid">
+        <div class="field"><label>Hora inicial</label><input type="time" name="hora_inicial"></div>
+        <div class="field"><label>Hora final</label><input type="time" name="hora_final"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-header" style="margin:0 0 8px;">Mão de obra</div>
+      ${RDO_MAO_DE_OBRA.map(m=>`<div class="field"><label>${m}</label><input type="number" min="0" name="mo_${m.replace(/[^a-zA-Z]/g,'_')}" value="0"></div>`).join('')}
+      <div class="section-header" style="margin:14px 0 8px;">Equipamentos / Veículos</div>
+      ${equipVeicList.map(m=>`<div class="field"><label>${m}</label><input type="number" min="0" name="ev_${m.replace(/[^a-zA-Z]/g,'_')}" value="0"></div>`).join('')}
+    </div>
+
+    ${S.rdoTipo==='horizontal'?`
+    <div class="card">
+      <div class="section-header" style="margin:0 0 8px;">Materiais consumidos</div>
+      ${RDO_MATERIAIS_HORIZ.map(([nome,un])=>`<div class="field"><label>${nome} (${un})</label><input type="number" step="0.01" min="0" name="mat_${nome.replace(/[^a-zA-Z]/g,'_')}" value="0"></div>`).join('')}
+    </div>`:`
+    <div class="card">
+      <div class="section-header" style="margin:0 0 8px;">Suportes / Materiais</div>
+      ${RDO_SUPORTES_VERT.map(m=>{ const k=m.replace(/[^a-zA-Z]/g,'_');
+        return `<div class="muted" style="font-weight:700;margin-top:10px;">${m}</div>
+        <div class="form-grid">
+          <div class="field"><label>Tamanho</label><input name="sup_${k}_tam"></div>
+          <div class="field"><label>Estoque</label><input type="number" name="sup_${k}_est"></div>
+          <div class="field"><label>Instalado</label><input type="number" name="sup_${k}_ins"></div>
+          <div class="field"><label>Saldo</label><input type="number" name="sup_${k}_sal"></div>
+        </div>`; }).join('')}
+    </div>`}
+
+    <div class="card">
+      <div class="section-header" style="margin:0 0 8px;">Localização da atividade / Produção</div>
+      ${__rdoProducaoRows.map((row,idx)=>S.rdoTipo==='horizontal'?`
+        <div class="card" style="background:var(--mega-cinza-bg);">
+          <div class="flex-row" style="justify-content:space-between;"><b>Linha ${idx+1}</b><button type="button" class="btn-icon danger" onclick="rdoRemoverLinhaProducao(${idx})">🗑</button></div>
+          <div class="form-grid">
+            <div class="field"><label>Tipo</label><input value="${esc(row.tipo)}" oninput="rdoAtualizarLinhaProducao(${idx},'tipo',this.value)"></div>
+            <div class="field"><label>Status</label><select onchange="rdoAtualizarLinhaProducao(${idx},'status',this.value)">${opt([['sim','Sim'],['nao','Não'],['parc','Parc.']],row.status)}</select></div>
+            <div class="field"><label>Km Inicial</label><input value="${esc(row.km_inicial)}" oninput="rdoAtualizarLinhaProducao(${idx},'km_inicial',this.value)"></div>
+            <div class="field"><label>Km Final</label><input value="${esc(row.km_final)}" oninput="rdoAtualizarLinhaProducao(${idx},'km_final',this.value)"></div>
+            <div class="field"><label>Pista O/L</label><input value="${esc(row.pista)}" oninput="rdoAtualizarLinhaProducao(${idx},'pista',this.value)"></div>
+            <div class="field"><label>Cor B/A</label><input value="${esc(row.cor)}" oninput="rdoAtualizarLinhaProducao(${idx},'cor',this.value)"></div>
+            <div class="field"><label>Comp (m)</label><input type="number" step="0.01" value="${esc(row.comp)}" oninput="rdoAtualizarLinhaProducao(${idx},'comp',this.value)"></div>
+            <div class="field"><label>Larg (m)</label><input type="number" step="0.01" value="${esc(row.larg)}" oninput="rdoAtualizarLinhaProducao(${idx},'larg',this.value)"></div>
+            <div class="field"><label>Área m²</label><input value="${row.area||''}" disabled></div>
+          </div>
+        </div>`:`
+        <div class="card" style="background:var(--mega-cinza-bg);">
+          <div class="flex-row" style="justify-content:space-between;"><b>Linha ${idx+1}</b><button type="button" class="btn-icon danger" onclick="rdoRemoverLinhaProducao(${idx})">🗑</button></div>
+          <div class="form-grid">
+            <div class="field"><label>Tipo Placa</label><input value="${esc(row.tipo_placa)}" oninput="rdoAtualizarLinhaProducao(${idx},'tipo_placa',this.value)"></div>
+            <div class="field"><label>Status</label><select onchange="rdoAtualizarLinhaProducao(${idx},'status',this.value)">${opt([['sim','Sim'],['nao','Não'],['parc','Parc.']],row.status)}</select></div>
+            <div class="field"><label>Km Inicial</label><input value="${esc(row.km_inicial)}" oninput="rdoAtualizarLinhaProducao(${idx},'km_inicial',this.value)"></div>
+            <div class="field"><label>Km Final</label><input value="${esc(row.km_final)}" oninput="rdoAtualizarLinhaProducao(${idx},'km_final',this.value)"></div>
+            <div class="field"><label>Substrato</label><input value="${esc(row.substrato)}" oninput="rdoAtualizarLinhaProducao(${idx},'substrato',this.value)"></div>
+            <div class="field"><label>Película</label><input value="${esc(row.pelicula)}" oninput="rdoAtualizarLinhaProducao(${idx},'pelicula',this.value)"></div>
+            <div class="field"><label>H (m)</label><input type="number" step="0.01" value="${esc(row.h)}" oninput="rdoAtualizarLinhaProducao(${idx},'h',this.value)"></div>
+            <div class="field"><label>L (m)</label><input type="number" step="0.01" value="${esc(row.l)}" oninput="rdoAtualizarLinhaProducao(${idx},'l',this.value)"></div>
+            <div class="field"><label>Área m²</label><input value="${row.area||''}" disabled></div>
+            <div class="field"><label>Qtda</label><input type="number" value="${esc(row.qtda)}" oninput="rdoAtualizarLinhaProducao(${idx},'qtda',this.value)"></div>
+          </div>
+        </div>`).join('') || '<div class="empty-state">Nenhuma linha adicionada.</div>'}
+      <button type="button" class="btn btn-secondary btn-block" style="margin-top:8px;" onclick="rdoAdicionarLinhaProducao()">+ Adicionar linha</button>
+    </div>
+
+    <div class="card">
+      <div class="field"><label>Descrição dos serviços executados</label><textarea name="descricao_servicos" rows="3" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;font:inherit;"></textarea></div>
+      <div class="field"><label>Observações</label><textarea name="observacoes" rows="3" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;font:inherit;"></textarea></div>
+      <div class="field"><label>Assinatura — Encarregado / Resp. Técnico MEGA</label><input name="assinatura_encarregado" required></div>
+      <div class="field"><label>Assinatura — Cliente / Fiscalização</label><input name="assinatura_cliente"></div>
+      <button class="btn btn-primary btn-block" style="margin-top:12px;" ${S.loading?'disabled':''}>${S.loading?'Salvando…':'Salvar RDO'}</button>
+    </div>
+  </form>`;
+}
+async function salvarRDO(form){
+  const fd = new FormData(form);
+  const equipVeicList = S.rdoTipo==='horizontal'?RDO_EQUIP_HORIZ:RDO_EQUIP_VERT;
+  const mao_de_obra = RDO_MAO_DE_OBRA.map(m=>({descricao:m, qtd:parseFloat(fd.get('mo_'+m.replace(/[^a-zA-Z]/g,'_')))||0}));
+  const equipamentos_veiculos = equipVeicList.map(m=>({descricao:m, qtd:parseFloat(fd.get('ev_'+m.replace(/[^a-zA-Z]/g,'_')))||0}));
+  let materiais_consumidos=[], suportes_materiais=[];
+  if(S.rdoTipo==='horizontal'){
+    materiais_consumidos = RDO_MATERIAIS_HORIZ.map(([nome,un])=>({descricao:nome, unidade:un, qtd:parseFloat(fd.get('mat_'+nome.replace(/[^a-zA-Z]/g,'_')))||0}));
+  } else {
+    suportes_materiais = RDO_SUPORTES_VERT.map(m=>{ const k=m.replace(/[^a-zA-Z]/g,'_');
+      return {material:m, tamanho:fd.get('sup_'+k+'_tam')||'', estoque:fd.get('sup_'+k+'_est')||'', instalado:fd.get('sup_'+k+'_ins')||'', saldo:fd.get('sup_'+k+'_sal')||''}; });
+  }
+  const totalM2 = S.rdoTipo==='horizontal'
+    ? __rdoProducaoRows.reduce((a,r)=>a+(parseFloat(r.area)||0),0)
+    : __rdoProducaoRows.reduce((a,r)=>a+(parseFloat(r.area)||0)*(parseFloat(r.qtda)||1),0);
+  const totalItens = S.rdoTipo==='vertical' ? __rdoProducaoRows.reduce((a,r)=>a+(parseFloat(r.qtda)||0),0) : __rdoProducaoRows.length;
+  S.loading=true; render();
+  try{
+    await sb('rdo',{method:'POST',body:{
+      tipo:S.rdoTipo, programacao_num:fd.get('programacao_num')||null, data_rdo:fd.get('data_rdo'),
+      obra_id:fd.get('obra_id')||null, equipe_id:fd.get('equipe_id')||null, encarregado_id:fd.get('encarregado_id')||null,
+      fiscal_cliente:fd.get('fiscal_cliente')||null, epis_ok:fd.get('epis_ok')==='sim', residuos_recolhidos:fd.get('residuos_ok')==='sim',
+      tema_dds:fd.get('tema_dds')||null,
+      clima:{manha:fd.get('clima_manha'), tarde:fd.get('clima_tarde'), noite:fd.get('clima_noite')},
+      local_interdicao:fd.get('local_interdicao')||null, km_prog:fd.get('km_prog')||null, km_inter:fd.get('km_inter')||null,
+      horarios:{inicial:fd.get('hora_inicial')||null, final:fd.get('hora_final')||null},
+      mao_de_obra, equipamentos_veiculos, materiais_consumidos, suportes_materiais, producao:__rdoProducaoRows,
+      total_m2:totalM2, total_itens:totalItens,
+      descricao_servicos:fd.get('descricao_servicos')||null, observacoes:fd.get('observacoes')||null,
+      assinatura_encarregado:fd.get('assinatura_encarregado'), assinatura_cliente:fd.get('assinatura_cliente')||null,
+      status:'fechado', criado_por:S.user.id}});
+    toast('RDO salvo com sucesso.'); __rdoProducaoRows=[]; form.reset(); S.rdoView='historico'; await loadRDOList();
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+function renderRDOHistorico(){
+  return (S.rdoList||[]).map(r=>`<div class="mcard"><div class="mc-top"><span>${fmtDateOnly(r.data_rdo)}</span>${badge('andamento',r.tipo==='horizontal'?'Horizontal':'Vertical')}</div>
+    <div class="mc-meta">${esc(obraMap()[r.obra_id]?.nome||'—')} · ${esc(equipeMap()[r.equipe_id]?.nome||'—')}</div>
+    <div class="mc-meta">Encarregado: ${esc(usuMap()[r.encarregado_id]?.nome||'—')} · Total: ${r.total_m2?parseFloat(r.total_m2).toFixed(1)+' m²':'—'}</div>
+  </div>`).join('') || '<div class="empty-state">Nenhum RDO registrado ainda.</div>';
+}
+
 function render(){
   const app = document.getElementById('app');
   if(!S.user){ app.innerHTML = renderLogin(); return; }
@@ -3217,6 +3435,7 @@ function render(){
   else if(S.view==='epi') body=renderEpi();
   else if(S.view==='seguranca_hub') body=renderSegurancaHub();
   else if(S.view==='mensagens') body=renderMensagens();
+  else if(S.view==='rdo') body=renderRDO();
   else if(S.view==='detalhe') body=renderDetalheOS();
   app.innerHTML = renderTopBar() + body + (S.loading?'<div class="spinner"></div>':'') + renderBottomNav();
   if(S.view==='nova'){
