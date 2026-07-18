@@ -46,6 +46,9 @@ a.applink{color:#aaa;font-size:12px;text-decoration:underline;}
 .wrap{max-width:1280px;margin:0 auto;padding:20px;}
 
 .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;}
+.dash-section-title{font-family:var(--font-display);font-size:15px;font-weight:700;color:var(--mega-cinza-med);text-transform:uppercase;letter-spacing:0.5px;margin:24px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--mega-cinza-bdr);}
+.kpi-card.clickable{cursor:pointer;transition:transform .12s;}
+.kpi-card.clickable:hover{transform:translateY(-2px);box-shadow:var(--shadow-deep);}
 .kpi-card{background:var(--mega-cinza-esc);border-left:4px solid var(--mega-laranja);padding:16px 18px;border-radius:var(--radius-md);}
 .kpi-label{font-family:var(--font-display);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#999;}
 .kpi-value{font-family:var(--font-display);font-size:38px;font-weight:700;color:#fff;line-height:1;margin:6px 0 2px;}
@@ -423,15 +426,15 @@ function defaultPermissoes(perfil){
   const all = {dashboard:false,os_lista:true,os_nova:false,cadastros_obras:false,cadastros_equipes:false,cadastros_usuarios:false,
     cadastros_veiculos:false,cadastros_equipamentos:false,checklists:true,permissoes:false,checkin_veiculo:false,
     financeiro:true,financeiro_geral:false};
-  if(perfil==='administrador') return {dashboard:true,os_lista:true,os_nova:true,cadastros_obras:true,cadastros_equipes:true,suprimentos:true,dre_sinalizacao:true,
+  if(perfil==='administrador') return {dashboard:true,os_lista:true,os_nova:true,cadastros_obras:true,cadastros_equipes:true,suprimentos:true,dre_sinalizacao:true,seguranca_epi:true,
     cadastros_usuarios:true,cadastros_veiculos:true,cadastros_equipamentos:true,checklists:true,permissoes:true,checkin_veiculo:true,
     financeiro:true,financeiro_geral:true};
   if(perfil==='departamento_pessoal') return {...all,dashboard:true,os_nova:true,cadastros_usuarios:true,cadastros_veiculos:true,cadastros_equipamentos:true,checkin_veiculo:true,financeiro_geral:true};
   if(perfil==='engenharia') return {...all,dashboard:true,os_nova:true,cadastros_obras:true,cadastros_equipes:true,checkin_veiculo:true,dre_sinalizacao:true};
   if(perfil==='financeiro') return {...all,dashboard:true,financeiro_geral:true};
   if(perfil==='suprimentos') return {...all,cadastros_veiculos:true,cadastros_equipamentos:true,suprimentos:true};
-  if(perfil==='supervisor') return {...all,dashboard:true,checkin_veiculo:true};
-  if(perfil==='coordenador') return {...all,dashboard:true};
+  if(perfil==='supervisor') return {...all,dashboard:true,checkin_veiculo:true,seguranca_epi:true};
+  if(perfil==='coordenador') return {...all,dashboard:true,seguranca_epi:true};
   return {...all, checkin_veiculo:true}; // encarregado (campo)
 }
 function canAccess(mod){ return !!(S.user && S.user.permissoes && S.user.permissoes[mod]); }
@@ -609,7 +612,9 @@ const S = {
   solicitacoesDocRH:[], minhasSolicitacoesDoc:[],
   ddsScreen:'sorteio', ddsTemaAtual:null, ddsHistorico:[], ddsHistoricoLoaded:false,
   suprimentosTab:'materiais', materiais:[], materiaisLoaded:false, movimentacoesMateriais:[], movimentacoesLoaded:false,
-  dreForm:{rod:'',trecho:'',kmi:'',kmf:'',tipoPintura:'mec_aut',basePintura:'solvente',temEixo:1,tipoEixo:'simples',largEixo:0.12,lEc:'',temBordo:1,largBordo:0.15,lBc:'',temTacha:0,cadE:12,cadB:12,tipoTE:'biamarel',tipoTB:'bobibranca'}, dreRes:null
+  dreForm:{rod:'',trecho:'',kmi:'',kmf:'',tipoPintura:'mec_aut',basePintura:'solvente',temEixo:1,tipoEixo:'simples',largEixo:0.12,lEc:'',temBordo:1,largBordo:0.15,lBc:'',temTacha:0,cadE:12,cadB:12,tipoTE:'biamarel',tipoTB:'bobibranca'}, dreRes:null,
+  epiTab:'entrega', epis:[], episLoaded:false, epiMatriz:[], epiEstoque:[], epiMovimentacoes:[], epiColaboradorSel:null,
+  dashGeral:null
 };
 
 function usuMap(){ const m={}; S.usuarios.forEach(u=>m[u.id]=u); return m; }
@@ -632,7 +637,7 @@ async function loadLoginList(){
 }
 async function loadBaseData(){
   const [usuarios,obras,equipes,veiculos,equipamentos] = await Promise.all([
-    sb('usuarios?select=id,nome,cpf,cargo,email,telefone,perfil,equipe_id,obra_id,status,permissoes,plataforma_acesso,obras_acesso,criado_em,data_nascimento,estado_civil,naturalidade,rg,telefone_whatsapp,data_admissao&order=nome.asc'),
+    sb('usuarios?select=id,codigo,foto,nome,cpf,cargo,email,telefone,perfil,equipe_id,obra_id,status,permissoes,plataforma_acesso,obras_acesso,criado_em,data_nascimento,estado_civil,naturalidade,rg,telefone_whatsapp,data_admissao&order=nome.asc'),
     sb('obras?select=*&order=nome.asc'),
     sb('equipes?select=*&order=nome.asc'),
     sb('veiculos?select=*&order=placa.asc'),
@@ -958,23 +963,29 @@ async function excluirEquipe(id){
 async function criarUsuario(form){
   const fd=new FormData(form);
   const perfil = fd.get('perfil');
-  const payload={nome:fd.get('nome'),cpf:fd.get('cpf')||null,cargo:fd.get('cargo')||null,email:fd.get('email')||null,
+  let fotoUrl=null;
+  const fotoFiles = window.pendingFiles['usuario_foto']||[];
+  if(fotoFiles[0]){ fotoUrl = await uploadArquivo(fotoFiles[0], `${Date.now()}_${fotoFiles[0].name}`, 'colaboradores'); }
+  const payload={codigo:fd.get('codigo')||null, foto:fotoUrl, nome:fd.get('nome'),cpf:fd.get('cpf')||null,cargo:fd.get('cargo')||null,email:fd.get('email')||null,
     telefone:fd.get('telefone')||null,perfil,equipe_id:fd.get('equipe_id')||null,obra_id:fd.get('obra_id')||null,
     plataforma_acesso:fd.get('plataforma_acesso')||'ambos', obras_acesso:fd.getAll('obras_acesso')};
   try{
     const created = await sb('usuarios?select=id',{method:'POST',body:payload,prefer:'return=representation'});
     await sb(`usuarios?id=eq.${created[0].id}`,{method:'PATCH',body:{permissoes:defaultPermissoes(perfil)}});
-    toast('Usuário cadastrado. PIN inicial: 1234 (oriente a troca imediata).'); await loadBaseData(); form.reset(); render();
+    toast('Usuário cadastrado. PIN inicial: 1234 (oriente a troca imediata).'); clearPending('usuario_foto'); await loadBaseData(); form.reset(); render();
   }catch(e){ toast('Erro: '+e.message); }
 }
 function iniciarEdicaoUsuario(id){ S.editUsuario = {...S.usuarios.find(u=>u.id===id)}; render(); }
 function cancelarEdicaoUsuario(){ S.editUsuario=null; render(); }
 async function salvarEdicaoUsuario(form){
   const fd=new FormData(form);
-  const payload={nome:fd.get('nome'),cpf:fd.get('cpf')||null,cargo:fd.get('cargo')||null,email:fd.get('email')||null,
+  let fotoUrl = S.editUsuario.foto || null;
+  const fotoFiles = window.pendingFiles['usuario_foto']||[];
+  if(fotoFiles[0]){ fotoUrl = await uploadArquivo(fotoFiles[0], `${S.editUsuario.id}_${Date.now()}_${fotoFiles[0].name}`, 'colaboradores'); }
+  const payload={codigo:fd.get('codigo')||null, foto:fotoUrl, nome:fd.get('nome'),cpf:fd.get('cpf')||null,cargo:fd.get('cargo')||null,email:fd.get('email')||null,
     telefone:fd.get('telefone')||null,perfil:fd.get('perfil'),equipe_id:fd.get('equipe_id')||null,obra_id:fd.get('obra_id')||null,
     status:fd.get('status')||'ativo', plataforma_acesso:fd.get('plataforma_acesso')||'ambos', obras_acesso:fd.getAll('obras_acesso')};
-  try{ await sb(`usuarios?id=eq.${S.editUsuario.id}`,{method:'PATCH',body:payload}); toast('Usuário atualizado.'); S.editUsuario=null; await loadBaseData(); }
+  try{ await sb(`usuarios?id=eq.${S.editUsuario.id}`,{method:'PATCH',body:payload}); toast('Usuário atualizado.'); clearPending('usuario_foto'); S.editUsuario=null; await loadBaseData(); }
   catch(e){ toast('Erro: '+e.message); }
   render();
 }
@@ -1337,6 +1348,7 @@ function renderHeader(){
   tabs.push(['dds','🦺 Segurança']);
   if(canAccess('suprimentos')) tabs.push(['suprimentos','📦 Suprimentos']);
   if(canAccess('dre_sinalizacao')) tabs.push(['dre_sinalizacao','🎨 DRE Sinalização']);
+  if(canAccess('seguranca_epi')) tabs.push(['epi','⛑️ EPI']);
   return `
   <div class="app-header">
     <div style="display:flex;align-items:center;gap:10px;"><img src="${MEGA_LOGO_URL}" alt="Grupo MEGA" style="height:28px;"><span class="sub">DESKTOP</span></div>
@@ -1348,7 +1360,7 @@ function renderHeader(){
   </div>
   ${S.showNotif?renderNotifDropdown():''}
   <div class="app-nav">
-    ${tabs.map(([k,l])=>`<button class="${S.view===k?'active':''}" onclick="${k==='lista'?"S.view='lista';loadOSList().then(render);":k==='veiculo_checkin'?"S.view='veiculo_checkin';S.veiculoUsoView='pendentes';loadVeiculoUsos().then(render);":k==='rh'?"carregarRHTab(S.rhTab);":k==='suprimentos'?"carregarSuprimentosTab(S.suprimentosTab);":"S.view='"+k+"';render();"}">${l}</button>`).join('')}
+    ${tabs.map(([k,l])=>`<button class="${S.view===k?'active':''}" onclick="${k==='lista'?"S.view='lista';loadOSList().then(render);":k==='veiculo_checkin'?"S.view='veiculo_checkin';S.veiculoUsoView='pendentes';loadVeiculoUsos().then(render);":k==='rh'?"carregarRHTab(S.rhTab);":k==='suprimentos'?"carregarSuprimentosTab(S.suprimentosTab);":k==='epi'?"carregarEpiTab(S.epiTab);":"S.view='"+k+"';render();"}">${l}</button>`).join('')}
   </div>`;
 }
 function renderNotifDropdown(){
@@ -1365,25 +1377,87 @@ function renderNotifDropdown(){
 /* ==========================================================
    RENDER — DASHBOARD
    ========================================================== */
+async function carregarDashboardGeral(){
+  S.loading=true; render();
+  try{
+    const [notas, epiMovs, dds, atestados, materiaisD, solicit] = await Promise.all([
+      sb('notas_fiscais?select=id,status,valor,criado_em&order=criado_em.desc&limit=500').catch(()=>[]),
+      sb('epi_movimentacoes?select=id,tipo,proxima_troca,criado_em&order=criado_em.desc&limit=500').catch(()=>[]),
+      sb('dds_registros?select=id,data_hora&order=data_hora.desc&limit=200').catch(()=>[]),
+      sb('atestados?select=id,status&status=eq.enviado').catch(()=>[]),
+      sb('materiais?select=id,item,estoque_atual,estoque_minimo').catch(()=>[]),
+      sb('solicitacoes_atualizacao_cadastral?select=id,status&status=eq.enviada').catch(()=>[]),
+    ]);
+    S.dashGeral = {notas, epiMovs, dds, atestados, materiaisD, solicit};
+  }catch(e){ toast('Erro ao carregar painel: '+e.message); }
+  S.loading=false; render();
+}
 function renderDashboard(){
+  if(!S.dashGeral){ carregarDashboardGeral(); return `<div class="wrap"><div class="empty-state">Carregando painel…</div></div>`; }
   const list = S.osList;
   const cnt = s => list.filter(o=>o.status===s).length;
   const abertas = list.filter(o=>['criada','programada','enviada_equipe','visualizada_equipe'].includes(o.status)).length;
   const emExec = list.filter(o=>['em_deslocamento','em_execucao'].includes(o.status)).length;
   const criticas = list.filter(o=>o.criticidade==='critica' && !['aprovada','cancelada'].includes(o.status)).length;
   const atrasadas = list.filter(o=>o.prazo_retorno && new Date(o.prazo_retorno)<new Date() && !['aprovada','cancelada'].includes(o.status)).length;
-  const om=obraMap(), em=equipeMap();
-  const recentes = list.slice(0,10);
+
+  const D = S.dashGeral;
+  const hoje = new Date(); const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  const notasPendentes = D.notas.filter(n=>['enviado','atencao'].includes(n.status));
+  const valorPendente = notasPendentes.reduce((a,n)=>a+(parseFloat(n.valor)||0),0);
+  const valorAprovadoMes = D.notas.filter(n=>n.status==='aprovado' && new Date(n.criado_em)>=inicioMes).reduce((a,n)=>a+(parseFloat(n.valor)||0),0);
+
+  const entregasEpiMes = D.epiMovs.filter(m=>m.tipo==='entrega' && new Date(m.criado_em)>=inicioMes).length;
+  const em7 = new Date(); em7.setDate(em7.getDate()+7);
+  const trocasProximas = D.epiMovs.filter(m=>m.proxima_troca && new Date(m.proxima_troca)<=em7 && new Date(m.proxima_troca)>=hoje).length;
+  const ddsMes = D.dds.filter(d=>new Date(d.data_hora)>=inicioMes).length;
+
+  const materiaisCriticos = (D.materiaisD||[]).filter(m=>m.estoque_minimo!=null && m.estoque_atual<m.estoque_minimo);
+
+  const ativosCount = S.usuarios.filter(u=>u.status==='ativo').length;
+
+  const kpi = (label,val,color,onclick)=>`<div class="kpi-card${onclick?' clickable':''}"${color?` style="border-left-color:${color};"`:''}${onclick?` onclick="${onclick}"`:''}><div class="kpi-label">${label}</div><div class="kpi-value">${val}</div></div>`;
+
   return `
   <div class="wrap">
+    <div class="section-header">📊 Painel Geral — Grupo MEGA</div>
+
+    <div class="dash-section-title">Operação — Ordens de Serviço</div>
     <div class="kpi-grid">
-      <div class="kpi-card"><div class="kpi-label">Total de OS</div><div class="kpi-value">${list.length}</div></div>
-      <div class="kpi-card"><div class="kpi-label">Abertas</div><div class="kpi-value">${abertas}</div></div>
-      <div class="kpi-card"><div class="kpi-label">Em execução</div><div class="kpi-value">${emExec}</div></div>
-      <div class="kpi-card" style="border-left-color:var(--mega-vermelho);"><div class="kpi-label">Críticas</div><div class="kpi-value">${criticas}</div></div>
-      <div class="kpi-card" style="border-left-color:var(--mega-amarelo);"><div class="kpi-label">Atrasadas</div><div class="kpi-value">${atrasadas}</div></div>
+      ${kpi('Total de OS', list.length)}
+      ${kpi('Abertas', abertas)}
+      ${kpi('Em execução', emExec)}
+      ${kpi('Críticas', criticas, 'var(--mega-vermelho)')}
+      ${kpi('Atrasadas', atrasadas, 'var(--mega-amarelo)')}
     </div>
-    <div class="section-header">Ordens de Serviço por Status (todos os status)</div>
+
+    <div class="dash-section-title">💰 Financeiro</div>
+    <div class="kpi-grid">
+      ${kpi('Notas pendentes', notasPendentes.length, 'var(--mega-amarelo)', "S.view='financeiro';render();")}
+      ${kpi('Valor pendente', fmtMoney(valorPendente), 'var(--mega-amarelo)')}
+      ${kpi('Aprovado no mês', fmtMoney(valorAprovadoMes), 'var(--mega-verde)')}
+    </div>
+
+    <div class="dash-section-title">⛑️ Segurança</div>
+    <div class="kpi-grid">
+      ${kpi('EPIs entregues no mês', entregasEpiMes)}
+      ${kpi('Trocas em até 7 dias', trocasProximas, trocasProximas>0?'var(--mega-amarelo)':null)}
+      ${kpi('DDS realizados no mês', ddsMes)}
+    </div>
+
+    <div class="dash-section-title">👥 Pessoas / RH</div>
+    <div class="kpi-grid">
+      ${kpi('Colaboradores ativos', ativosCount)}
+      ${kpi('Atestados aguardando análise', D.atestados.length, D.atestados.length>0?'var(--mega-amarelo)':null)}
+      ${kpi('Solicitações cadastrais pendentes', D.solicit.length, D.solicit.length>0?'var(--mega-amarelo)':null)}
+    </div>
+
+    <div class="dash-section-title">📦 Suprimentos</div>
+    <div class="kpi-grid">
+      ${kpi('Materiais abaixo do mínimo', materiaisCriticos.length, materiaisCriticos.length>0?'var(--mega-vermelho)':null)}
+    </div>
+
+    <div class="section-header">Ordens de Serviço por Status</div>
     <div class="kpi-grid">
       ${Object.keys(STATUS_LABELS).map(s=>`<div class="kpi-card" style="border-left-color:${s==='reprovada'||s==='impedida'||s==='cancelada'?'var(--mega-vermelho)':s==='aprovada'?'var(--mega-verde)':'var(--mega-laranja)'};">
         <div class="kpi-label">${STATUS_LABELS[s]}</div><div class="kpi-value small">${cnt(s)}</div></div>`).join('')}
@@ -1392,8 +1466,8 @@ function renderDashboard(){
     <div class="table-scroll"><table class="mega-table">
       <thead><tr><th>Nº OS</th><th>Obra</th><th>Equipe</th><th>Serviço</th><th>KM</th><th>Criticidade</th><th>Status</th><th>Criada em</th></tr></thead>
       <tbody>
-        ${recentes.map(o=>`<tr class="clickable" onclick="abrirOS('${o.id}')">
-          <td class="mono">${o.numero_os}</td><td>${esc(om[o.obra_id]?.nome||'—')}</td><td>${esc(em[o.equipe_id]?.nome||'—')}</td>
+        ${list.slice(0,10).map(o=>`<tr class="clickable" onclick="abrirOS('${o.id}')">
+          <td class="mono">${o.numero_os}</td><td>${esc(obraMap()[o.obra_id]?.nome||'—')}</td><td>${esc(equipeMap()[o.equipe_id]?.nome||'—')}</td>
           <td>${esc(o.servico)}</td><td class="mono">${o.km_inicial??'—'} – ${o.km_final??'—'}</td>
           <td>${critBadge(o.criticidade)}</td><td>${statusBadge(o.status)}</td><td>${fmtDate(o.criado_em)}</td>
         </tr>`).join('') || `<tr><td colspan="8" class="empty-state">Nenhuma OS cadastrada ainda.</td></tr>`}
@@ -1706,6 +1780,13 @@ function renderCadastros(){
   return `
   <div class="wrap">
     <div class="section-header">Cadastros</div>
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-label">Obras ativas</div><div class="kpi-value">${S.obras.filter(o=>o.status==='ativa'||!o.status).length}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Equipes</div><div class="kpi-value">${S.equipes.length}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Colaboradores ativos</div><div class="kpi-value">${S.usuarios.filter(u=>u.status==='ativo').length}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Veículos</div><div class="kpi-value">${S.veiculos.length}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Equipamentos</div><div class="kpi-value">${S.equipamentos.length}</div></div>
+    </div>
     <div class="flex-row" style="margin-bottom:16px;">
       ${tabs.map(([k,l])=>`<button class="btn ${S.cadastroTab===k?'btn-primary':'btn-secondary'}" onclick="S.cadastroTab='${k}';render()">${l}</button>`).join('')}
     </div>
@@ -1784,7 +1865,13 @@ function renderCadastroUsuarios(){
   <div class="card">
     <div class="muted" style="margin-bottom:10px;font-weight:700;">${ed?'Editando usuário':'Novo usuário'}</div>
     <form onsubmit="event.preventDefault();${ed?'salvarEdicaoUsuario(this)':'criarUsuario(this)'};">
+      <div class="field" style="margin-bottom:10px;">
+        <label>Foto do colaborador</label>
+        ${ed?.foto?`<img src="${ed.foto}" style="width:64px;height:64px;object-fit:cover;border-radius:50%;display:block;margin-bottom:6px;">`:''}
+        ${photoWidget('usuario_foto')}
+      </div>
       <div class="form-grid">
+        <div class="field"><label>Código</label><input name="codigo" value="${esc(ed?.codigo||'')}" placeholder="Ex: COL-0001"></div>
         <div class="field"><label>Nome *</label><input name="nome" required value="${esc(ed?.nome||'')}"></div>
         <div class="field"><label>CPF</label><input name="cpf" value="${esc(ed?.cpf||'')}"></div>
         <div class="field"><label>Cargo</label><input name="cargo" value="${esc(ed?.cargo||'')}"></div>
@@ -1810,11 +1897,11 @@ function renderCadastroUsuarios(){
       <div class="muted" style="margin-top:8px;">Login sempre disponível nas duas telas iniciais; após o PIN, o sistema redireciona automaticamente para a plataforma configurada aqui.${!ed?' Permissões de acesso são atribuídas automaticamente conforme o perfil e podem ser ajustadas na aba Permissões.':''}</div>
     </form>
   </div>
-  <div class="table-scroll"><table class="mega-table"><thead><tr><th>Nome</th><th>Cargo</th><th>Perfil</th><th>Equipe</th><th>Obras c/ Acesso</th><th>Plataforma</th><th>Status</th><th></th></tr></thead>
+  <div class="table-scroll"><table class="mega-table"><thead><tr><th></th><th>Código</th><th>Nome</th><th>Cargo</th><th>Perfil</th><th>Equipe</th><th>Obras c/ Acesso</th><th>Plataforma</th><th>Status</th><th></th></tr></thead>
   <tbody>${S.usuarios.map(u=>{
     const om=obraMap();
     const obrasTxt = (u.obras_acesso&&u.obras_acesso.length) ? u.obras_acesso.map(id=>om[id]?.nome||'?').join(', ') : 'Todas';
-    return `<tr><td>${esc(u.nome)}</td><td>${esc(u.cargo||'—')}</td><td>${PERFIL_LABELS[u.perfil]}</td>
+    return `<tr><td>${u.foto?`<img src="${u.foto}" style="width:32px;height:32px;object-fit:cover;border-radius:50%;">`:`<div style="width:32px;height:32px;border-radius:50%;background:var(--mega-cinza-bdr);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--mega-cinza-med);">${esc((u.nome||'?')[0])}</div>`}</td><td class="mono">${esc(u.codigo||'—')}</td><td>${esc(u.nome)}</td><td>${esc(u.cargo||'—')}</td><td>${PERFIL_LABELS[u.perfil]}</td>
     <td>${esc(equipeMap()[u.equipe_id]?.nome||'—')}</td>
     <td style="font-size:12px;">${esc(obrasTxt)}</td>
     <td>${badge(u.plataforma_acesso==='ambos'?'andamento':'concluido', u.plataforma_acesso==='desktop'?'Desktop':u.plataforma_acesso==='mobile'?'Mobile':'Ambos')}</td>
@@ -2964,6 +3051,227 @@ function renderDreResultado(){
   </div>`;
 }
 
+/* ==========================================================
+   MÓDULO SEGURANÇA — CONTROLE DE EPI
+   ========================================================== */
+function carregarEpiTab(tab){
+  S.view='epi'; S.epiTab=tab; S.loading=true; render();
+  const done=()=>{ S.loading=false; render(); };
+  const fail=e=>{ toast('Erro: '+e.message); done(); };
+  const base = Promise.all([loadEpis(), loadEpiEstoque()]);
+  if(tab==='cadastro') base.then(done).catch(fail);
+  else if(tab==='matriz') base.then(()=>loadEpiMatriz()).then(done).catch(fail);
+  else if(tab==='entrega') base.then(()=>loadEpiMatriz()).then(done).catch(fail);
+  else if(tab==='estoque') base.then(done).catch(fail);
+  else if(tab==='fichas') base.then(()=>loadEpiMovimentacoes()).then(done).catch(fail);
+  else base.then(done).catch(fail);
+}
+async function loadEpis(){ S.epis = await sb('epis?select=*&order=nome.asc&limit=300'); S.episLoaded=true; }
+async function loadEpiMatriz(){ S.epiMatriz = await sb('epi_matriz_cargo?select=*&order=cargo_perfil.asc'); }
+async function loadEpiEstoque(){ S.epiEstoque = await sb('epi_estoque?select=*&order=saldo.asc'); }
+async function loadEpiMovimentacoes(){
+  let q='epi_movimentacoes?select=*&order=criado_em.desc&limit=200';
+  if(S.epiColaboradorSel) q += `&usuario_id=eq.${S.epiColaboradorSel}`;
+  S.epiMovimentacoes = await sb(q);
+}
+function epiMap(){ const m={}; (S.epis||[]).forEach(x=>m[x.id]=x); return m; }
+function renderEpi(){
+  const tabs=[['entrega','Nova Entrega'],['fichas','Fichas / Histórico'],['cadastro','Cadastro de EPI'],['matriz','Matriz por Cargo'],['estoque','Estoque']];
+  const hoje=new Date(); const em7=new Date(); em7.setDate(em7.getDate()+7);
+  const trocasProximas = (S.epiMovimentacoes||[]).filter(m=>m.proxima_troca && new Date(m.proxima_troca)<=em7 && new Date(m.proxima_troca)>=hoje).length;
+  const estoqueCritico = (S.epiEstoque||[]).filter(e=>e.estoque_minimo!=null && e.saldo<e.estoque_minimo).length;
+  return `<div class="wrap">
+    <div class="section-header">⛑️ Segurança — Controle de EPI</div>
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-label">EPIs cadastrados</div><div class="kpi-value">${(S.epis||[]).length}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Itens de estoque</div><div class="kpi-value">${(S.epiEstoque||[]).length}</div></div>
+      <div class="kpi-card" style="border-left-color:${estoqueCritico>0?'var(--mega-vermelho)':''};"><div class="kpi-label">Estoque abaixo do mínimo</div><div class="kpi-value">${estoqueCritico}</div></div>
+      <div class="kpi-card" style="border-left-color:${trocasProximas>0?'var(--mega-amarelo)':''};"><div class="kpi-label">Trocas em até 7 dias</div><div class="kpi-value">${trocasProximas}</div></div>
+    </div>
+    <div class="flex-row" style="margin-bottom:12px;gap:6px;">
+      ${tabs.map(([k,l])=>`<button class="btn ${S.epiTab===k?'btn-primary':'btn-secondary'} btn-sm" onclick="carregarEpiTab('${k}')">${l}</button>`).join('')}
+    </div>
+    ${S.epiTab==='entrega'?renderEpiEntrega():''}
+    ${S.epiTab==='fichas'?renderEpiFichas():''}
+    ${S.epiTab==='cadastro'?renderEpiCadastro():''}
+    ${S.epiTab==='matriz'?renderEpiMatriz():''}
+    ${S.epiTab==='estoque'?renderEpiEstoque():''}
+  </div>`;
+}
+
+function renderEpiCadastro(){
+  return `
+  <form class="card" onsubmit="event.preventDefault();cadastrarEpi(this);">
+    <div class="section-header" style="margin:0 0 8px;">Novo EPI</div>
+    <div class="form-grid">
+      <div class="field"><label>Nome</label><input name="nome" required></div>
+      <div class="field"><label>Código interno</label><input name="codigo_interno"></div>
+      <div class="field"><label>Categoria</label><input name="categoria" placeholder="Ex: Proteção dos pés"></div>
+      <div class="field"><label>CA (Certificado de Aprovação)</label><input name="ca_numero"></div>
+      <div class="field"><label>Validade do CA</label><input type="date" name="ca_validade"></div>
+      <div class="field"><label>Periodicidade de troca (dias)</label><input type="number" name="periodicidade_dias" placeholder="Ex: 180"></div>
+      <div class="field"><label>Valor unitário (R$)</label><input type="number" step="0.01" name="valor_unitario"></div>
+      <div class="field field-span2"><label>Tamanhos disponíveis — separados por vírgula</label><input name="tamanhos" placeholder="P, M, G, GG ou 38,40,42,44"></div>
+      <div class="field field-span2"><label>Descrição / observações</label><input name="descricao"></div>
+    </div>
+    <button class="btn btn-primary btn-block" ${S.loading?'disabled':''}>${S.loading?'Salvando…':'Cadastrar EPI'}</button>
+  </form>
+  <div class="divider"></div>
+  <div class="section-header">EPIs cadastrados</div>
+  <div class="table-scroll"><table class="mega-table">
+    <thead><tr><th>Nome</th><th>Categoria</th><th>CA</th><th>Tamanhos</th><th>Status</th></tr></thead>
+    <tbody>${(S.epis||[]).map(e=>`<tr><td>${esc(e.nome)}</td><td>${esc(e.categoria||'')}</td><td>${esc(e.ca_numero||'')}</td><td>${(e.tamanhos||[]).join(', ')}</td><td>${badge(e.status==='ativo'?'ok':'critico',e.status)}</td></tr>`).join('') || `<tr><td colspan="5" class="empty-state">Nenhum EPI cadastrado.</td></tr>`}
+    </tbody></table></div>`;
+}
+async function cadastrarEpi(form){
+  const fd = new FormData(form);
+  const tamanhos = (fd.get('tamanhos')||'').split(',').map(s=>s.trim()).filter(Boolean);
+  S.loading=true; render();
+  try{
+    await sb('epis',{method:'POST',body:{nome:fd.get('nome'), codigo_interno:fd.get('codigo_interno')||null, categoria:fd.get('categoria')||null,
+      ca_numero:fd.get('ca_numero')||null, ca_validade:fd.get('ca_validade')||null, periodicidade_dias:fd.get('periodicidade_dias')?parseInt(fd.get('periodicidade_dias')):null,
+      valor_unitario:fd.get('valor_unitario')?parseFloat(fd.get('valor_unitario')):null, tamanhos, descricao:fd.get('descricao')||null, status:'ativo', criado_por:S.user.id}});
+    toast('EPI cadastrado.'); form.reset(); await loadEpis();
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+
+function renderEpiMatriz(){
+  return `
+  <form class="card" onsubmit="event.preventDefault();cadastrarMatrizEpi(this);">
+    <div class="section-header" style="margin:0 0 8px;">Novo item da matriz</div>
+    <div class="form-grid">
+      <div class="field"><label>Cargo / Perfil</label><select name="cargo_perfil" required>${opt(Object.entries(PERFIL_LABELS),'')}</select></div>
+      <div class="field"><label>EPI obrigatório</label><select name="epi_id" required>${opt((S.epis||[]).map(e=>[e.id,e.nome]),'')}</select></div>
+      <div class="field"><label>Quantidade padrão</label><input type="number" name="quantidade_padrao" value="1" min="1"></div>
+      <div class="field"><label>Tamanho padrão</label><input name="tamanho"></div>
+      <div class="field"><label>Troca prevista (dias)</label><input type="number" name="periodicidade_dias" placeholder="Ex: 180"></div>
+    </div>
+    <button class="btn btn-primary btn-block" ${S.loading?'disabled':''}>${S.loading?'Salvando…':'Adicionar à matriz'}</button>
+  </form>
+  <div class="divider"></div>
+  <div class="section-header">Matriz atual</div>
+  <div class="table-scroll"><table class="mega-table">
+    <thead><tr><th>Cargo</th><th>EPI</th><th>Qtd</th><th>Tamanho</th><th>Troca prevista</th></tr></thead>
+    <tbody>${(S.epiMatriz||[]).map(m=>`<tr><td>${esc(PERFIL_LABELS[m.cargo_perfil]||m.cargo_perfil)}</td><td>${esc(epiMap()[m.epi_id]?.nome||'')}</td><td>${m.quantidade_padrao}</td><td>${esc(m.tamanho||'')}</td><td>${m.periodicidade_dias?m.periodicidade_dias+' dias':'—'}</td></tr>`).join('') || `<tr><td colspan="5" class="empty-state">Nenhum item na matriz.</td></tr>`}
+    </tbody></table></div>`;
+}
+async function cadastrarMatrizEpi(form){
+  const fd = new FormData(form);
+  S.loading=true; render();
+  try{
+    await sb('epi_matriz_cargo',{method:'POST',body:{cargo_perfil:fd.get('cargo_perfil'), epi_id:fd.get('epi_id'), quantidade_padrao:parseFloat(fd.get('quantidade_padrao')||1),
+      tamanho:fd.get('tamanho')||null, periodicidade_dias:fd.get('periodicidade_dias')?parseInt(fd.get('periodicidade_dias')):null}});
+    toast('Item adicionado à matriz.'); form.reset(); await loadEpiMatriz();
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+
+function renderEpiEntrega(){
+  const colab = S.epiColaboradorSel ? usuMap()[S.epiColaboradorSel] : null;
+  const matrizColab = colab ? (S.epiMatriz||[]).filter(m=>m.cargo_perfil===colab.perfil) : [];
+  return `
+  <div class="card">
+    <div class="field"><label>Colaborador</label>
+      <select onchange="S.epiColaboradorSel=this.value;render();">
+        <option value="">Selecione…</option>
+        ${S.usuarios.map(u=>`<option value="${u.id}" ${S.epiColaboradorSel===u.id?'selected':''}>${esc(u.nome)}</option>`).join('')}
+      </select>
+    </div>
+    ${colab?`<div class="mc-meta" style="display:flex;align-items:center;gap:8px;">${colab.foto?`<img src="${colab.foto}" style="width:36px;height:36px;object-fit:cover;border-radius:50%;">`:''}${esc(colab.cargo||PERFIL_LABELS[colab.perfil])} · ${esc(colab.perfil)}</div>`:''}
+  </div>
+  ${colab?`
+  ${matrizColab.length?`<div class="card"><div class="muted">EPIs obrigatórios para este cargo: ${matrizColab.map(m=>esc(epiMap()[m.epi_id]?.nome||'')).join(', ')}</div></div>`:''}
+  <form class="card" onsubmit="event.preventDefault();registrarEntregaEpi(this);">
+    <div class="section-header" style="margin:0 0 8px;">Itens da entrega</div>
+    <div class="form-grid">
+      <div class="field"><label>EPI</label><select name="epi_id" required>${opt((S.epis||[]).filter(e=>e.status==='ativo').map(e=>[e.id,e.nome]),'')}</select></div>
+      <div class="field"><label>Tamanho</label><input name="tamanho" value="único"></div>
+      <div class="field"><label>Quantidade</label><input type="number" name="quantidade" value="1" min="1"></div>
+      <div class="field"><label>Obra</label><select name="obra_id">${opt(S.obras.map(o=>[o.id,o.nome]),'',true)}</select></div>
+      <div class="field"><label>Condição</label>${chipGroup('condicao',[['novo','Novo'],['reutilizado','Reutilizado']],'novo')}</div>
+      <div class="field"><label>Motivo</label>${chipGroup('motivo',[['admissao','Admissão'],['primeira_entrega','Primeira entrega'],['troca_programada','Troca programada'],['desgaste','Desgaste'],['dano','Dano'],['perda','Perda'],['outro','Outro']],'primeira_entrega')}</div>
+    </div>
+    <div class="field" style="margin:10px 0;"><label>Fotos (obrigatório ao menos 1)</label>${photoWidget('epi_fotos')}</div>
+    <div class="field"><label>Assinatura do colaborador — digite o nome para confirmar</label><input name="assinatura_colaborador" value="${esc(colab.nome)}" required></div>
+    <div class="field"><label>Coordenador responsável (você)</label><input value="${esc(S.user.nome)}" disabled></div>
+    <button class="btn btn-primary btn-block" style="margin-top:10px;" ${S.loading?'disabled':''}>${S.loading?'Registrando…':'Confirmar entrega'}</button>
+  </form>`:'<div class="empty-state">Selecione um colaborador para iniciar a entrega.</div>'}`;
+}
+async function registrarEntregaEpi(form){
+  const fd = new FormData(form);
+  const files = window.pendingFiles['epi_fotos']||[];
+  if(!files.length){ toast('É obrigatório ao menos 1 foto para confirmar a entrega.'); return; }
+  const epi = epiMap()[fd.get('epi_id')];
+  const tamanho = fd.get('tamanho')||'único';
+  const obraId = fd.get('obra_id')||null;
+  const qtd = parseFloat(fd.get('quantidade'));
+  const estoqueAtual = (S.epiEstoque||[]).find(e=>e.epi_id===epi.id && e.tamanho===tamanho && e.obra_id===obraId);
+  if(!estoqueAtual || estoqueAtual.saldo < qtd){
+    if(!confirm(`Estoque disponível: ${estoqueAtual?estoqueAtual.saldo:0}. Confirmar entrega mesmo assim (estoque ficará negativo)?`)) return;
+  }
+  S.loading=true; render();
+  try{
+    const fotoUrls=[];
+    for(const f of files){ fotoUrls.push(await uploadArquivo(f, `${S.epiColaboradorSel}/${Date.now()}_${f.name}`, 'epi')); }
+    let proximaTroca=null;
+    if(epi.periodicidade_dias){ const d=new Date(); d.setDate(d.getDate()+epi.periodicidade_dias); proximaTroca=d.toISOString().slice(0,10); }
+    await sb('epi_movimentacoes',{method:'POST',body:{epi_id:epi.id, usuario_id:S.epiColaboradorSel, tamanho, obra_id:obraId, quantidade:qtd,
+      tipo:'entrega', condicao:fd.get('condicao'), motivo:fd.get('motivo'), fotos:fotoUrls, assinatura_colaborador:fd.get('assinatura_colaborador'),
+      coordenador_id:S.user.id, proxima_troca:proximaTroca, criado_por:S.user.id}});
+    clearPending('epi_fotos'); toast('Entrega de EPI registrada.'); form.reset(); await loadEpiEstoque();
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+
+function renderEpiFichas(){
+  return `
+  <div class="field"><label>Colaborador</label>
+    <select onchange="S.epiColaboradorSel=this.value||null;loadEpiMovimentacoes().then(render);">
+      <option value="">Todos</option>
+      ${S.usuarios.map(u=>`<option value="${u.id}" ${S.epiColaboradorSel===u.id?'selected':''}>${esc(u.nome)}</option>`).join('')}
+    </select>
+  </div>
+  <div class="divider"></div>
+  <div class="table-scroll"><table class="mega-table">
+    <thead><tr><th>EPI</th><th>Colaborador</th><th>Tipo</th><th>Qtd</th><th>Data</th><th>Próxima troca</th><th>Fotos</th></tr></thead>
+    <tbody>${(S.epiMovimentacoes||[]).map(mv=>`<tr><td>${esc(epiMap()[mv.epi_id]?.nome||'')}</td><td>${esc(usuMap()[mv.usuario_id]?.nome||'')}</td>
+      <td>${badge(mv.tipo==='entrega'?'pendente':'ok',mv.tipo)}</td><td>${mv.quantidade}${mv.tamanho&&mv.tamanho!=='único'?' ('+esc(mv.tamanho)+')':''}</td><td>${fmtDate(mv.criado_em)}</td>
+      <td>${mv.proxima_troca?fmtDateOnly(mv.proxima_troca):'—'}</td>
+      <td>${(mv.fotos||[]).map(url=>`<a href="${url}" target="_blank"><img src="${url}" style="width:36px;height:36px;object-fit:cover;border-radius:4px;margin-right:4px;"></a>`).join('')}</td></tr>`).join('') || `<tr><td colspan="7" class="empty-state">Nenhuma movimentação encontrada.</td></tr>`}
+    </tbody></table></div>`;
+}
+
+function renderEpiEstoque(){
+  return `<div class="section-header">Saldo por EPI / tamanho / obra</div>
+  <div class="table-scroll"><table class="mega-table">
+    <thead><tr><th>EPI</th><th>Tamanho</th><th>Obra</th><th>Saldo</th></tr></thead>
+    <tbody>${(S.epiEstoque||[]).map(e=>`<tr><td>${esc(epiMap()[e.epi_id]?.nome||'')}</td><td>${esc(e.tamanho)}</td><td>${e.obra_id?esc(S.obras.find(o=>o.id===e.obra_id)?.nome||''):'Geral'}</td>
+      <td>${badge(e.estoque_minimo!=null&&e.saldo<e.estoque_minimo?'critico':'ok',e.saldo)}</td></tr>`).join('') || `<tr><td colspan="4" class="empty-state">Sem estoque lançado.</td></tr>`}
+    </tbody></table></div>
+  <div class="divider"></div>
+  <form class="card" onsubmit="event.preventDefault();registrarEntradaEpi(this);">
+    <div class="section-header" style="margin:0 0 8px;">Registrar entrada de estoque</div>
+    <div class="form-grid">
+      <div class="field"><label>EPI</label><select name="epi_id" required>${opt((S.epis||[]).map(e=>[e.id,e.nome]),'')}</select></div>
+      <div class="field"><label>Tamanho</label><input name="tamanho" value="único"></div>
+      <div class="field"><label>Quantidade</label><input type="number" name="quantidade" min="1" required></div>
+      <div class="field"><label>Obra</label><select name="obra_id">${opt(S.obras.map(o=>[o.id,o.nome]),'',true)}</select></div>
+    </div>
+    <button class="btn btn-primary btn-block" ${S.loading?'disabled':''}>${S.loading?'Registrando…':'Registrar entrada'}</button>
+  </form>`;
+}
+async function registrarEntradaEpi(form){
+  const fd = new FormData(form);
+  S.loading=true; render();
+  try{
+    await sb('epi_movimentacoes',{method:'POST',body:{epi_id:fd.get('epi_id'), tamanho:fd.get('tamanho')||'único', obra_id:fd.get('obra_id')||null,
+      quantidade:parseFloat(fd.get('quantidade')), tipo:'entrada', criado_por:S.user.id}});
+    toast('Entrada registrada.'); form.reset(); await loadEpiEstoque();
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+
 function render(){
   const app = document.getElementById('app');
   if(!S.user){ app.innerHTML = renderLogin(); return; }
@@ -2980,6 +3288,7 @@ function render(){
   else if(S.view==='dds') body=renderDDS();
   else if(S.view==='suprimentos') body=renderSuprimentos();
   else if(S.view==='dre_sinalizacao') body=renderDreSinalizacao();
+  else if(S.view==='epi') body=renderEpi();
   else if(S.view==='detalhe') body=renderDetalheOS();
   app.innerHTML = renderHeader() + body + (S.loading?'<div class="spinner"></div>':'');
   if(S.view==='nova'){

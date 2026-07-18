@@ -409,15 +409,15 @@ function defaultPermissoes(perfil){
   const all = {dashboard:false,os_lista:true,os_nova:false,cadastros_obras:false,cadastros_equipes:false,cadastros_usuarios:false,
     cadastros_veiculos:false,cadastros_equipamentos:false,checklists:true,permissoes:false,checkin_veiculo:false,
     financeiro:true,financeiro_geral:false};
-  if(perfil==='administrador') return {dashboard:true,os_lista:true,os_nova:true,cadastros_obras:true,cadastros_equipes:true,suprimentos:true,dre_sinalizacao:true,
+  if(perfil==='administrador') return {dashboard:true,os_lista:true,os_nova:true,cadastros_obras:true,cadastros_equipes:true,suprimentos:true,dre_sinalizacao:true,seguranca_epi:true,
     cadastros_usuarios:true,cadastros_veiculos:true,cadastros_equipamentos:true,checklists:true,permissoes:true,checkin_veiculo:true,
     financeiro:true,financeiro_geral:true};
   if(perfil==='departamento_pessoal') return {...all,dashboard:true,os_nova:true,cadastros_usuarios:true,cadastros_veiculos:true,cadastros_equipamentos:true,checkin_veiculo:true,financeiro_geral:true};
   if(perfil==='engenharia') return {...all,dashboard:true,os_nova:true,cadastros_obras:true,cadastros_equipes:true,checkin_veiculo:true,dre_sinalizacao:true};
   if(perfil==='financeiro') return {...all,dashboard:true,financeiro_geral:true};
   if(perfil==='suprimentos') return {...all,cadastros_veiculos:true,cadastros_equipamentos:true,suprimentos:true};
-  if(perfil==='supervisor') return {...all,dashboard:true,checkin_veiculo:true};
-  if(perfil==='coordenador') return {...all,dashboard:true};
+  if(perfil==='supervisor') return {...all,dashboard:true,checkin_veiculo:true,seguranca_epi:true};
+  if(perfil==='coordenador') return {...all,dashboard:true,seguranca_epi:true};
   return {...all, checkin_veiculo:true}; // encarregado (campo)
 }
 function canAccess(mod){ return !!(S.user && S.user.permissoes && S.user.permissoes[mod]); }
@@ -595,7 +595,8 @@ const S = {
   solicitacoesDocRH:[], minhasSolicitacoesDoc:[],
   ddsScreen:'sorteio', ddsTemaAtual:null, ddsHistorico:[], ddsHistoricoLoaded:false,
   suprimentosTab:'materiais', materiais:[], materiaisLoaded:false, movimentacoesMateriais:[], movimentacoesLoaded:false,
-  dreForm:{rod:'',trecho:'',kmi:'',kmf:'',tipoPintura:'mec_aut',basePintura:'solvente',temEixo:1,tipoEixo:'simples',largEixo:0.12,lEc:'',temBordo:1,largBordo:0.15,lBc:'',temTacha:0,cadE:12,cadB:12,tipoTE:'biamarel',tipoTB:'bobibranca'}, dreRes:null
+  dreForm:{rod:'',trecho:'',kmi:'',kmf:'',tipoPintura:'mec_aut',basePintura:'solvente',temEixo:1,tipoEixo:'simples',largEixo:0.12,lEc:'',temBordo:1,largBordo:0.15,lBc:'',temTacha:0,cadE:12,cadB:12,tipoTE:'biamarel',tipoTB:'bobibranca'}, dreRes:null,
+  epiTab:'entrega', epis:[], episLoaded:false, epiMatriz:[], epiEstoque:[], epiMovimentacoes:[], epiColaboradorSel:null
 };
 
 function usuMap(){ const m={}; S.usuarios.forEach(u=>m[u.id]=u); return m; }
@@ -618,7 +619,7 @@ async function loadLoginList(){
 }
 async function loadBaseData(){
   const [usuarios,obras,equipes,veiculos,equipamentos] = await Promise.all([
-    sb('usuarios?select=id,nome,cpf,cargo,email,telefone,perfil,equipe_id,obra_id,status,permissoes,plataforma_acesso,obras_acesso,criado_em,data_nascimento,estado_civil,naturalidade,rg,telefone_whatsapp,data_admissao&order=nome.asc'),
+    sb('usuarios?select=id,foto,nome,cpf,cargo,email,telefone,perfil,equipe_id,obra_id,status,permissoes,plataforma_acesso,obras_acesso,criado_em,data_nascimento,estado_civil,naturalidade,rg,telefone_whatsapp,data_admissao&order=nome.asc'),
     sb('obras?select=*&order=nome.asc'),
     sb('equipes?select=*&order=nome.asc'),
     sb('veiculos?select=*&order=placa.asc'),
@@ -944,23 +945,29 @@ async function excluirEquipe(id){
 async function criarUsuario(form){
   const fd=new FormData(form);
   const perfil = fd.get('perfil');
-  const payload={nome:fd.get('nome'),cpf:fd.get('cpf')||null,cargo:fd.get('cargo')||null,email:fd.get('email')||null,
+  let fotoUrl=null;
+  const fotoFiles = window.pendingFiles['usuario_foto']||[];
+  if(fotoFiles[0]){ fotoUrl = await uploadArquivo(fotoFiles[0], `${Date.now()}_${fotoFiles[0].name}`, 'colaboradores'); }
+  const payload={foto:fotoUrl, nome:fd.get('nome'),cpf:fd.get('cpf')||null,cargo:fd.get('cargo')||null,email:fd.get('email')||null,
     telefone:fd.get('telefone')||null,perfil,equipe_id:fd.get('equipe_id')||null,obra_id:fd.get('obra_id')||null,
     plataforma_acesso:fd.get('plataforma_acesso')||'ambos', obras_acesso:fd.getAll('obras_acesso')};
   try{
     const created = await sb('usuarios?select=id',{method:'POST',body:payload,prefer:'return=representation'});
     await sb(`usuarios?id=eq.${created[0].id}`,{method:'PATCH',body:{permissoes:defaultPermissoes(perfil)}});
-    toast('Usuário cadastrado. PIN inicial: 1234 (oriente a troca imediata).'); await loadBaseData(); form.reset(); render();
+    toast('Usuário cadastrado. PIN inicial: 1234 (oriente a troca imediata).'); clearPending('usuario_foto'); await loadBaseData(); form.reset(); render();
   }catch(e){ toast('Erro: '+e.message); }
 }
 function iniciarEdicaoUsuario(id){ S.editUsuario = {...S.usuarios.find(u=>u.id===id)}; render(); }
 function cancelarEdicaoUsuario(){ S.editUsuario=null; render(); }
 async function salvarEdicaoUsuario(form){
   const fd=new FormData(form);
-  const payload={nome:fd.get('nome'),cpf:fd.get('cpf')||null,cargo:fd.get('cargo')||null,email:fd.get('email')||null,
+  let fotoUrl = S.editUsuario.foto || null;
+  const fotoFiles = window.pendingFiles['usuario_foto']||[];
+  if(fotoFiles[0]){ fotoUrl = await uploadArquivo(fotoFiles[0], `${S.editUsuario.id}_${Date.now()}_${fotoFiles[0].name}`, 'colaboradores'); }
+  const payload={foto:fotoUrl, nome:fd.get('nome'),cpf:fd.get('cpf')||null,cargo:fd.get('cargo')||null,email:fd.get('email')||null,
     telefone:fd.get('telefone')||null,perfil:fd.get('perfil'),equipe_id:fd.get('equipe_id')||null,obra_id:fd.get('obra_id')||null,
     status:fd.get('status')||'ativo', plataforma_acesso:fd.get('plataforma_acesso')||'ambos', obras_acesso:fd.getAll('obras_acesso')};
-  try{ await sb(`usuarios?id=eq.${S.editUsuario.id}`,{method:'PATCH',body:payload}); toast('Usuário atualizado.'); S.editUsuario=null; await loadBaseData(); }
+  try{ await sb(`usuarios?id=eq.${S.editUsuario.id}`,{method:'PATCH',body:payload}); toast('Usuário atualizado.'); clearPending('usuario_foto'); S.editUsuario=null; await loadBaseData(); }
   catch(e){ toast('Erro: '+e.message); }
   render();
 }
@@ -1360,6 +1367,7 @@ function renderMaisSheet(){
   if(canAccess('permissoes')) items.push(['permissoes','🔐','Permissões de Acesso']);
   if(canAccess('suprimentos')) items.push(['suprimentos','📦','Suprimentos']);
   if(canAccess('dre_sinalizacao')) items.push(['dre_sinalizacao','🎨','DRE Sinalização Horizontal']);
+  if(canAccess('seguranca_epi')) items.push(['epi','⛑️','Segurança / EPI']);
   return `<div class="modal-overlay" onclick="if(event.target===this){S.showMais=false;render();}">
     <div class="modal-panel"><div class="modal-head"><b>Mais opções</b>
       <button class="btn-logout" onclick="S.showMais=false;render()">✕</button></div>
@@ -1376,6 +1384,7 @@ function irPara(destino){
   if(destino==='lista'){ S.view='lista'; loadOSList().then(render); return; }
   if(destino==='suprimentos'){ S.view='suprimentos'; carregarSuprimentosTab(S.suprimentosTab); return; }
   if(destino==='dre_sinalizacao'){ S.view='dre_sinalizacao'; render(); return; }
+  if(destino==='epi'){ S.view='epi'; carregarEpiTab(S.epiTab); return; }
   S.view=destino; render();
 }
 
@@ -1721,6 +1730,11 @@ function renderCadastroUsuarios(){
   <div class="card">
     <div class="muted" style="margin-bottom:10px;font-weight:700;">${ed?'Editando usuário':'Novo usuário'}</div>
     <form onsubmit="event.preventDefault();${ed?'salvarEdicaoUsuario(this)':'criarUsuario(this)'};">
+      <div class="field" style="margin-bottom:10px;">
+        <label>Foto do colaborador</label>
+        ${ed?.foto?`<img src="${ed.foto}" style="width:64px;height:64px;object-fit:cover;border-radius:50%;display:block;margin-bottom:6px;">`:''}
+        ${photoWidget('usuario_foto')}
+      </div>
       <div class="form-grid">
         <div class="field"><label>Nome *</label><input name="nome" required value="${esc(ed?.nome||'')}"></div>
         <div class="field"><label>CPF</label><input name="cpf" value="${esc(ed?.cpf||'')}"></div>
@@ -1748,7 +1762,7 @@ function renderCadastroUsuarios(){
   ${S.usuarios.map(u=>{
     const om=obraMap();
     const obrasTxt = (u.obras_acesso&&u.obras_acesso.length) ? u.obras_acesso.map(id=>om[id]?.nome||'?').join(', ') : 'Todas as obras';
-    return `<div class="mcard"><div class="mc-title">${esc(u.nome)}</div>
+    return `<div class="mcard"><div class="mc-title" style="display:flex;align-items:center;gap:8px;">${u.foto?`<img src="${u.foto}" style="width:28px;height:28px;object-fit:cover;border-radius:50%;">`:''}${esc(u.nome)}</div>
     <div class="mc-meta">${PERFIL_LABELS[u.perfil]} · ${esc(u.cargo||'—')}</div>
     <div class="mc-meta">${badge(u.plataforma_acesso==='ambos'?'andamento':'concluido', u.plataforma_acesso==='desktop'?'Desktop':u.plataforma_acesso==='mobile'?'Mobile':'Ambos')}</div>
     <div class="mc-meta">🏗️ ${esc(obrasTxt)}</div>
@@ -2854,6 +2868,218 @@ function renderDreResultado(){
   </div>`;
 }
 
+/* ==========================================================
+   MÓDULO SEGURANÇA — CONTROLE DE EPI
+   ========================================================== */
+function carregarEpiTab(tab){
+  S.epiTab=tab; S.loading=true; render();
+  const done=()=>{ S.loading=false; render(); };
+  const fail=e=>{ toast('Erro: '+e.message); done(); };
+  if(tab==='cadastro') loadEpis().then(done).catch(fail);
+  else if(tab==='matriz') Promise.all([loadEpis(), loadEpiMatriz()]).then(done).catch(fail);
+  else if(tab==='entrega') loadEpis().then(done).catch(fail);
+  else if(tab==='estoque') Promise.all([loadEpis(), loadEpiEstoque()]).then(done).catch(fail);
+  else if(tab==='fichas') Promise.all([loadEpis(), loadEpiMovimentacoes()]).then(done).catch(fail);
+  else done();
+}
+async function loadEpis(){ S.epis = await sb('epis?select=*&order=nome.asc&limit=300'); S.episLoaded=true; }
+async function loadEpiMatriz(){ S.epiMatriz = await sb('epi_matriz_cargo?select=*&order=cargo_perfil.asc'); }
+async function loadEpiEstoque(){ S.epiEstoque = await sb('epi_estoque?select=*&order=saldo.asc'); }
+async function loadEpiMovimentacoes(){
+  let q='epi_movimentacoes?select=*&order=criado_em.desc&limit=200';
+  if(S.epiColaboradorSel) q += `&usuario_id=eq.${S.epiColaboradorSel}`;
+  S.epiMovimentacoes = await sb(q);
+}
+function epiMap(){ const m={}; (S.epis||[]).forEach(x=>m[x.id]=x); return m; }
+function renderEpi(){
+  const tabs=[['entrega','Nova Entrega'],['fichas','Fichas / Histórico'],['cadastro','Cadastro de EPI'],['matriz','Matriz por Cargo'],['estoque','Estoque']];
+  return `<div class="wrap">
+    <div class="section-header">⛑️ Segurança — Controle de EPI</div>
+    <div class="flex-row" style="margin-bottom:12px;flex-wrap:wrap;gap:6px;">
+      ${tabs.map(([k,l])=>`<button class="btn ${S.epiTab===k?'btn-primary':'btn-secondary'} btn-sm" onclick="carregarEpiTab('${k}')">${l}</button>`).join('')}
+    </div>
+    ${S.epiTab==='entrega'?renderEpiEntrega():''}
+    ${S.epiTab==='fichas'?renderEpiFichas():''}
+    ${S.epiTab==='cadastro'?renderEpiCadastro():''}
+    ${S.epiTab==='matriz'?renderEpiMatriz():''}
+    ${S.epiTab==='estoque'?renderEpiEstoque():''}
+  </div>`;
+}
+
+/* ---- Cadastro de EPI ---- */
+function renderEpiCadastro(){
+  return `
+  <form class="card" onsubmit="event.preventDefault();cadastrarEpi(this);">
+    <div class="section-header" style="margin:0 0 8px;">Novo EPI</div>
+    <div class="form-grid">
+      <div class="field"><label>Nome</label><input name="nome" required></div>
+      <div class="field"><label>Código interno</label><input name="codigo_interno"></div>
+      <div class="field"><label>Categoria</label><input name="categoria" placeholder="Ex: Proteção dos pés"></div>
+      <div class="field"><label>CA (Certificado de Aprovação)</label><input name="ca_numero"></div>
+      <div class="field"><label>Validade do CA</label><input type="date" name="ca_validade"></div>
+      <div class="field"><label>Periodicidade de troca (dias)</label><input type="number" name="periodicidade_dias" placeholder="Ex: 180"></div>
+      <div class="field"><label>Valor unitário (R$)</label><input type="number" step="0.01" name="valor_unitario"></div>
+      <div class="field field-span2"><label>Tamanhos disponíveis — separados por vírgula</label><input name="tamanhos" placeholder="P, M, G, GG ou 38,40,42,44"></div>
+      <div class="field field-span2"><label>Descrição / observações</label><input name="descricao"></div>
+    </div>
+    <button class="btn btn-primary btn-block" ${S.loading?'disabled':''}>${S.loading?'Salvando…':'Cadastrar EPI'}</button>
+  </form>
+  <div class="divider"></div>
+  <div class="section-header">EPIs cadastrados</div>
+  ${(S.epis||[]).map(e=>`<div class="mcard"><div class="mc-top"><span>${esc(e.nome)}</span>${badge(e.status==='ativo'?'ok':'critico',e.status)}</div>
+    <div class="mc-meta">${esc(e.categoria||'')}${e.ca_numero?' · CA '+esc(e.ca_numero):''}${(e.tamanhos||[]).length?' · Tam: '+e.tamanhos.join(', '):''}</div>
+  </div>`).join('') || '<div class="empty-state">Nenhum EPI cadastrado.</div>'}`;
+}
+async function cadastrarEpi(form){
+  const fd = new FormData(form);
+  const tamanhos = (fd.get('tamanhos')||'').split(',').map(s=>s.trim()).filter(Boolean);
+  S.loading=true; render();
+  try{
+    await sb('epis',{method:'POST',body:{nome:fd.get('nome'), codigo_interno:fd.get('codigo_interno')||null, categoria:fd.get('categoria')||null,
+      ca_numero:fd.get('ca_numero')||null, ca_validade:fd.get('ca_validade')||null, periodicidade_dias:fd.get('periodicidade_dias')?parseInt(fd.get('periodicidade_dias')):null,
+      valor_unitario:fd.get('valor_unitario')?parseFloat(fd.get('valor_unitario')):null, tamanhos, descricao:fd.get('descricao')||null, status:'ativo', criado_por:S.user.id}});
+    toast('EPI cadastrado.'); form.reset(); await loadEpis();
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+
+/* ---- Matriz de EPI por cargo ---- */
+function renderEpiMatriz(){
+  return `
+  <form class="card" onsubmit="event.preventDefault();cadastrarMatrizEpi(this);">
+    <div class="section-header" style="margin:0 0 8px;">Novo item da matriz</div>
+    <div class="form-grid">
+      <div class="field"><label>Cargo / Perfil</label><select name="cargo_perfil" required>${opt(Object.entries(PERFIL_LABELS),'')}</select></div>
+      <div class="field"><label>EPI obrigatório</label><select name="epi_id" required>${opt((S.epis||[]).map(e=>[e.id,e.nome]),'')}</select></div>
+      <div class="field"><label>Quantidade padrão</label><input type="number" name="quantidade_padrao" value="1" min="1"></div>
+      <div class="field"><label>Tamanho padrão</label><input name="tamanho"></div>
+      <div class="field"><label>Troca prevista (dias)</label><input type="number" name="periodicidade_dias" placeholder="Ex: 180"></div>
+    </div>
+    <button class="btn btn-primary btn-block" ${S.loading?'disabled':''}>${S.loading?'Salvando…':'Adicionar à matriz'}</button>
+  </form>
+  <div class="divider"></div>
+  <div class="section-header">Matriz atual</div>
+  ${(S.epiMatriz||[]).map(m=>`<div class="mcard"><div class="mc-top"><span>${esc(PERFIL_LABELS[m.cargo_perfil]||m.cargo_perfil)}</span></div>
+    <div class="mc-meta">${esc(epiMap()[m.epi_id]?.nome||'')} · Qtd ${m.quantidade_padrao}${m.tamanho?' · Tam '+esc(m.tamanho):''}${m.periodicidade_dias?' · troca a cada '+m.periodicidade_dias+'d':''}</div>
+  </div>`).join('') || '<div class="empty-state">Nenhum item na matriz.</div>'}`;
+}
+async function cadastrarMatrizEpi(form){
+  const fd = new FormData(form);
+  S.loading=true; render();
+  try{
+    await sb('epi_matriz_cargo',{method:'POST',body:{cargo_perfil:fd.get('cargo_perfil'), epi_id:fd.get('epi_id'), quantidade_padrao:parseFloat(fd.get('quantidade_padrao')||1),
+      tamanho:fd.get('tamanho')||null, periodicidade_dias:fd.get('periodicidade_dias')?parseInt(fd.get('periodicidade_dias')):null}});
+    toast('Item adicionado à matriz.'); form.reset(); await loadEpiMatriz();
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+
+/* ---- Nova entrega ---- */
+let __epiItensEntrega = [];
+function renderEpiEntrega(){
+  const colab = S.epiColaboradorSel ? usuMap()[S.epiColaboradorSel] : null;
+  const matrizColab = colab ? (S.epiMatriz||[]).filter(m=>m.cargo_perfil===colab.perfil) : [];
+  return `
+  <div class="card">
+    <div class="field"><label>Colaborador</label>
+      <select onchange="S.epiColaboradorSel=this.value;render();">
+        <option value="">Selecione…</option>
+        ${S.usuarios.map(u=>`<option value="${u.id}" ${S.epiColaboradorSel===u.id?'selected':''}>${esc(u.nome)}</option>`).join('')}
+      </select>
+    </div>
+    ${colab?`<div class="mc-meta" style="display:flex;align-items:center;gap:8px;">${colab.foto?`<img src="${colab.foto}" style="width:36px;height:36px;object-fit:cover;border-radius:50%;">`:''}${esc(colab.cargo||PERFIL_LABELS[colab.perfil])} · ${esc(colab.perfil)}</div>`:''}
+  </div>
+  ${colab?`
+  ${matrizColab.length?`<div class="card"><div class="muted">EPIs obrigatórios para este cargo: ${matrizColab.map(m=>esc(epiMap()[m.epi_id]?.nome||'')).join(', ')}</div></div>`:''}
+  <form class="card" onsubmit="event.preventDefault();registrarEntregaEpi(this);">
+    <div class="section-header" style="margin:0 0 8px;">Itens da entrega</div>
+    <div class="form-grid">
+      <div class="field"><label>EPI</label><select name="epi_id" required>${opt((S.epis||[]).filter(e=>e.status==='ativo').map(e=>[e.id,e.nome]),'')}</select></div>
+      <div class="field"><label>Tamanho</label><input name="tamanho" value="único"></div>
+      <div class="field"><label>Quantidade</label><input type="number" name="quantidade" value="1" min="1"></div>
+      <div class="field"><label>Obra</label><select name="obra_id">${opt(S.obras.map(o=>[o.id,o.nome]),'',true)}</select></div>
+      <div class="field"><label>Condição</label>${chipGroup('condicao',[['novo','Novo'],['reutilizado','Reutilizado']],'novo')}</div>
+      <div class="field"><label>Motivo</label>${chipGroup('motivo',[['admissao','Admissão'],['primeira_entrega','Primeira entrega'],['troca_programada','Troca programada'],['desgaste','Desgaste'],['dano','Dano'],['perda','Perda'],['outro','Outro']],'primeira_entrega')}</div>
+    </div>
+    <div class="field" style="margin:10px 0;"><label>Fotos (obrigatório ao menos 1)</label>${photoWidget('epi_fotos')}</div>
+    <div class="field"><label>Assinatura do colaborador — digite o nome para confirmar</label><input name="assinatura_colaborador" value="${esc(colab.nome)}" required></div>
+    <div class="field"><label>Coordenador responsável (você)</label><input value="${esc(S.user.nome)}" disabled></div>
+    <button class="btn btn-primary btn-block" style="margin-top:10px;" ${S.loading?'disabled':''}>${S.loading?'Registrando…':'Confirmar entrega'}</button>
+  </form>`:'<div class="empty-state">Selecione um colaborador para iniciar a entrega.</div>'}`;
+}
+async function registrarEntregaEpi(form){
+  const fd = new FormData(form);
+  const files = window.pendingFiles['epi_fotos']||[];
+  if(!files.length){ toast('É obrigatório ao menos 1 foto para confirmar a entrega.'); return; }
+  const epi = epiMap()[fd.get('epi_id')];
+  const tamanho = fd.get('tamanho')||'único';
+  const obraId = fd.get('obra_id')||null;
+  const qtd = parseFloat(fd.get('quantidade'));
+  const estoqueAtual = (S.epiEstoque||[]).find(e=>e.epi_id===epi.id && e.tamanho===tamanho && e.obra_id===obraId);
+  if(!estoqueAtual || estoqueAtual.saldo < qtd){
+    if(!confirm(`Estoque disponível: ${estoqueAtual?estoqueAtual.saldo:0}. Confirmar entrega mesmo assim (estoque ficará negativo)?`)) return;
+  }
+  S.loading=true; render();
+  try{
+    const fotoUrls=[];
+    for(const f of files){ fotoUrls.push(await uploadArquivo(f, `${S.epiColaboradorSel}/${Date.now()}_${f.name}`, 'epi')); }
+    let proximaTroca=null;
+    if(epi.periodicidade_dias){ const d=new Date(); d.setDate(d.getDate()+epi.periodicidade_dias); proximaTroca=d.toISOString().slice(0,10); }
+    await sb('epi_movimentacoes',{method:'POST',body:{epi_id:epi.id, usuario_id:S.epiColaboradorSel, tamanho, obra_id:obraId, quantidade:qtd,
+      tipo:'entrega', condicao:fd.get('condicao'), motivo:fd.get('motivo'), fotos:fotoUrls, assinatura_colaborador:fd.get('assinatura_colaborador'),
+      coordenador_id:S.user.id, proxima_troca:proximaTroca, criado_por:S.user.id}});
+    clearPending('epi_fotos'); toast('Entrega de EPI registrada.'); form.reset(); await loadEpiEstoque();
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+
+/* ---- Fichas / Histórico ---- */
+function renderEpiFichas(){
+  return `
+  <div class="field"><label>Colaborador</label>
+    <select onchange="S.epiColaboradorSel=this.value||null;loadEpiMovimentacoes().then(render);">
+      <option value="">Todos</option>
+      ${S.usuarios.map(u=>`<option value="${u.id}" ${S.epiColaboradorSel===u.id?'selected':''}>${esc(u.nome)}</option>`).join('')}
+    </select>
+  </div>
+  <div class="divider"></div>
+  ${(S.epiMovimentacoes||[]).map(mv=>`<div class="mcard"><div class="mc-top"><span>${esc(epiMap()[mv.epi_id]?.nome||'')}</span>${badge(mv.tipo==='entrega'?'pendente':'ok',mv.tipo)}</div>
+    <div class="mc-meta">${esc(usuMap()[mv.usuario_id]?.nome||'')} · Qtd ${mv.quantidade}${mv.tamanho&&mv.tamanho!=='único'?' · Tam '+esc(mv.tamanho):''} · ${fmtDate(mv.criado_em)}</div>
+    ${mv.proxima_troca?`<div class="mc-meta">Próxima troca: ${fmtDateOnly(mv.proxima_troca)}</div>`:''}
+    ${(mv.fotos||[]).length?`<div class="flex-row" style="gap:6px;margin-top:6px;flex-wrap:wrap;">${mv.fotos.map(url=>`<a href="${url}" target="_blank"><img src="${url}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;"></a>`).join('')}</div>`:''}
+  </div>`).join('') || '<div class="empty-state">Nenhuma movimentação encontrada.</div>'}`;
+}
+
+/* ---- Estoque de EPI ---- */
+function renderEpiEstoque(){
+  return `<div class="section-header">Saldo por EPI / tamanho / obra</div>
+  ${(S.epiEstoque||[]).map(e=>{ const epi=epiMap()[e.epi_id];
+    return `<div class="mcard"><div class="mc-top"><span>${esc(epi?.nome||'—')}</span>${badge(e.estoque_minimo!=null&&e.saldo<e.estoque_minimo?'critico':'ok',e.saldo)}</div>
+    <div class="mc-meta">Tamanho: ${esc(e.tamanho)}${e.obra_id?' · Obra: '+esc(S.obras.find(o=>o.id===e.obra_id)?.nome||''):' · Geral'}</div>
+  </div>`; }).join('') || '<div class="empty-state">Sem estoque lançado. Registre uma entrada para começar.</div>'}
+  <div class="divider"></div>
+  <form class="card" onsubmit="event.preventDefault();registrarEntradaEpi(this);">
+    <div class="section-header" style="margin:0 0 8px;">Registrar entrada de estoque</div>
+    <div class="form-grid">
+      <div class="field"><label>EPI</label><select name="epi_id" required>${opt((S.epis||[]).map(e=>[e.id,e.nome]),'')}</select></div>
+      <div class="field"><label>Tamanho</label><input name="tamanho" value="único"></div>
+      <div class="field"><label>Quantidade</label><input type="number" name="quantidade" min="1" required></div>
+      <div class="field"><label>Obra</label><select name="obra_id">${opt(S.obras.map(o=>[o.id,o.nome]),'',true)}</select></div>
+    </div>
+    <button class="btn btn-primary btn-block" ${S.loading?'disabled':''}>${S.loading?'Registrando…':'Registrar entrada'}</button>
+  </form>`;
+}
+async function registrarEntradaEpi(form){
+  const fd = new FormData(form);
+  S.loading=true; render();
+  try{
+    await sb('epi_movimentacoes',{method:'POST',body:{epi_id:fd.get('epi_id'), tamanho:fd.get('tamanho')||'único', obra_id:fd.get('obra_id')||null,
+      quantidade:parseFloat(fd.get('quantidade')), tipo:'entrada', criado_por:S.user.id}});
+    toast('Entrada registrada.'); form.reset(); await loadEpiEstoque();
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+
 function render(){
   const app = document.getElementById('app');
   if(!S.user){ app.innerHTML = renderLogin(); return; }
@@ -2870,6 +3096,7 @@ function render(){
   else if(S.view==='dds') body=renderDDS();
   else if(S.view==='suprimentos') body=renderSuprimentos();
   else if(S.view==='dre_sinalizacao') body=renderDreSinalizacao();
+  else if(S.view==='epi') body=renderEpi();
   else if(S.view==='detalhe') body=renderDetalheOS();
   app.innerHTML = renderTopBar() + body + (S.loading?'<div class="spinner"></div>':'') + renderBottomNav();
   if(S.view==='nova'){
