@@ -3742,12 +3742,16 @@ function renderRDONovo(){
 
     <div class="card">
       <div class="form-grid">
+        <div class="field field-span2"><label>Ocorrências do dia</label><textarea name="ocorrencias" rows="3" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;font:inherit;" placeholder="Imprevistos, atrasos, acidentes, interferências…"></textarea></div>
         <div class="field"><label>Descrição dos serviços executados</label><textarea name="descricao_servicos" rows="3" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;font:inherit;"></textarea></div>
         <div class="field"><label>Observações</label><textarea name="observacoes" rows="3" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;font:inherit;"></textarea></div>
+      </div>
+      <div class="field" style="margin:10px 0;"><label>Fotos do dia</label>${photoWidget('rdo_fotos')}</div>
+      <div class="form-grid">
         <div class="field"><label>Assinatura — Encarregado / Resp. Técnico MEGA</label><input name="assinatura_encarregado" required></div>
         <div class="field"><label>Assinatura — Cliente / Fiscalização (nome, cargo, matrícula)</label><input name="assinatura_cliente"></div>
       </div>
-      <button class="btn btn-primary btn-block" style="margin-top:12px;" ${S.loading?'disabled':''}>${S.loading?'Salvando…':'Salvar RDO'}</button>
+      <button class="btn btn-primary btn-block" style="margin-top:12px;" ${S.loading?'disabled':''}>${S.loading?'Salvando…':'Enviar RDO para revisão'}</button>
     </div>
   </form>`;
 }
@@ -3769,6 +3773,9 @@ async function salvarRDO(form){
   const totalItens = S.rdoTipo==='vertical' ? __rdoProducaoRows.reduce((a,r)=>a+(parseFloat(r.qtda)||0),0) : __rdoProducaoRows.length;
   S.loading=true; render();
   try{
+    const fotoFiles = window.pendingFiles['rdo_fotos']||[];
+    const fotoUrls=[];
+    for(const f of fotoFiles){ fotoUrls.push(await uploadArquivo(f, `${S.user.id}/${Date.now()}_${f.name}`, 'rdo')); }
     await sb('rdo',{method:'POST',body:{
       tipo:S.rdoTipo, programacao_num:fd.get('programacao_num')||null, data_rdo:fd.get('data_rdo'),
       obra_id:fd.get('obra_id')||null, equipe_id:fd.get('equipe_id')||null, encarregado_id:fd.get('encarregado_id')||null,
@@ -3778,21 +3785,38 @@ async function salvarRDO(form){
       local_interdicao:fd.get('local_interdicao')||null, km_prog:fd.get('km_prog')||null, km_inter:fd.get('km_inter')||null,
       horarios:{inicial:fd.get('hora_inicial')||null, final:fd.get('hora_final')||null},
       mao_de_obra, equipamentos_veiculos, materiais_consumidos, suportes_materiais, producao:__rdoProducaoRows,
-      total_m2:totalM2, total_itens:totalItens,
+      total_m2:totalM2, total_itens:totalItens, ocorrencias:fd.get('ocorrencias')||null, fotos:fotoUrls,
       descricao_servicos:fd.get('descricao_servicos')||null, observacoes:fd.get('observacoes')||null,
       assinatura_encarregado:fd.get('assinatura_encarregado'), assinatura_cliente:fd.get('assinatura_cliente')||null,
-      status:'fechado', criado_por:S.user.id}});
-    toast('RDO salvo com sucesso.'); __rdoProducaoRows=[]; form.reset(); S.rdoView='historico'; await loadRDOList();
+      status:'revisar', criado_por:S.user.id}});
+    clearPending('rdo_fotos'); toast('RDO enviado para revisão.'); __rdoProducaoRows=[]; form.reset(); S.rdoView='historico'; await loadRDOList();
   }catch(e){ toast('Erro: '+e.message); }
   S.loading=false; render();
 }
+const RDO_STATUS_LABELS = {preenchendo:'Preenchendo', revisar:'Revisar', aprovado:'Aprovado', reprovado:'Reprovado'};
+function rdoStatusBadgeCls(s){ return s==='aprovado'?'ok':s==='reprovado'?'critico':s==='revisar'?'pendente':'andamento'; }
 function renderRDOHistorico(){
+  const podeRevisar = ['administrador','departamento_pessoal','supervisor','coordenador'].includes(S.user.perfil);
   return `<div class="table-scroll"><table class="mega-table">
-    <thead><tr><th>Data</th><th>Tipo</th><th>Obra</th><th>Equipe</th><th>Encarregado</th><th>Total m²</th></tr></thead>
+    <thead><tr><th>Data</th><th>Tipo</th><th>Obra</th><th>Equipe</th><th>Encarregado</th><th>Total m²</th><th>Fotos</th><th>Status</th>${podeRevisar?'<th></th>':''}</tr></thead>
     <tbody>${(S.rdoList||[]).map(r=>`<tr><td>${fmtDateOnly(r.data_rdo)}</td><td>${badge('andamento',r.tipo==='horizontal'?'Horizontal':'Vertical')}</td>
       <td>${esc(obraMap()[r.obra_id]?.nome||'—')}</td><td>${esc(equipeMap()[r.equipe_id]?.nome||'—')}</td><td>${esc(usuMap()[r.encarregado_id]?.nome||'—')}</td>
-      <td class="mono">${r.total_m2?parseFloat(r.total_m2).toFixed(1):'—'}</td></tr>`).join('') || `<tr><td colspan="6" class="empty-state">Nenhum RDO registrado ainda.</td></tr>`}
+      <td class="mono">${r.total_m2?parseFloat(r.total_m2).toFixed(1):'—'}</td>
+      <td>${(r.fotos||[]).map(url=>`<a href="${url}" target="_blank"><img src="${url}" style="width:32px;height:32px;object-fit:cover;border-radius:4px;margin-right:2px;"></a>`).join('')||'—'}</td>
+      <td>${badge(rdoStatusBadgeCls(r.status),RDO_STATUS_LABELS[r.status]||r.status)}</td>
+      ${podeRevisar?`<td>${r.status==='revisar'?`<button class="btn btn-verde btn-sm" onclick="revisarRDO('${r.id}','aprovado')">Aprovar</button>
+        <button class="btn btn-vermelho btn-sm" onclick="revisarRDO('${r.id}','reprovado')">Reprovar</button>`:''}</td>`:''}
+      </tr>`).join('') || `<tr><td colspan="${podeRevisar?9:8}" class="empty-state">Nenhum RDO registrado ainda.</td></tr>`}
     </tbody></table></div>`;
+}
+async function revisarRDO(id, novoStatus){
+  let motivo=null;
+  if(novoStatus==='reprovado'){ motivo=prompt('Motivo da reprovação:'); if(!motivo) return; }
+  try{
+    await sb(`rdo?id=eq.${id}`,{method:'PATCH',body:{status:novoStatus, motivo_reprovacao:motivo, revisado_por:S.user.id, revisado_em:new Date().toISOString()}});
+    toast(novoStatus==='aprovado'?'RDO aprovado.':'RDO reprovado.'); await loadRDOList();
+  }catch(e){ toast('Erro: '+e.message); }
+  render();
 }
 
 function render(){

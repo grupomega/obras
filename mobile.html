@@ -430,6 +430,12 @@ function canAccess(mod){ return !!(S.user && S.user.permissoes && S.user.permiss
 function fmtDate(d){ if(!d) return '—'; const dt=new Date(d); return dt.toLocaleDateString('pt-BR')+' '+dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
 function fmtDateOnly(d){ if(!d) return '—'; return new Date(d).toLocaleDateString('pt-BR'); }
 function badge(cls,label){ return `<span class="badge badge-${cls}">${label}</span>`; }
+function hubCard(icon,titulo,desc,onclick){
+  return `<div class="card clickable" style="display:flex;align-items:center;gap:14px;margin-bottom:10px;" onclick="${onclick}">
+    <div style="font-size:28px;">${icon}</div>
+    <div><div style="font-weight:700;">${esc(titulo)}</div><div class="muted" style="font-size:13px;">${esc(desc)}</div></div>
+  </div>`;
+}
 function statusBadge(s){ return badge(STATUS_CLASS[s]||'andamento', STATUS_LABELS[s]||s); }
 function critBadge(c){ return badge(CRIT_CLASS[c]||'andamento', (c||'').toUpperCase()); }
 function resultadoBadge(r){
@@ -590,18 +596,18 @@ const S = {
   checklistTipo:'veiculo_seta_luminosa', checklistView:'novo', checklists:[], currentChecklist:null, currentChecklistItens:[],
   editPermUserId:null,
   veiculoUsoView:'pendentes', veiculoUsos:[], currentUso:null, currentUsoItens:[],
-  financeiroView:'enviar', minhasNotas:[], todasNotas:[], currentNota:null, financeiroNotaOrigem:'meu_painel',
+  financeiroView:'hub', minhasNotas:[], todasNotas:[], currentNota:null, financeiroNotaOrigem:'meu_painel',
   usuariosLoginLoaded:false, checklistsLoaded:false, veiculoUsosLoaded:false, minhasNotasLoaded:false, todasNotasLoaded:false,
   rhTab:'pessoas', pessoasSolicitacoes:[], pessoasSolicitacoesLoaded:false,
   atestados:[], atestadosLoaded:false, pontos:[], pontosLoaded:false, ajustesPonto:[],
   documentos:[], documentosLoaded:false, indicacoes:[], indicacoesLoaded:false,
   solicitacoesDocRH:[], minhasSolicitacoesDoc:[],
   ddsScreen:'sorteio', ddsTemaAtual:null, ddsHistorico:[], ddsHistoricoLoaded:false,
-  suprimentosTab:'materiais', materiais:[], materiaisLoaded:false, movimentacoesMateriais:[], movimentacoesLoaded:false,
+  suprimentosTab:'hub', materiais:[], materiaisLoaded:false, movimentacoesMateriais:[], movimentacoesLoaded:false,
   dreForm:{rod:'',trecho:'',kmi:'',kmf:'',tipoPintura:'mec_aut',basePintura:'solvente',temEixo:1,tipoEixo:'simples',largEixo:0.12,lEc:'',temBordo:1,largBordo:0.15,lBc:'',temTacha:0,cadE:12,cadB:12,tipoTE:'biamarel',tipoTB:'bobibranca'}, dreRes:null,
   epiTab:'entrega', epis:[], episLoaded:false, epiMatriz:[], epiEstoque:[], epiMovimentacoes:[], epiColaboradorSel:null,
   avisos:[], avisosLoaded:false, avisosLidos:[], avisosEnviados:[], avisoExpandido:null, novoAvisoDestino:'individual',
-  rdoTipo:'horizontal', rdoView:'novo', rdoList:[], rdoListLoaded:false
+  rdoTipo:'horizontal', rdoView:'hub', rdoList:[], rdoListLoaded:false
 };
 
 function usuMap(){ const m={}; S.usuarios.forEach(u=>m[u.id]=u); return m; }
@@ -1390,7 +1396,7 @@ function renderBottomNav(){
   items.push(['seguranca_hub','🦺','Segurança']);
   items.push(['mais','☰','Mais']);
   return `<div class="bottom-nav">
-    ${items.map(([k,ic,l])=>`<button class="${['seguranca_hub','epi','dds','checklists'].includes(S.view)&&k==='seguranca_hub'?'active':S.view===k?'active':''}" onclick="${k==='mais'?'S.showMais=true;render()':k==='lista'?"S.view='lista';loadOSList().then(render);":k==='cadastro_obras'?"S.view='cadastros';S.cadastroTab='obras';render();":k==='rh'?"carregarRHTab(S.rhTab);":k==='seguranca_hub'?"S.view='seguranca_hub';render();":`S.view='${k}';render();`}">
+    ${items.map(([k,ic,l])=>`<button class="${['seguranca_hub','epi','dds','checklists'].includes(S.view)&&k==='seguranca_hub'?'active':S.view===k?'active':''}" onclick="${k==='mais'?'S.showMais=true;render()':k==='lista'?"S.view='lista';loadOSList().then(render);":k==='cadastro_obras'?"S.view='cadastros';S.cadastroTab='obras';render();":k==='rh'?"carregarRHTab('hub');":k==='seguranca_hub'?"S.view='seguranca_hub';render();":k==='financeiro'?"S.view='financeiro';S.financeiroView='hub';render();":`S.view='${k}';render();`}">
       <span class="ic">${ic}</span>${l}</button>`).join('')}
   </div>
   ${S.showMais?renderMaisSheet():''}`;
@@ -1399,7 +1405,7 @@ function renderMaisSheet(){
   const items=[];
   if(canAccess('dashboard')) items.push(['dashboard','📊','Painel']);
   if(canAccess('os_nova')) items.push(['nova','➕','Nova OS']);
-  if(canAccess('checkin_veiculo')) items.push(['veiculo_checkin','🚛','Check-in/out de Veículo']);
+  if(canAccess('checkin_veiculo')) items.push(['veiculo_checkin','🚚','Frota']);
   if(canAccess('cadastros_obras')) items.push(['cadastro_obras','🏗️','Cadastro de Obras']);
   if(canAccess('cadastros_equipes')) items.push(['cadastro_equipes','👷','Cadastro de Equipes']);
   if(canAccess('cadastros_usuarios')) items.push(['cadastro_usuarios','👤','Cadastro de Usuários']);
@@ -1423,14 +1429,14 @@ function irPara(destino){
   S.showMais=false;
   if(destino==='checklist_historico'){ S.view='checklists'; S.checklistView='historico'; loadChecklists().then(render); return; }
   if(destino.startsWith('cadastro_')){ S.view='cadastros'; S.cadastroTab=destino.replace('cadastro_',''); render(); return; }
-  if(destino==='rh'){ S.view='rh'; carregarRHTab(S.rhTab); return; }
+  if(destino==='rh'){ S.view='rh'; carregarRHTab('hub'); return; }
   if(destino==='veiculo_checkin'){ S.view='veiculo_checkin'; S.veiculoUsoView='pendentes'; loadVeiculoUsos().then(render); return; }
   if(destino==='lista'){ S.view='lista'; loadOSList().then(render); return; }
-  if(destino==='suprimentos'){ S.view='suprimentos'; carregarSuprimentosTab(S.suprimentosTab); return; }
+  if(destino==='suprimentos'){ S.view='suprimentos'; S.suprimentosTab='hub'; render(); return; }
   if(destino==='dre_sinalizacao'){ S.view='dre_sinalizacao'; render(); return; }
   if(destino==='epi'){ S.view='epi'; carregarEpiTab(S.epiTab); return; }
   if(destino==='mensagens'){ S.view='mensagens'; carregarMensagens(); return; }
-  if(destino==='rdo'){ S.view='rdo'; S.rdoView='novo'; render(); return; }
+  if(destino==='rdo'){ S.view='rdo'; S.rdoView='hub'; render(); return; }
   S.view=destino; render();
 }
 
@@ -1720,6 +1726,12 @@ function renderCadastros(){
 function renderCadastroObras(){
   const ed = S.editObra;
   return `<div class="section-header">Cadastro de Obras</div>
+  ${S.obras.map(o=>`<div class="mcard"><div class="mc-title">${esc(o.nome)}</div>
+    <div class="mc-meta">${esc(o.rodovia||'—')} · KM ${o.km_inicial??'—'}-${o.km_final??'—'}</div>
+    <div class="mc-meta">${badge(o.status==='em_andamento'?'andamento':o.status==='concluida'?'concluido':'pendente',o.status)}</div>
+    <div class="mc-actions"><button class="btn-icon" onclick="iniciarEdicaoObra('${o.id}')">✏️</button><button class="btn-icon danger" onclick="excluirObra('${o.id}')">🗑</button></div>
+  </div>`).join('') || '<div class="empty-state">Nenhuma obra cadastrada.</div>'}
+  <div class="divider"></div>
   <div class="card">
     <div class="muted" style="margin-bottom:10px;font-weight:700;">${ed?'Editando obra':'Nova obra'}</div>
     <form onsubmit="event.preventDefault();${ed?'salvarEdicaoObra(this)':'criarObra(this)'};">
@@ -1737,16 +1749,17 @@ function renderCadastroObras(){
       <button class="btn btn-primary btn-block" style="margin-top:12px;">${ed?'Salvar alterações':'Cadastrar Obra'}</button>
       ${ed?`<button type="button" class="btn btn-secondary btn-block" style="margin-top:8px;" onclick="cancelarEdicaoObra()">Cancelar</button>`:''}
     </form>
-  </div>
-  ${S.obras.map(o=>`<div class="mcard"><div class="mc-title">${esc(o.nome)}</div>
-    <div class="mc-meta">${esc(o.rodovia||'—')} · KM ${o.km_inicial??'—'}-${o.km_final??'—'}</div>
-    <div class="mc-meta">${badge(o.status==='em_andamento'?'andamento':o.status==='concluida'?'concluido':'pendente',o.status)}</div>
-    <div class="mc-actions"><button class="btn-icon" onclick="iniciarEdicaoObra('${o.id}')">✏️</button><button class="btn-icon danger" onclick="excluirObra('${o.id}')">🗑</button></div>
-  </div>`).join('') || '<div class="empty-state">Nenhuma obra cadastrada.</div>'}`;
+  </div>`;
 }
 function renderCadastroEquipes(){
   const ed = S.editEquipe;
   return `<div class="section-header">Cadastro de Equipes</div>
+  ${S.equipes.map(e=>`<div class="mcard"><div class="mc-title">${esc(e.nome)}</div>
+    <div class="mc-meta">Encarregado: ${esc(usuMap()[e.encarregado_id]?.nome||'—')}</div>
+    <div class="mc-meta">Obra: ${esc(obraMap()[e.obra_id]?.nome||'—')}</div>
+    <div class="mc-actions"><button class="btn-icon" onclick="iniciarEdicaoEquipe('${e.id}')">✏️</button><button class="btn-icon danger" onclick="excluirEquipe('${e.id}')">🗑</button></div>
+  </div>`).join('') || '<div class="empty-state">Nenhuma equipe cadastrada.</div>'}
+  <div class="divider"></div>
   <div class="card">
     <div class="muted" style="margin-bottom:10px;font-weight:700;">${ed?'Editando equipe':'Nova equipe'}</div>
     <form onsubmit="event.preventDefault();${ed?'salvarEdicaoEquipe(this)':'criarEquipe(this)'};">
@@ -1763,16 +1776,31 @@ function renderCadastroEquipes(){
       <button class="btn btn-primary btn-block" style="margin-top:12px;">${ed?'Salvar alterações':'Cadastrar Equipe'}</button>
       ${ed?`<button type="button" class="btn btn-secondary btn-block" style="margin-top:8px;" onclick="cancelarEdicaoEquipe()">Cancelar</button>`:''}
     </form>
-  </div>
-  ${S.equipes.map(e=>`<div class="mcard"><div class="mc-title">${esc(e.nome)}</div>
-    <div class="mc-meta">Encarregado: ${esc(usuMap()[e.encarregado_id]?.nome||'—')}</div>
-    <div class="mc-meta">Obra: ${esc(obraMap()[e.obra_id]?.nome||'—')}</div>
-    <div class="mc-actions"><button class="btn-icon" onclick="iniciarEdicaoEquipe('${e.id}')">✏️</button><button class="btn-icon danger" onclick="excluirEquipe('${e.id}')">🗑</button></div>
-  </div>`).join('') || '<div class="empty-state">Nenhuma equipe cadastrada.</div>'}`;
+  </div>`;
 }
 function renderCadastroUsuarios(){
   const ed = S.editUsuario;
   return `<div class="section-header">Cadastro de Usuários</div>
+  <div class="card">
+    <input placeholder="🔎 Buscar por nome, matrícula ou cargo…" oninput="S.buscaUsuarios=this.value;render();" value="${esc(S.buscaUsuarios||'')}">
+  </div>
+  ${S.usuarios.filter(u=>{
+    const q=(S.buscaUsuarios||'').toLowerCase(); if(!q) return true;
+    return (u.nome||'').toLowerCase().includes(q) || (u.matricula||'').includes(q) || (u.cargo||'').toLowerCase().includes(q);
+  }).map(u=>{
+    const om=obraMap();
+    const obrasTxt = (u.obras_acesso&&u.obras_acesso.length) ? u.obras_acesso.map(id=>om[id]?.nome||'?').join(', ') : 'Todas as obras';
+    return `<div class="mcard"><div class="mc-title" style="display:flex;align-items:center;gap:8px;">${u.foto?`<img src="${u.foto}" style="width:28px;height:28px;object-fit:cover;border-radius:50%;">`:''}${esc(u.nome)} <span class="muted mono" style="font-size:12px;">#${esc(u.matricula||'—')}</span></div>
+    <div class="mc-meta">${PERFIL_LABELS[u.perfil]} · ${esc(u.cargo||'—')}</div>
+    <div class="mc-meta">${badge(u.plataforma_acesso==='ambos'?'andamento':'concluido', u.plataforma_acesso==='desktop'?'Desktop':u.plataforma_acesso==='mobile'?'Mobile':'Ambos')}</div>
+    <div class="mc-meta">🏗️ ${esc(obrasTxt)}</div>
+    <div class="mc-actions"><button class="btn-icon" onclick="toggleStatusUsuario('${u.id}','${u.status==='ativo'?'inativo':'ativo'}')">${badge(u.status==='ativo'?'ok':'critico',u.status)}</button>
+    <button class="btn-icon" onclick="iniciarEdicaoUsuario('${u.id}')">✏️</button>
+    <button class="btn-icon" onclick="redefinirPin('${u.id}')">🔑</button>
+    <button class="btn-icon danger" onclick="excluirUsuario('${u.id}')">🗑</button></div>
+  </div>`;
+  }).join('') || '<div class="empty-state">Nenhum usuário cadastrado.</div>'}
+  <div class="divider"></div>
   <div class="card">
     <div class="muted" style="margin-bottom:10px;font-weight:700;">${ed?'Editando usuário':'Novo usuário'}</div>
     <form onsubmit="event.preventDefault();${ed?'salvarEdicaoUsuario(this)':'criarUsuario(this)'};">
@@ -1805,30 +1833,17 @@ function renderCadastroUsuarios(){
       ${ed?`<button type="button" class="btn btn-secondary btn-block" style="margin-top:8px;" onclick="cancelarEdicaoUsuario()">Cancelar</button>`:''}
       <div class="muted" style="margin-top:8px;">Após o PIN, o sistema redireciona automaticamente para a plataforma configurada acima.</div>
     </form>
-  </div>
-  <div class="card">
-    <input placeholder="🔎 Buscar por nome, matrícula ou cargo…" oninput="S.buscaUsuarios=this.value;render();" value="${esc(S.buscaUsuarios||'')}">
-  </div>
-  ${S.usuarios.filter(u=>{
-    const q=(S.buscaUsuarios||'').toLowerCase(); if(!q) return true;
-    return (u.nome||'').toLowerCase().includes(q) || (u.matricula||'').includes(q) || (u.cargo||'').toLowerCase().includes(q);
-  }).map(u=>{
-    const om=obraMap();
-    const obrasTxt = (u.obras_acesso&&u.obras_acesso.length) ? u.obras_acesso.map(id=>om[id]?.nome||'?').join(', ') : 'Todas as obras';
-    return `<div class="mcard"><div class="mc-title" style="display:flex;align-items:center;gap:8px;">${u.foto?`<img src="${u.foto}" style="width:28px;height:28px;object-fit:cover;border-radius:50%;">`:''}${esc(u.nome)} <span class="muted mono" style="font-size:12px;">#${esc(u.matricula||'—')}</span></div>
-    <div class="mc-meta">${PERFIL_LABELS[u.perfil]} · ${esc(u.cargo||'—')}</div>
-    <div class="mc-meta">${badge(u.plataforma_acesso==='ambos'?'andamento':'concluido', u.plataforma_acesso==='desktop'?'Desktop':u.plataforma_acesso==='mobile'?'Mobile':'Ambos')}</div>
-    <div class="mc-meta">🏗️ ${esc(obrasTxt)}</div>
-    <div class="mc-actions"><button class="btn-icon" onclick="toggleStatusUsuario('${u.id}','${u.status==='ativo'?'inativo':'ativo'}')">${badge(u.status==='ativo'?'ok':'critico',u.status)}</button>
-    <button class="btn-icon" onclick="iniciarEdicaoUsuario('${u.id}')">✏️</button>
-    <button class="btn-icon" onclick="redefinirPin('${u.id}')">🔑</button>
-    <button class="btn-icon danger" onclick="excluirUsuario('${u.id}')">🗑</button></div>
   </div>`;
-  }).join('') || '<div class="empty-state">Nenhum usuário cadastrado.</div>'}`;
 }
 function renderCadastroVeiculos(){
   const ed = S.editVeiculo;
   return `<div class="section-header">Cadastro de Veículos</div>
+  ${S.veiculos.map(v=>`<div class="mcard"><div class="mc-title">${esc(v.placa||v.codigo_ativo||'Veículo')}</div>
+    <div class="mc-meta">${esc(v.tipo||'—')} · ${esc(v.marca||'')} ${esc(v.modelo||'')}</div>
+    <div class="mc-meta">${badge(v.status==='ativo'?'ok':'critico',v.status)}</div>
+    <div class="mc-actions"><button class="btn-icon" onclick="iniciarEdicaoVeiculo('${v.id}')">✏️</button><button class="btn-icon danger" onclick="excluirVeiculo('${v.id}')">🗑</button></div>
+  </div>`).join('') || '<div class="empty-state">Nenhum veículo cadastrado.</div>'}
+  <div class="divider"></div>
   <div class="card">
     <div class="muted" style="margin-bottom:10px;font-weight:700;">${ed?'Editando veículo':'Novo veículo'}</div>
     <form onsubmit="event.preventDefault();${ed?'salvarEdicaoVeiculo(this)':'criarVeiculo(this)'};">
@@ -1846,16 +1861,17 @@ function renderCadastroVeiculos(){
       <button class="btn btn-primary btn-block" style="margin-top:12px;">${ed?'Salvar alterações':'Cadastrar Veículo'}</button>
       ${ed?`<button type="button" class="btn btn-secondary btn-block" style="margin-top:8px;" onclick="cancelarEdicaoVeiculo()">Cancelar</button>`:''}
     </form>
-  </div>
-  ${S.veiculos.map(v=>`<div class="mcard"><div class="mc-title">${esc(v.placa||v.codigo_ativo||'Veículo')}</div>
-    <div class="mc-meta">${esc(v.tipo||'—')} · ${esc(v.marca||'')} ${esc(v.modelo||'')}</div>
-    <div class="mc-meta">${badge(v.status==='ativo'?'ok':'critico',v.status)}</div>
-    <div class="mc-actions"><button class="btn-icon" onclick="iniciarEdicaoVeiculo('${v.id}')">✏️</button><button class="btn-icon danger" onclick="excluirVeiculo('${v.id}')">🗑</button></div>
-  </div>`).join('') || '<div class="empty-state">Nenhum veículo cadastrado.</div>'}`;
+  </div>`;
 }
 function renderCadastroEquipamentos(){
   const ed = S.editEquipamento;
   return `<div class="section-header">Cadastro de Equipamentos</div>
+  ${S.equipamentos.map(e=>`<div class="mcard"><div class="mc-title">${esc(e.nome)}</div>
+    <div class="mc-meta">${esc(e.tipo||'—')}</div>
+    <div class="mc-meta">${badge(e.status==='ativo'?'ok':'critico',e.status)}</div>
+    <div class="mc-actions"><button class="btn-icon" onclick="iniciarEdicaoEquipamento('${e.id}')">✏️</button><button class="btn-icon danger" onclick="excluirEquipamento('${e.id}')">🗑</button></div>
+  </div>`).join('') || '<div class="empty-state">Nenhum equipamento cadastrado.</div>'}
+  <div class="divider"></div>
   <div class="card">
     <div class="muted" style="margin-bottom:10px;font-weight:700;">${ed?'Editando equipamento':'Novo equipamento'}</div>
     <form onsubmit="event.preventDefault();${ed?'salvarEdicaoEquipamento(this)':'criarEquipamento(this)'};">
@@ -1870,12 +1886,7 @@ function renderCadastroEquipamentos(){
       <button class="btn btn-primary btn-block" style="margin-top:12px;">${ed?'Salvar alterações':'Cadastrar Equipamento'}</button>
       ${ed?`<button type="button" class="btn btn-secondary btn-block" style="margin-top:8px;" onclick="cancelarEdicaoEquipamento()">Cancelar</button>`:''}
     </form>
-  </div>
-  ${S.equipamentos.map(e=>`<div class="mcard"><div class="mc-title">${esc(e.nome)}</div>
-    <div class="mc-meta">${esc(e.tipo||'—')}</div>
-    <div class="mc-meta">${badge(e.status==='ativo'?'ok':'critico',e.status)}</div>
-    <div class="mc-actions"><button class="btn-icon" onclick="iniciarEdicaoEquipamento('${e.id}')">✏️</button><button class="btn-icon danger" onclick="excluirEquipamento('${e.id}')">🗑</button></div>
-  </div>`).join('') || '<div class="empty-state">Nenhum equipamento cadastrado.</div>'}`;
+  </div>`;
 }
 
 /* ==========================================================
@@ -1979,8 +1990,8 @@ function renderCheckinVeiculo(){
   return `<div class="wrap">
     <div class="section-header">Check-in / Check-out de Veículo</div>
     <div class="flex-row" style="margin-bottom:12px;">
-      <button class="btn ${S.veiculoUsoView==='novo'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.veiculoUsoView='novo';render()">+ Novo Check-in</button>
-      <button class="btn ${S.veiculoUsoView==='pendentes'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.veiculoUsoView='pendentes';loadVeiculoUsos().then(render);">Pendentes</button>
+      <button class="btn ${S.veiculoUsoView==='novo'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.veiculoUsoView='novo';render()">Check In / Out Veículo</button>
+      <button class="btn ${S.veiculoUsoView==='pendentes'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.veiculoUsoView='pendentes';loadVeiculoUsos().then(render);">Pendente</button>
       <button class="btn ${S.veiculoUsoView==='historico'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.veiculoUsoView='historico';loadVeiculoUsos().then(render);">Histórico</button>
     </div>
     ${S.veiculoUsoView==='novo'?renderCheckinNovo():''}
@@ -2074,18 +2085,41 @@ function renderCheckinHistorico(){
    FINANCEIRO — NOTAS FISCAIS
    ========================================================== */
 function renderFinanceiro(){
+  const tabs=[['enviar','💵','Inserir Despesa','Enviar nota fiscal ou comprovante de despesa'],
+    ['meu_painel','📊','Meu Painel','Suas despesas enviadas e status de aprovação'],
+    ['reprovadas','🚫','Reprovadas','Despesas reprovadas com o motivo'],
+  ];
+  if(canAccess('financeiro_geral')) tabs.push(['geral','🗂️','Geral','Visão consolidada de todas as despesas']);
+  if(!S.financeiroView || S.financeiroView==='hub'){
+    return `<div class="wrap">
+      <div class="section-header">💰 Financeiro</div>
+      ${tabs.map(([k,ic,titulo,desc])=>hubCard(ic,titulo,desc,`irFinanceiroTab('${k}')`)).join('')}
+    </div>`;
+  }
+  const atual = tabs.find(t=>t[0]===S.financeiroView);
   return `<div class="wrap">
-    <div class="section-header">Financeiro</div>
-    <div class="flex-row" style="margin-bottom:12px;">
-      <button class="btn ${S.financeiroView==='enviar'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.financeiroView='enviar';render()">+ Enviar</button>
-      <button class="btn ${S.financeiroView==='meu_painel'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.financeiroView='meu_painel';loadMinhasNotas().then(render);">Meu Painel</button>
-      ${canAccess('financeiro_geral')?`<button class="btn ${S.financeiroView==='geral'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.financeiroView='geral';loadTodasNotas().then(render);">Geral</button>`:''}
-    </div>
+    <div class="section-header">💰 Financeiro</div>
+    ${S.financeiroView!=='detalhe'?`<button class="btn btn-secondary btn-block" style="margin-bottom:12px;" onclick="S.financeiroView='hub';render();">← Voltar ao menu</button>`:''}
+    ${atual?`<div class="muted" style="font-weight:700;margin-bottom:8px;">${atual[2]}</div>`:''}
     ${S.financeiroView==='enviar'?renderFinanceiroEnviar():''}
     ${S.financeiroView==='meu_painel'?renderFinanceiroMeuPainel():''}
+    ${S.financeiroView==='reprovadas'?renderFinanceiroReprovadas():''}
     ${S.financeiroView==='geral'?renderFinanceiroGeral():''}
     ${S.financeiroView==='detalhe'?renderFinanceiroDetalhe():''}
   </div>`;
+}
+function irFinanceiroTab(tab){
+  S.financeiroView=tab;
+  if(tab==='meu_painel'||tab==='reprovadas'){ loadMinhasNotas().then(render); }
+  else if(tab==='geral'){ loadTodasNotas().then(render); }
+  else render();
+}
+function renderFinanceiroReprovadas(){
+  const reprovadas = (S.minhasNotas||[]).filter(n=>n.status==='reprovado');
+  return reprovadas.map(n=>`<div class="mcard" onclick="abrirNota('${n.id}')"><div class="mc-top"><span>${esc(n.tipo_despesa||'Despesa')}</span>${badge('critico','Reprovada')}</div>
+    <div class="mc-meta">${fmtDateOnly(n.data_despesa)} · ${fmtMoney(n.valor)}</div>
+    ${n.comentario_financeiro?`<div class="muted">Motivo: ${esc(n.comentario_financeiro)}</div>`:''}
+  </div>`).join('') || '<div class="empty-state">Nenhuma despesa reprovada.</div>';
 }
 function renderFinanceiroEnviar(){
   return `<form class="card" onsubmit="event.preventDefault();criarNota(this);">
@@ -2200,12 +2234,22 @@ function renderFinanceiroDetalhe(){
    ========================================================== */
 function isRHStaff(){ return S.user && (S.user.perfil==='administrador'||S.user.perfil==='departamento_pessoal'); }
 function renderRH(){
-  const tabs=[['pessoas','Meus Dados'],['atestados','Atestados'],['ponto','Ponto'],['documentos','Documentos'],['indicacoes','Indique um Amigo']];
+  const tabs=[['ponto','⏱️','Inserir Ponto','Bater ponto com selfie e localização'],
+    ['pessoas','👤','Meus Dados','Dados cadastrais, dependentes e dados bancários'],
+    ['atestados','🩺','Atestados','Enviar e acompanhar atestados médicos'],
+    ['documentos','📄','Documentos','Documentos publicados e solicitados pelo RH'],
+    ['indicacoes','🤝','Indique um Amigo','Indicar candidatos para vagas']];
+  if(!S.rhTab || S.rhTab==='hub'){
+    return `<div class="wrap">
+      <div class="section-header">👥 Pessoas / RH</div>
+      ${tabs.map(([k,ic,titulo,desc])=>hubCard(ic,titulo,desc,`carregarRHTab('${k}')`)).join('')}
+    </div>`;
+  }
+  const atual = tabs.find(t=>t[0]===S.rhTab);
   return `<div class="wrap">
-    <div class="section-header">Pessoas / RH</div>
-    <div class="flex-row" style="margin-bottom:12px;flex-wrap:wrap;gap:6px;">
-      ${tabs.map(([k,l])=>`<button class="btn ${S.rhTab===k?'btn-primary':'btn-secondary'} btn-sm" onclick="S.rhTab='${k}';carregarRHTab('${k}');">${l}</button>`).join('')}
-    </div>
+    <div class="section-header">👥 Pessoas / RH</div>
+    <button class="btn btn-secondary btn-block" style="margin-bottom:12px;" onclick="S.rhTab='hub';render();">← Voltar ao menu</button>
+    <div class="muted" style="font-weight:700;margin-bottom:8px;">${atual?atual[2]:''}</div>
     ${S.rhTab==='pessoas'?renderPessoas():''}
     ${S.rhTab==='atestados'?renderAtestados():''}
     ${S.rhTab==='ponto'?renderPonto():''}
@@ -2740,12 +2784,20 @@ async function loadMovimentacoesMateriais(){
 }
 function matMap(){ const m={}; (S.materiais||[]).forEach(x=>m[x.id]=x); return m; }
 function renderSuprimentos(){
-  const tabs=[['materiais','Cadastro de Materiais'],['movimentar','Movimentar Estoque'],['historico','Histórico']];
+  const tabs=[['materiais','📋','Cadastro de Materiais','Item, descrição, unidade e estoque'],
+    ['movimentar','🔄','Movimentar Estoque','Entrada, saída e retirada de materiais'],
+    ['historico','🕘','Histórico','Todas as movimentações registradas']];
+  if(!S.suprimentosTab || S.suprimentosTab==='hub'){
+    return `<div class="wrap">
+      <div class="section-header">📦 Suprimentos</div>
+      ${tabs.map(([k,ic,titulo,desc])=>hubCard(ic,titulo,desc,`carregarSuprimentosTab('${k}')`)).join('')}
+    </div>`;
+  }
+  const atual = tabs.find(t=>t[0]===S.suprimentosTab);
   return `<div class="wrap">
     <div class="section-header">📦 Suprimentos</div>
-    <div class="flex-row" style="margin-bottom:12px;flex-wrap:wrap;gap:6px;">
-      ${tabs.map(([k,l])=>`<button class="btn ${S.suprimentosTab===k?'btn-primary':'btn-secondary'} btn-sm" onclick="carregarSuprimentosTab('${k}')">${l}</button>`).join('')}
-    </div>
+    <button class="btn btn-secondary btn-block" style="margin-bottom:12px;" onclick="S.suprimentosTab='hub';render();">← Voltar ao menu</button>
+    <div class="muted" style="font-weight:700;margin-bottom:8px;">${atual?atual[2]:''}</div>
     ${S.suprimentosTab==='materiais'?renderMateriais():''}
     ${S.suprimentosTab==='movimentar'?renderMovimentarEstoque():''}
     ${S.suprimentosTab==='historico'?renderHistoricoMateriais():''}
@@ -2952,12 +3004,22 @@ async function loadEpiMovimentacoes(){
 }
 function epiMap(){ const m={}; (S.epis||[]).forEach(x=>m[x.id]=x); return m; }
 function renderEpi(){
-  const tabs=[['entrega','Nova Entrega'],['fichas','Fichas / Histórico'],['cadastro','Cadastro de EPI'],['matriz','Matriz por Cargo'],['estoque','Estoque']];
+  const tabs=[['entrega','📦','Nova Entrega','Entregar EPI a um colaborador com foto e assinatura'],
+    ['fichas','📁','Fichas / Histórico','Histórico de entregas por colaborador'],
+    ['cadastro','⛑️','Cadastro de EPI','Cadastrar e consultar EPIs'],
+    ['matriz','📐','Matriz por Cargo','EPIs obrigatórios por cargo'],
+    ['estoque','📊','Estoque','Saldo por EPI, tamanho e obra']];
+  if(!S.epiTab || S.epiTab==='hub'){
+    return `<div class="wrap">
+      <div class="section-header">⛑️ Segurança — Controle de EPI</div>
+      ${tabs.map(([k,ic,titulo,desc])=>hubCard(ic,titulo,desc,`carregarEpiTab('${k}')`)).join('')}
+    </div>`;
+  }
+  const atual = tabs.find(t=>t[0]===S.epiTab);
   return `<div class="wrap">
     <div class="section-header">⛑️ Segurança — Controle de EPI</div>
-    <div class="flex-row" style="margin-bottom:12px;flex-wrap:wrap;gap:6px;">
-      ${tabs.map(([k,l])=>`<button class="btn ${S.epiTab===k?'btn-primary':'btn-secondary'} btn-sm" onclick="carregarEpiTab('${k}')">${l}</button>`).join('')}
-    </div>
+    <button class="btn btn-secondary btn-block" style="margin-bottom:12px;" onclick="S.epiTab='hub';render();">← Voltar ao menu</button>
+    <div class="muted" style="font-weight:700;margin-bottom:8px;">${atual?atual[2]:''}</div>
     ${S.epiTab==='entrega'?renderEpiEntrega():''}
     ${S.epiTab==='fichas'?renderEpiFichas():''}
     ${S.epiTab==='cadastro'?renderEpiCadastro():''}
@@ -3145,6 +3207,7 @@ function renderSegurancaHub(){
   if(canAccess('seguranca_epi')) cards.push(['⛑️','Entrega de EPI','Controle e entrega de equipamentos de proteção',"carregarEpiTab('entrega')"]);
   cards.push(['🦺','DDS Diário','Diálogo Diário de Segurança — sorteio de tema e registro',"S.view='dds';render();"]);
   if(canAccess('checklists')) cards.push(['✅','Checklist','Checklists de segurança de veículos e equipamentos',"S.view='checklists';render();"]);
+  cards.push(['📞','Canal Direto','Denúncias e comunicação direta — viasseguras.com.br',"window.open('https://viasseguras.com.br','_blank');"]);
   return `<div class="wrap">
     <div class="section-header">🦺 Segurança</div>
     ${cards.map(([ic,titulo,desc,onclick])=>`
@@ -3236,7 +3299,7 @@ let __rdoProducaoRows = [];
 function carregarRDOTab(view){
   S.view='rdo'; S.rdoView=view; S.loading=true; render();
   const done=()=>{ S.loading=false; render(); };
-  if(view==='historico'){ loadRDOList().then(done).catch(e=>{toast('Erro: '+e.message);done();}); }
+  if(view==='historico'||view==='painel'){ loadRDOList().then(done).catch(e=>{toast('Erro: '+e.message);done();}); }
   else done();
 }
 async function loadRDOList(){
@@ -3262,11 +3325,18 @@ function rdoAtualizarLinhaProducao(idx, campo, valor){
   render();
 }
 function renderRDO(){
-  const tabs=[['novo','+ Novo RDO'],['historico','Histórico']];
+  const tabs=[['novo','📝','Novo RDO','Preencher o relatório diário de obra'],['painel','📊','Painel','Indicadores e gráficos dos RDOs'],['historico','🕘','Histórico','RDOs já registrados']];
+  if(!S.rdoView || S.rdoView==='hub'){
+    return `<div class="wrap">
+      <div class="section-header">📝 RDO — Diário de Obra</div>
+      ${tabs.map(([k,ic,titulo,desc])=>hubCard(ic,titulo,desc,`carregarRDOTab('${k}')`)).join('')}
+    </div>`;
+  }
   return `<div class="wrap">
     <div class="section-header">📝 RDO — Diário de Obra</div>
-    <div class="flex-row" style="margin-bottom:12px;gap:6px;">${tabs.map(([k,l])=>`<button class="btn ${S.rdoView===k?'btn-primary':'btn-secondary'} btn-sm" onclick="carregarRDOTab('${k}')">${l}</button>`).join('')}</div>
+    <button class="btn btn-secondary btn-block" style="margin-bottom:12px;" onclick="S.rdoView='hub';render();">← Voltar ao menu</button>
     ${S.rdoView==='novo'?renderRDONovo():''}
+    ${S.rdoView==='painel'?renderRDOPainel():''}
     ${S.rdoView==='historico'?renderRDOHistorico():''}
   </div>`;
 }
@@ -3366,11 +3436,13 @@ function renderRDONovo(){
     </div>
 
     <div class="card">
+      <div class="field"><label>Ocorrências do dia</label><textarea name="ocorrencias" rows="3" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;font:inherit;" placeholder="Imprevistos, atrasos, acidentes, interferências…"></textarea></div>
       <div class="field"><label>Descrição dos serviços executados</label><textarea name="descricao_servicos" rows="3" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;font:inherit;"></textarea></div>
       <div class="field"><label>Observações</label><textarea name="observacoes" rows="3" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;font:inherit;"></textarea></div>
+      <div class="field" style="margin:10px 0;"><label>Fotos do dia</label>${photoWidget('rdo_fotos')}</div>
       <div class="field"><label>Assinatura — Encarregado / Resp. Técnico MEGA</label><input name="assinatura_encarregado" required></div>
       <div class="field"><label>Assinatura — Cliente / Fiscalização</label><input name="assinatura_cliente"></div>
-      <button class="btn btn-primary btn-block" style="margin-top:12px;" ${S.loading?'disabled':''}>${S.loading?'Salvando…':'Salvar RDO'}</button>
+      <button class="btn btn-primary btn-block" style="margin-top:12px;" ${S.loading?'disabled':''}>${S.loading?'Salvando…':'Enviar RDO para revisão'}</button>
     </div>
   </form>`;
 }
@@ -3392,6 +3464,9 @@ async function salvarRDO(form){
   const totalItens = S.rdoTipo==='vertical' ? __rdoProducaoRows.reduce((a,r)=>a+(parseFloat(r.qtda)||0),0) : __rdoProducaoRows.length;
   S.loading=true; render();
   try{
+    const fotoFiles = window.pendingFiles['rdo_fotos']||[];
+    const fotoUrls=[];
+    for(const f of fotoFiles){ fotoUrls.push(await uploadArquivo(f, `${S.user.id}/${Date.now()}_${f.name}`, 'rdo')); }
     await sb('rdo',{method:'POST',body:{
       tipo:S.rdoTipo, programacao_num:fd.get('programacao_num')||null, data_rdo:fd.get('data_rdo'),
       obra_id:fd.get('obra_id')||null, equipe_id:fd.get('equipe_id')||null, encarregado_id:fd.get('encarregado_id')||null,
@@ -3401,19 +3476,73 @@ async function salvarRDO(form){
       local_interdicao:fd.get('local_interdicao')||null, km_prog:fd.get('km_prog')||null, km_inter:fd.get('km_inter')||null,
       horarios:{inicial:fd.get('hora_inicial')||null, final:fd.get('hora_final')||null},
       mao_de_obra, equipamentos_veiculos, materiais_consumidos, suportes_materiais, producao:__rdoProducaoRows,
-      total_m2:totalM2, total_itens:totalItens,
+      total_m2:totalM2, total_itens:totalItens, ocorrencias:fd.get('ocorrencias')||null, fotos:fotoUrls,
       descricao_servicos:fd.get('descricao_servicos')||null, observacoes:fd.get('observacoes')||null,
       assinatura_encarregado:fd.get('assinatura_encarregado'), assinatura_cliente:fd.get('assinatura_cliente')||null,
-      status:'fechado', criado_por:S.user.id}});
-    toast('RDO salvo com sucesso.'); __rdoProducaoRows=[]; form.reset(); S.rdoView='historico'; await loadRDOList();
+      status:'revisar', criado_por:S.user.id}});
+    clearPending('rdo_fotos'); toast('RDO enviado para revisão.'); __rdoProducaoRows=[]; form.reset(); S.rdoView='historico'; await loadRDOList();
   }catch(e){ toast('Erro: '+e.message); }
   S.loading=false; render();
 }
+const RDO_STATUS_LABELS = {preenchendo:'Preenchendo', revisar:'Revisar', aprovado:'Aprovado', reprovado:'Reprovado'};
+const RDO_STATUS_CORES = {preenchendo:'#D4890A', revisar:'#C0392B', aprovado:'#1A7A3C', reprovado:'#C0392B'};
+function rdoStatusBadgeCls(s){ return s==='aprovado'?'ok':s==='reprovado'?'critico':s==='revisar'?'pendente':'andamento'; }
+function renderRDOPainel(){
+  const list = S.rdoList||[];
+  const porStatus = {preenchendo:0,revisar:0,aprovado:0,reprovado:0};
+  list.forEach(r=>{ porStatus[r.status] = (porStatus[r.status]||0)+1; });
+  const total = list.length || 1;
+  let acc=0; const fatias = Object.entries(porStatus).filter(([,v])=>v>0).map(([k,v])=>{
+    const pct = v/total*100; const start=acc; acc+=pct; return `${RDO_STATUS_CORES[k]} ${start}% ${acc}%`;
+  }).join(', ');
+  const hoje = new Date(); const dias=[];
+  for(let i=13;i>=0;i--){ const d=new Date(hoje); d.setDate(d.getDate()-i); dias.push(d.toISOString().slice(0,10)); }
+  const porDia = dias.map(d=>list.filter(r=>r.data_rdo===d).length);
+  const maxDia = Math.max(...porDia,1);
+  return `
+  <div class="card" style="text-align:center;">
+    <div class="muted" style="font-weight:700;margin-bottom:10px;">Relatórios (${list.length})</div>
+    <div style="width:160px;height:160px;border-radius:50%;margin:0 auto;background:conic-gradient(${fatias||'#ddd 0% 100%'});display:flex;align-items:center;justify-content:center;">
+      <div style="width:100px;height:100px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;">${list.length?Math.round((porStatus.aprovado/total)*100)+'%':'—'}</div>
+    </div>
+    <div class="flex-row" style="justify-content:center;flex-wrap:wrap;gap:10px;margin-top:12px;">
+      ${Object.entries(porStatus).filter(([,v])=>v>0).map(([k,v])=>`<span style="font-size:12px;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${RDO_STATUS_CORES[k]};margin-right:4px;"></span>${RDO_STATUS_LABELS[k]} (${v})</span>`).join('')}
+    </div>
+  </div>
+  <div class="card">
+    <div class="muted" style="font-weight:700;margin-bottom:10px;">RDOs por dia (últimos 14 dias)</div>
+    <div style="display:flex;align-items:flex-end;gap:4px;height:100px;">
+      ${porDia.map((v,i)=>`<div style="flex:1;background:var(--mega-laranja);border-radius:3px 3px 0 0;height:${Math.max(v/maxDia*100,2)}%;" title="${dias[i]}: ${v}"></div>`).join('')}
+    </div>
+    <div class="flex-row" style="justify-content:space-between;margin-top:4px;">
+      <span class="muted" style="font-size:10px;">${dias[0].slice(5)}</span><span class="muted" style="font-size:10px;">${dias[13].slice(5)}</span>
+    </div>
+  </div>
+  <div class="section-header">Últimos RDOs criados</div>
+  ${list.slice(0,5).map(r=>`<div class="mcard"><div class="mc-top"><span>${fmtDateOnly(r.data_rdo)}</span>${badge(rdoStatusBadgeCls(r.status),RDO_STATUS_LABELS[r.status])}</div>
+    <div class="mc-meta">${esc(obraMap()[r.obra_id]?.nome||'—')}</div></div>`).join('') || '<div class="empty-state">Nenhum RDO ainda.</div>'}`;
+}
 function renderRDOHistorico(){
-  return (S.rdoList||[]).map(r=>`<div class="mcard"><div class="mc-top"><span>${fmtDateOnly(r.data_rdo)}</span>${badge('andamento',r.tipo==='horizontal'?'Horizontal':'Vertical')}</div>
-    <div class="mc-meta">${esc(obraMap()[r.obra_id]?.nome||'—')} · ${esc(equipeMap()[r.equipe_id]?.nome||'—')}</div>
-    <div class="mc-meta">Encarregado: ${esc(usuMap()[r.encarregado_id]?.nome||'—')} · Total: ${r.total_m2?parseFloat(r.total_m2).toFixed(1)+' m²':'—'}</div>
+  const podeRevisar = ['administrador','departamento_pessoal','supervisor','coordenador'].includes(S.user.perfil);
+  return (S.rdoList||[]).map(r=>`<div class="mcard"><div class="mc-top"><span>${fmtDateOnly(r.data_rdo)}</span>${badge(rdoStatusBadgeCls(r.status),RDO_STATUS_LABELS[r.status])}</div>
+    <div class="mc-meta">${esc(obraMap()[r.obra_id]?.nome||'—')} · ${esc(equipeMap()[r.equipe_id]?.nome||'—')} · ${r.tipo==='horizontal'?'Horizontal':'Vertical'}</div>
+    <div class="mc-meta">Encarregado: ${esc(usuMap()[r.encarregado_id]?.nome||'—')} · Total: ${r.total_m2?parseFloat(r.total_m2).toFixed(1)+' m²':'—'}${(r.fotos||[]).length?' · 📷 '+r.fotos.length:''}</div>
+    ${r.ocorrencias?`<div class="muted">⚠️ ${esc(r.ocorrencias)}</div>`:''}
+    ${r.status==='reprovado'&&r.motivo_reprovacao?`<div class="muted">Motivo: ${esc(r.motivo_reprovacao)}</div>`:''}
+    ${podeRevisar&&r.status==='revisar'?`<div class="mc-actions">
+      <button class="btn-icon" onclick="revisarRDO('${r.id}','aprovado')">✅ Aprovar</button>
+      <button class="btn-icon danger" onclick="revisarRDO('${r.id}','reprovado')">❌ Reprovar</button>
+    </div>`:''}
   </div>`).join('') || '<div class="empty-state">Nenhum RDO registrado ainda.</div>';
+}
+async function revisarRDO(id, novoStatus){
+  let motivo=null;
+  if(novoStatus==='reprovado'){ motivo=prompt('Motivo da reprovação:'); if(!motivo) return; }
+  try{
+    await sb(`rdo?id=eq.${id}`,{method:'PATCH',body:{status:novoStatus, motivo_reprovacao:motivo, revisado_por:S.user.id, revisado_em:new Date().toISOString()}});
+    toast(novoStatus==='aprovado'?'RDO aprovado.':'RDO reprovado.'); await loadRDOList();
+  }catch(e){ toast('Erro: '+e.message); }
+  render();
 }
 
 function render(){
