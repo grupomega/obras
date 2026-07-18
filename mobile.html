@@ -606,7 +606,7 @@ const S = {
   suprimentosTab:'hub', materiais:[], materiaisLoaded:false, movimentacoesMateriais:[], movimentacoesLoaded:false,
   dreForm:{rod:'',trecho:'',kmi:'',kmf:'',tipoPintura:'mec_aut',basePintura:'solvente',temEixo:1,tipoEixo:'simples',largEixo:0.12,lEc:'',temBordo:1,largBordo:0.15,lBc:'',temTacha:0,cadE:12,cadB:12,tipoTE:'biamarel',tipoTB:'bobibranca'}, dreRes:null,
   epiTab:'entrega', epis:[], episLoaded:false, epiMatriz:[], epiEstoque:[], epiMovimentacoes:[], epiColaboradorSel:null,
-  avisos:[], avisosLoaded:false, avisosLidos:[], avisosEnviados:[], avisoExpandido:null, novoAvisoDestino:'individual',
+  avisos:[], avisosLoaded:false, avisosLidos:[], avisosResolvidos:[], avisosEnviados:[], avisoExpandido:null, novoAvisoDestino:'individual',
   rdoTipo:'horizontal', rdoView:'hub', rdoList:[], rdoListLoaded:false
 };
 
@@ -3226,8 +3226,9 @@ function carregarMensagens(){
 }
 async function loadAvisos(){
   S.avisos = await sb(`avisos?select=*&or=(destino.eq.todos,usuario_id.eq.${S.user.id})&order=criado_em.desc&limit=200`);
-  const lidos = await sb(`avisos_leituras?select=aviso_id&usuario_id=eq.${S.user.id}`);
+  const lidos = await sb(`avisos_leituras?select=aviso_id,resolvido&usuario_id=eq.${S.user.id}`);
   S.avisosLidos = lidos.map(l=>l.aviso_id);
+  S.avisosResolvidos = lidos.filter(l=>l.resolvido).map(l=>l.aviso_id);
   S.avisosLoaded = true;
   if(isRHStaff()){ S.avisosEnviados = await sb('avisos?select=*&order=criado_em.desc&limit=200'); }
 }
@@ -3235,23 +3236,52 @@ async function marcarAvisoLido(id){
   if(S.avisosLidos.includes(id)) return;
   try{ await sb('avisos_leituras',{method:'POST',body:{aviso_id:id, usuario_id:S.user.id}}); S.avisosLidos.push(id); if(S.alertasResumo.mensagens>0) S.alertasResumo.mensagens--; }catch(e){}
 }
+async function toggleAvisoResolvido(id, event){
+  if(event) event.stopPropagation();
+  const jaResolvido = S.avisosResolvidos.includes(id);
+  try{
+    if(!S.avisosLidos.includes(id)){
+      await sb('avisos_leituras',{method:'POST',body:{aviso_id:id, usuario_id:S.user.id, resolvido:!jaResolvido}});
+      S.avisosLidos.push(id);
+    } else {
+      await sb(`avisos_leituras?aviso_id=eq.${id}&usuario_id=eq.${S.user.id}`,{method:'PATCH',body:{resolvido:!jaResolvido}});
+    }
+    if(jaResolvido) S.avisosResolvidos = S.avisosResolvidos.filter(x=>x!==id);
+    else { S.avisosResolvidos.push(id); if(S.alertasResumo.mensagens>0) S.alertasResumo.mensagens--; }
+  }catch(e){ toast('Erro: '+e.message); }
+  render();
+}
 function abrirAviso(id){
   S.avisoExpandido = S.avisoExpandido===id?null:id;
   marcarAvisoLido(id);
   render();
 }
 function selecionarDestinoAviso(v){ S.novoAvisoDestino=v; render(); }
+function renderAvisoCard(a){
+  const resolvido = (S.avisosResolvidos||[]).includes(a.id);
+  return `<div class="mcard" style="${!S.avisosLidos.includes(a.id)?'border-left:4px solid var(--mega-laranja);':''}" onclick="abrirAviso('${a.id}')">
+    <div class="mc-top"><span>${esc(a.titulo)}</span>${badge(a.prioridade==='urgente'?'critico':a.prioridade==='importante'?'pendente':'ok',a.prioridade)}</div>
+    <div class="mc-meta">${fmtDate(a.criado_em)} · ${a.destino==='todos'?'Para todos':'Individual'}</div>
+    ${S.avisoExpandido===a.id?`<div class="muted" style="margin-top:6px;white-space:pre-wrap;">${esc(a.mensagem)}</div>`:`<div class="muted">${esc(a.mensagem.slice(0,80))}${a.mensagem.length>80?'…':''}</div>`}
+    <div class="mc-actions">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;" onclick="event.stopPropagation();">
+        <input type="checkbox" ${resolvido?'checked':''} onclick="toggleAvisoResolvido('${a.id}', event)"> Marcar como resolvido
+      </label>
+    </div>
+  </div>`;
+}
 function renderMensagens(){
   const naoLidos = (S.avisos||[]).filter(a=>!S.avisosLidos.includes(a.id)).length;
+  const pendentes = (S.avisos||[]).filter(a=>!(S.avisosResolvidos||[]).includes(a.id));
+  const resolvidos = (S.avisos||[]).filter(a=>(S.avisosResolvidos||[]).includes(a.id));
   return `<div class="wrap">
     <div class="section-header">💬 Mensagens${naoLidos?` <span class="badge critico" style="margin-left:6px;">${naoLidos} nova(s)</span>`:''}</div>
     ${isRHStaff()?renderComporAviso():''}
-    <div class="section-header">Recebidas</div>
-    ${(S.avisos||[]).map(a=>`<div class="mcard" style="${!S.avisosLidos.includes(a.id)?'border-left:4px solid var(--mega-laranja);':''}" onclick="abrirAviso('${a.id}')">
-      <div class="mc-top"><span>${esc(a.titulo)}</span>${badge(a.prioridade==='urgente'?'critico':a.prioridade==='importante'?'pendente':'ok',a.prioridade)}</div>
-      <div class="mc-meta">${fmtDate(a.criado_em)} · ${a.destino==='todos'?'Para todos':'Individual'}</div>
-      ${S.avisoExpandido===a.id?`<div class="muted" style="margin-top:6px;white-space:pre-wrap;">${esc(a.mensagem)}</div>`:`<div class="muted">${esc(a.mensagem.slice(0,80))}${a.mensagem.length>80?'…':''}</div>`}
-    </div>`).join('') || '<div class="empty-state">Nenhuma mensagem recebida.</div>'}
+    <div class="section-header">Pendente</div>
+    ${pendentes.map(renderAvisoCard).join('') || '<div class="empty-state">Nenhuma mensagem pendente.</div>'}
+    <div class="divider"></div>
+    <div class="section-header">Resolvido</div>
+    ${resolvidos.map(renderAvisoCard).join('') || '<div class="empty-state">Nenhuma mensagem resolvida ainda.</div>'}
     ${isRHStaff()?renderAvisosEnviados():''}
   </div>`;
 }

@@ -615,7 +615,7 @@ const S = {
   suprimentosTab:'materiais', materiais:[], materiaisLoaded:false, movimentacoesMateriais:[], movimentacoesLoaded:false,
   dreForm:{rod:'',trecho:'',kmi:'',kmf:'',tipoPintura:'mec_aut',basePintura:'solvente',temEixo:1,tipoEixo:'simples',largEixo:0.12,lEc:'',temBordo:1,largBordo:0.15,lBc:'',temTacha:0,cadE:12,cadB:12,tipoTE:'biamarel',tipoTB:'bobibranca'}, dreRes:null,
   epiTab:'entrega', epis:[], episLoaded:false, epiMatriz:[], epiEstoque:[], epiMovimentacoes:[], epiColaboradorSel:null,
-  avisos:[], avisosLoaded:false, avisosLidos:[], avisosEnviados:[], avisoExpandido:null, novoAvisoDestino:'individual',
+  avisos:[], avisosLoaded:false, avisosLidos:[], avisosResolvidos:[], avisosEnviados:[], avisoExpandido:null, novoAvisoDestino:'individual',
   historicoTipo:'colaborador', historicoEntidadeId:null, historicoEventos:[],
   rdoTipo:'horizontal', rdoView:'novo', rdoList:[], rdoListLoaded:false, rdoMaoObra:[], rdoEquipVeic:[], rdoMateriais:[], rdoSuportes:[], rdoProducao:[],
   dashGeral:null, buscaUsuarios:''
@@ -1489,6 +1489,49 @@ function renderDashboard(){
 
   const kpi = (label,val,color,onclick)=>`<div class="kpi-card${onclick?' clickable':''}"${color?` style="border-left-color:${color};"`:''}${onclick?` onclick="${onclick}"`:''}><div class="kpi-label">${label}</div><div class="kpi-value">${val}</div></div>`;
 
+  // Gráfico gauge: taxa de aprovação financeira do mês
+  const totalMesFin = valorAprovadoMes + valorPendente;
+  const taxaAprovFin = totalMesFin>0 ? Math.round((valorAprovadoMes/totalMesFin)*100) : 0;
+  const gaugeStop = (taxaAprovFin/100)*50;
+  const gaugeChart = (titulo,pct,cor)=>`<div class="card" style="text-align:center;">
+    <div class="muted" style="font-weight:700;margin-bottom:6px;">${titulo}</div>
+    <div style="position:relative;width:180px;height:90px;overflow:hidden;margin:0 auto;">
+      <div style="width:180px;height:180px;border-radius:50%;background:conic-gradient(from -90deg, ${cor} 0% ${(pct/100)*50}%, var(--mega-cinza-bdr) ${(pct/100)*50}% 50%, transparent 50% 100%);"></div>
+    </div>
+    <div style="font-size:28px;font-weight:800;margin-top:-8px;">${pct}%</div>
+  </div>`;
+
+  // Gráfico de barras horizontais: OS por status
+  const statusData = Object.keys(STATUS_LABELS).map(s=>[STATUS_LABELS[s], cnt(s), s]).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  const maxStatus = Math.max(...statusData.map(s=>s[1]),1);
+  const barColor = s=>s==='reprovada'||s==='impedida'||s==='cancelada'?'var(--mega-vermelho)':s==='aprovada'?'var(--mega-verde)':'var(--mega-laranja)';
+  const barChartH = `<div class="card">
+    <div class="muted" style="font-weight:700;margin-bottom:10px;">Ordens de Serviço por Status</div>
+    ${statusData.map(([label,val,s])=>`<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+      <div style="width:140px;font-size:13px;text-align:right;">${label}</div>
+      <div style="flex:1;background:var(--mega-cinza-bg);border-radius:4px;overflow:hidden;height:22px;">
+        <div style="width:${(val/maxStatus)*100}%;background:${barColor(s)};height:100%;border-radius:4px;"></div>
+      </div>
+      <div style="width:36px;font-weight:700;">${val}</div>
+    </div>`).join('') || '<div class="empty-state">Sem OS registradas.</div>'}
+  </div>`;
+
+  // Gráfico de barras verticais: atividade diária (RDOs) últimos 14 dias
+  const dias14=[]; for(let i=13;i>=0;i--){ const d=new Date(hoje); d.setDate(d.getDate()-i); dias14.push(d.toISOString().slice(0,10)); }
+  const atividadePorDia = dias14.map(d=> list.filter(o=>o.criado_em && o.criado_em.slice(0,10)===d).length );
+  const maxAtiv = Math.max(...atividadePorDia,1);
+  const barChartV = `<div class="card">
+    <div class="muted" style="font-weight:700;margin-bottom:10px;">OS Criadas — Últimos 14 dias</div>
+    <div style="display:flex;align-items:flex-end;gap:6px;height:120px;">
+      ${atividadePorDia.map((v,i)=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;">
+        <div title="${dias14[i]}: ${v}" style="width:100%;background:var(--mega-laranja);border-radius:3px 3px 0 0;height:${Math.max(v/maxAtiv*90,2)}px;"></div>
+      </div>`).join('')}
+    </div>
+    <div class="flex-row" style="justify-content:space-between;margin-top:6px;">
+      <span class="muted" style="font-size:11px;">${dias14[0].slice(5)}</span><span class="muted" style="font-size:11px;">${dias14[13].slice(5)}</span>
+    </div>
+  </div>`;
+
   return `
   <div class="wrap">
     <div class="section-header">📊 Painel Geral — Grupo MEGA</div>
@@ -1503,6 +1546,11 @@ function renderDashboard(){
       ${kpi('Veículos em uso agora', veiculosEmUso)}
     </div>
 
+    <div style="display:grid;grid-template-columns:1fr 2fr;gap:16px;align-items:start;">
+      ${gaugeChart('Taxa de Aprovação Financeira (mês)', taxaAprovFin, taxaAprovFin>=70?'var(--mega-verde)':taxaAprovFin>=40?'var(--mega-amarelo)':'var(--mega-vermelho)')}
+      ${barChartV}
+    </div>
+
     <div class="dash-section-title">Operação — Ordens de Serviço</div>
     <div class="kpi-grid">
       ${kpi('Total de OS', list.length)}
@@ -1511,6 +1559,7 @@ function renderDashboard(){
       ${kpi('Críticas', criticas, 'var(--mega-vermelho)')}
       ${kpi('Atrasadas', atrasadas, 'var(--mega-amarelo)')}
     </div>
+    ${barChartH}
 
     <div class="dash-section-title">💰 Financeiro</div>
     <div class="kpi-grid">
@@ -1539,11 +1588,6 @@ function renderDashboard(){
       ${kpi('Materiais abaixo do mínimo', materiaisCriticos.length, materiaisCriticos.length>0?'var(--mega-vermelho)':null)}
     </div>
 
-    <div class="section-header">Ordens de Serviço por Status</div>
-    <div class="kpi-grid">
-      ${Object.keys(STATUS_LABELS).map(s=>`<div class="kpi-card" style="border-left-color:${s==='reprovada'||s==='impedida'||s==='cancelada'?'var(--mega-vermelho)':s==='aprovada'?'var(--mega-verde)':'var(--mega-laranja)'};">
-        <div class="kpi-label">${STATUS_LABELS[s]}</div><div class="kpi-value small">${cnt(s)}</div></div>`).join('')}
-    </div>
     <div class="section-header">Ordens de Serviço Recentes</div>
     <div class="table-scroll"><table class="mega-table">
       <thead><tr><th>Nº OS</th><th>Obra</th><th>Equipe</th><th>Serviço</th><th>KM</th><th>Criticidade</th><th>Status</th><th>Criada em</th></tr></thead>
@@ -3441,8 +3485,9 @@ function carregarMensagens(){
 }
 async function loadAvisos(){
   S.avisos = await sb(`avisos?select=*&or=(destino.eq.todos,usuario_id.eq.${S.user.id})&order=criado_em.desc&limit=200`);
-  const lidos = await sb(`avisos_leituras?select=aviso_id&usuario_id=eq.${S.user.id}`);
+  const lidos = await sb(`avisos_leituras?select=aviso_id,resolvido&usuario_id=eq.${S.user.id}`);
   S.avisosLidos = lidos.map(l=>l.aviso_id);
+  S.avisosResolvidos = lidos.filter(l=>l.resolvido).map(l=>l.aviso_id);
   S.avisosLoaded = true;
   if(isRHStaff()){ S.avisosEnviados = await sb('avisos?select=*&order=criado_em.desc&limit=200'); }
 }
@@ -3450,23 +3495,50 @@ async function marcarAvisoLido(id){
   if(S.avisosLidos.includes(id)) return;
   try{ await sb('avisos_leituras',{method:'POST',body:{aviso_id:id, usuario_id:S.user.id}}); S.avisosLidos.push(id); if(S.alertasResumo.mensagens>0) S.alertasResumo.mensagens--; }catch(e){}
 }
+async function toggleAvisoResolvido(id, event){
+  if(event) event.stopPropagation();
+  const jaResolvido = S.avisosResolvidos.includes(id);
+  try{
+    if(!S.avisosLidos.includes(id)){
+      await sb('avisos_leituras',{method:'POST',body:{aviso_id:id, usuario_id:S.user.id, resolvido:!jaResolvido}});
+      S.avisosLidos.push(id);
+    } else {
+      await sb(`avisos_leituras?aviso_id=eq.${id}&usuario_id=eq.${S.user.id}`,{method:'PATCH',body:{resolvido:!jaResolvido}});
+    }
+    if(jaResolvido) S.avisosResolvidos = S.avisosResolvidos.filter(x=>x!==id);
+    else { S.avisosResolvidos.push(id); if(S.alertasResumo.mensagens>0) S.alertasResumo.mensagens--; }
+  }catch(e){ toast('Erro: '+e.message); }
+  render();
+}
 function abrirAviso(id){
   S.avisoExpandido = S.avisoExpandido===id?null:id;
   marcarAvisoLido(id);
   render();
 }
 function selecionarDestinoAviso(v){ S.novoAvisoDestino=v; render(); }
+function renderAvisoCard(a){
+  const resolvido = (S.avisosResolvidos||[]).includes(a.id);
+  return `<div class="card clickable" style="${!S.avisosLidos.includes(a.id)?'border-left:4px solid var(--mega-laranja);':''}" onclick="abrirAviso('${a.id}')">
+    <div style="display:flex;justify-content:space-between;"><b>${esc(a.titulo)}</b>${badge(a.prioridade==='urgente'?'critico':a.prioridade==='importante'?'pendente':'ok',a.prioridade)}</div>
+    <div class="muted">${fmtDate(a.criado_em)} · ${a.destino==='todos'?'Para todos':'Individual'}</div>
+    ${S.avisoExpandido===a.id?`<div style="margin-top:6px;white-space:pre-wrap;">${esc(a.mensagem)}</div>`:`<div class="muted">${esc(a.mensagem.slice(0,120))}${a.mensagem.length>120?'…':''}</div>`}
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:8px;" onclick="event.stopPropagation();">
+      <input type="checkbox" ${resolvido?'checked':''} onclick="toggleAvisoResolvido('${a.id}', event)"> Marcar como resolvido
+    </label>
+  </div>`;
+}
 function renderMensagens(){
   const naoLidos = (S.avisos||[]).filter(a=>!S.avisosLidos.includes(a.id)).length;
+  const pendentes = (S.avisos||[]).filter(a=>!(S.avisosResolvidos||[]).includes(a.id));
+  const resolvidos = (S.avisos||[]).filter(a=>(S.avisosResolvidos||[]).includes(a.id));
   return `<div class="wrap">
     <div class="section-header">💬 Mensagens${naoLidos?` <span class="badge critico" style="margin-left:6px;">${naoLidos} nova(s)</span>`:''}</div>
     ${isRHStaff()?renderComporAviso():''}
-    <div class="section-header">Recebidas</div>
-    ${(S.avisos||[]).map(a=>`<div class="card clickable" style="${!S.avisosLidos.includes(a.id)?'border-left:4px solid var(--mega-laranja);':''}" onclick="abrirAviso('${a.id}')">
-      <div style="display:flex;justify-content:space-between;"><b>${esc(a.titulo)}</b>${badge(a.prioridade==='urgente'?'critico':a.prioridade==='importante'?'pendente':'ok',a.prioridade)}</div>
-      <div class="muted">${fmtDate(a.criado_em)} · ${a.destino==='todos'?'Para todos':'Individual'}</div>
-      ${S.avisoExpandido===a.id?`<div style="margin-top:6px;white-space:pre-wrap;">${esc(a.mensagem)}</div>`:`<div class="muted">${esc(a.mensagem.slice(0,120))}${a.mensagem.length>120?'…':''}</div>`}
-    </div>`).join('') || '<div class="empty-state">Nenhuma mensagem recebida.</div>'}
+    <div class="section-header">Pendente</div>
+    ${pendentes.map(renderAvisoCard).join('') || '<div class="empty-state">Nenhuma mensagem pendente.</div>'}
+    <div class="divider"></div>
+    <div class="section-header">Resolvido</div>
+    ${resolvidos.map(renderAvisoCard).join('') || '<div class="empty-state">Nenhuma mensagem resolvida ainda.</div>'}
     ${isRHStaff()?renderAvisosEnviados():''}
   </div>`;
 }
