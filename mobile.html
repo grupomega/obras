@@ -48,6 +48,8 @@ a.applink{color:#aaa;font-size:12px;text-decoration:underline;}
 .kpi-label{font-family:var(--font-display);font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#999;}
 .kpi-value{font-family:var(--font-display);font-size:28px;font-weight:700;color:#fff;line-height:1.1;margin-top:4px;}
 .card{background:#fff;border-radius:var(--radius-md);box-shadow:var(--shadow-card);padding:16px;margin-bottom:14px;}
+.card.clickable{cursor:pointer;transition:transform .12s;}
+.card.clickable:active{transform:scale(0.98);}
 
 .section-header{padding:12px 16px;background:var(--mega-cinza-esc);color:#fff;border-left:5px solid var(--mega-laranja);
   font-family:var(--font-display);font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
@@ -578,7 +580,7 @@ function toast(msg){
    ========================================================== */
 const S = {
   view:'login', user:null, loading:false, error:null,
-  usuariosLogin:[], loginSel:null, pin:'',
+  usuariosLogin:[], loginSel:null, pin:'', loginMatricula:'', loginUsuarioEncontrado:null, buscaUsuarios:'',
   usuarios:[], obras:[], equipes:[], veiculos:[], equipamentos:[],
   osList:[], osFilters:{obra:'',equipe:'',status:'',criticidade:'',busca:'',ordenar:'criticidade'},
   currentOS:null, currentItens:[], currentFotos:[], currentRetorno:null, currentMedicoes:[], currentImpedimentos:[], currentHistorico:[], currentComentarios:[],
@@ -596,7 +598,8 @@ const S = {
   ddsScreen:'sorteio', ddsTemaAtual:null, ddsHistorico:[], ddsHistoricoLoaded:false,
   suprimentosTab:'materiais', materiais:[], materiaisLoaded:false, movimentacoesMateriais:[], movimentacoesLoaded:false,
   dreForm:{rod:'',trecho:'',kmi:'',kmf:'',tipoPintura:'mec_aut',basePintura:'solvente',temEixo:1,tipoEixo:'simples',largEixo:0.12,lEc:'',temBordo:1,largBordo:0.15,lBc:'',temTacha:0,cadE:12,cadB:12,tipoTE:'biamarel',tipoTB:'bobibranca'}, dreRes:null,
-  epiTab:'entrega', epis:[], episLoaded:false, epiMatriz:[], epiEstoque:[], epiMovimentacoes:[], epiColaboradorSel:null
+  epiTab:'entrega', epis:[], episLoaded:false, epiMatriz:[], epiEstoque:[], epiMovimentacoes:[], epiColaboradorSel:null,
+  avisos:[], avisosLoaded:false, avisosLidos:[], avisosEnviados:[], avisoExpandido:null, novoAvisoDestino:'individual'
 };
 
 function usuMap(){ const m={}; S.usuarios.forEach(u=>m[u.id]=u); return m; }
@@ -619,7 +622,7 @@ async function loadLoginList(){
 }
 async function loadBaseData(){
   const [usuarios,obras,equipes,veiculos,equipamentos] = await Promise.all([
-    sb('usuarios?select=id,foto,nome,cpf,cargo,email,telefone,perfil,equipe_id,obra_id,status,permissoes,plataforma_acesso,obras_acesso,criado_em,data_nascimento,estado_civil,naturalidade,rg,telefone_whatsapp,data_admissao&order=nome.asc'),
+    sb('usuarios?select=id,matricula,foto,nome,cpf,cargo,email,telefone,perfil,equipe_id,obra_id,status,permissoes,plataforma_acesso,obras_acesso,criado_em,data_nascimento,estado_civil,naturalidade,rg,telefone_whatsapp,data_admissao&order=nome.asc'),
     sb('obras?select=*&order=nome.asc'),
     sb('equipes?select=*&order=nome.asc'),
     sb('veiculos?select=*&order=placa.asc'),
@@ -669,10 +672,10 @@ async function loadChecklistDetail(id){
    AÇÕES — LOGIN
    ========================================================== */
 async function doLogin(){
-  if(!S.loginSel || !S.pin){ S.error='Selecione seu nome e informe o PIN.'; render(); return; }
+  if(!S.loginUsuarioEncontrado || !S.pin){ S.error='Informe sua matrícula e o PIN.'; render(); return; }
   S.loading=true; S.error=null; render();
   try{
-    const r = await sbRpc('rpc_login',{p_usuario_id:S.loginSel, p_pin:S.pin});
+    const r = await sbRpc('rpc_login',{p_usuario_id:S.loginUsuarioEncontrado.id, p_pin:S.pin});
     if(!r || r.length===0){ S.error='PIN incorreto.'; S.loading=false; render(); return; }
     S.user = r[0];
     await loadBaseData();
@@ -697,7 +700,7 @@ async function doLogin(){
     await loadNotificacoes();
     await loadOSList();
     S.view = canAccess('dashboard') ? 'dashboard' : 'lista';
-    S.pin=''; S.loginSel=null;
+    S.pin=''; S.loginSel=null; S.loginUsuarioEncontrado=null; S.loginMatricula='';
   }catch(e){ S.error='Erro ao entrar: '+e.message; }
   S.loading=false; render();
 }
@@ -968,6 +971,11 @@ async function salvarEdicaoUsuario(form){
     telefone:fd.get('telefone')||null,perfil:fd.get('perfil'),equipe_id:fd.get('equipe_id')||null,obra_id:fd.get('obra_id')||null,
     status:fd.get('status')||'ativo', plataforma_acesso:fd.get('plataforma_acesso')||'ambos', obras_acesso:fd.getAll('obras_acesso')};
   try{ await sb(`usuarios?id=eq.${S.editUsuario.id}`,{method:'PATCH',body:payload}); toast('Usuário atualizado.'); clearPending('usuario_foto'); S.editUsuario=null; await loadBaseData(); }
+  catch(e){ toast('Erro: '+e.message); }
+  render();
+}
+async function toggleStatusUsuario(id, novoStatus){
+  try{ await sb(`usuarios?id=eq.${id}`,{method:'PATCH',body:{status:novoStatus}}); toast(`Usuário ${novoStatus==='ativo'?'ativado':'inativado'}.`); await loadBaseData(); }
   catch(e){ toast('Erro: '+e.message); }
   render();
 }
@@ -1285,33 +1293,48 @@ async function excluirNota(id){
    RENDER — LOGIN
    ========================================================== */
 function renderLogin(){
-  if(!S.usuariosLoginLoaded){ S.usuariosLoginLoaded=true; loadLoginList().then(render).catch(e=>{S.error='Erro ao carregar usuários: '+e.message; render();}); }
-  const grupos = {};
-  S.usuariosLogin.forEach(u=>{ (grupos[u.perfil]=grupos[u.perfil]||[]).push(u); });
+  const achado = S.loginUsuarioEncontrado;
   return `
   <div class="login-screen">
     <div class="login-card">
       <img src="${MEGA_LOGO_URL}" alt="Grupo MEGA" style="max-width:180px;display:block;margin:0 auto 8px;">
       <div class="tag">Ordens de Serviço · Mobile</div>
       ${S.error?`<div class="err-msg">${esc(S.error)}</div>`:''}
-      <div class="field"><label>Selecione seu nome</label></div>
-      <div class="user-pick">
-        ${Object.keys(grupos).length===0?'<div style="padding:14px;color:#999;">Carregando usuários…</div>':
-          Object.entries(grupos).map(([perfil,us])=>`
-            <div style="background:#f0f0f0;padding:8px 12px;font-family:var(--font-display);font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#777;">${PERFIL_LABELS[perfil]}</div>
-            ${us.map(u=>`<div class="u ${S.loginSel===u.id?'sel':''}" onclick="S.loginSel='${u.id}';render()"><span>${esc(u.nome)}</span><span class="muted">${esc(u.cargo||'')}</span></div>`).join('')}
-          `).join('')}
-      </div>
-      <div class="field"><label>PIN de acesso</label>
-        <input type="password" inputmode="numeric" maxlength="6" placeholder="••••" value="${esc(S.pin)}"
-          oninput="S.pin=this.value" onkeydown="if(event.key==='Enter')doLogin()">
-      </div>
-      <button class="btn btn-primary btn-block" style="margin-top:14px;" onclick="doLogin()" ${S.loading?'disabled':''}>${S.loading?'Entrando…':'Entrar'}</button>
-      <div class="muted" style="margin-top:14px;text-align:center;">PIN padrão para novos usuários: 1234</div>
-      <div style="text-align:center;margin-top:10px;"><a class="applink" href="./desktop.html">Acessar versão desktop →</a></div>
+      ${!achado?`
+        <div class="field"><label>Matrícula</label>
+          <input inputmode="numeric" maxlength="10" placeholder="Ex: 0001" value="${esc(S.loginMatricula||'')}"
+            oninput="S.loginMatricula=this.value" onkeydown="if(event.key==='Enter')buscarPorMatricula()" autofocus>
+        </div>
+        <button class="btn btn-primary btn-block" style="margin-top:10px;" onclick="buscarPorMatricula()" ${S.loading?'disabled':''}>${S.loading?'Buscando…':'Continuar'}</button>
+      `:`
+        <div class="card" style="display:flex;align-items:center;gap:12px;margin:10px 0;">
+          ${achado.foto?`<img src="${achado.foto}" style="width:48px;height:48px;object-fit:cover;border-radius:50%;">`:`<div style="width:48px;height:48px;border-radius:50%;background:var(--mega-cinza-bdr);display:flex;align-items:center;justify-content:center;font-weight:700;">${esc((achado.nome||'?')[0])}</div>`}
+          <div><b>${esc(achado.nome)}</b><div class="muted">Matrícula ${esc(S.loginMatricula)}</div></div>
+        </div>
+        <div class="field"><label>PIN de acesso</label>
+          <input type="password" inputmode="numeric" maxlength="6" placeholder="••••" value="${esc(S.pin)}" autofocus
+            oninput="S.pin=this.value" onkeydown="if(event.key==='Enter')doLogin()">
+        </div>
+        <button class="btn btn-primary btn-block" style="margin-top:10px;" onclick="doLogin()" ${S.loading?'disabled':''}>${S.loading?'Entrando…':'Entrar'}</button>
+        <div style="text-align:center;margin-top:10px;"><a class="applink" href="#" onclick="trocarMatricula();return false;">← Não é você? Trocar matrícula</a></div>
+      `}
+      <div style="text-align:center;margin-top:14px;"><a class="applink" href="./desktop.html">Acessar versão desktop →</a></div>
     </div>
   </div>`;
 }
+async function buscarPorMatricula(){
+  const mat = (S.loginMatricula||'').trim();
+  if(!mat){ S.error='Digite sua matrícula.'; render(); return; }
+  S.loading=true; S.error=null; render();
+  try{
+    const r = await sbRpc('rpc_buscar_por_matricula',{p_matricula:mat});
+    if(!r || !r.length){ S.error='Matrícula não encontrada.'; S.loginUsuarioEncontrado=null; }
+    else if(r[0].status!=='ativo'){ S.error='Usuário inativo. Procure o RH.'; S.loginUsuarioEncontrado=null; }
+    else { S.loginUsuarioEncontrado=r[0]; S.error=null; }
+  }catch(e){ S.error='Erro: '+e.message; }
+  S.loading=false; render();
+}
+function trocarMatricula(){ S.loginUsuarioEncontrado=null; S.loginMatricula=''; S.pin=''; S.error=null; render(); }
 
 /* ==========================================================
    TOP BAR + BOTTOM NAV
@@ -1343,11 +1366,10 @@ function renderBottomNav(){
   if(canAccess('os_lista')) items.push(['lista','📋','OS']);
   if(canAccess('financeiro')) items.push(['financeiro','💰','Financeiro']);
   items.push(['rh','👥','RH']);
-  items.push(['dds','🦺','Segurança']);
-  if(canAccess('checklists')) items.push(['checklists','✅','Checklist']);
+  items.push(['seguranca_hub','🦺','Segurança']);
   items.push(['mais','☰','Mais']);
   return `<div class="bottom-nav">
-    ${items.map(([k,ic,l])=>`<button class="${S.view===k?'active':''}" onclick="${k==='mais'?'S.showMais=true;render()':k==='lista'?"S.view='lista';loadOSList().then(render);":k==='cadastro_obras'?"S.view='cadastros';S.cadastroTab='obras';render();":k==='rh'?"carregarRHTab(S.rhTab);":k==='dds'?"S.view='dds';render();":`S.view='${k}';render();`}">
+    ${items.map(([k,ic,l])=>`<button class="${['seguranca_hub','epi','dds','checklists'].includes(S.view)&&k==='seguranca_hub'?'active':S.view===k?'active':''}" onclick="${k==='mais'?'S.showMais=true;render()':k==='lista'?"S.view='lista';loadOSList().then(render);":k==='cadastro_obras'?"S.view='cadastros';S.cadastroTab='obras';render();":k==='rh'?"carregarRHTab(S.rhTab);":k==='seguranca_hub'?"S.view='seguranca_hub';render();":`S.view='${k}';render();`}">
       <span class="ic">${ic}</span>${l}</button>`).join('')}
   </div>
   ${S.showMais?renderMaisSheet():''}`;
@@ -1367,7 +1389,7 @@ function renderMaisSheet(){
   if(canAccess('permissoes')) items.push(['permissoes','🔐','Permissões de Acesso']);
   if(canAccess('suprimentos')) items.push(['suprimentos','📦','Suprimentos']);
   if(canAccess('dre_sinalizacao')) items.push(['dre_sinalizacao','🎨','DRE Sinalização Horizontal']);
-  if(canAccess('seguranca_epi')) items.push(['epi','⛑️','Segurança / EPI']);
+  items.push(['mensagens','💬','Mensagens']);
   return `<div class="modal-overlay" onclick="if(event.target===this){S.showMais=false;render();}">
     <div class="modal-panel"><div class="modal-head"><b>Mais opções</b>
       <button class="btn-logout" onclick="S.showMais=false;render()">✕</button></div>
@@ -1385,6 +1407,7 @@ function irPara(destino){
   if(destino==='suprimentos'){ S.view='suprimentos'; carregarSuprimentosTab(S.suprimentosTab); return; }
   if(destino==='dre_sinalizacao'){ S.view='dre_sinalizacao'; render(); return; }
   if(destino==='epi'){ S.view='epi'; carregarEpiTab(S.epiTab); return; }
+  if(destino==='mensagens'){ S.view='mensagens'; carregarMensagens(); return; }
   S.view=destino; render();
 }
 
@@ -1736,6 +1759,7 @@ function renderCadastroUsuarios(){
         ${photoWidget('usuario_foto')}
       </div>
       <div class="form-grid">
+        <div class="field"><label>Matrícula</label><input value="${ed?esc(ed.matricula||'—'):'Gerada automaticamente'}" disabled></div>
         <div class="field"><label>Nome *</label><input name="nome" required value="${esc(ed?.nome||'')}"></div>
         <div class="field"><label>CPF</label><input name="cpf" value="${esc(ed?.cpf||'')}"></div>
         <div class="field"><label>Cargo</label><input name="cargo" value="${esc(ed?.cargo||'')}"></div>
@@ -1745,7 +1769,7 @@ function renderCadastroUsuarios(){
         <div class="field"><label>Equipe</label><select name="equipe_id">${opt(S.equipes.map(e=>[e.id,e.nome]),ed?.equipe_id,true)}</select></div>
         <div class="field"><label>Obra</label><select name="obra_id">${opt(S.obras.map(o=>[o.id,o.nome]),ed?.obra_id,true)}</select></div>
         <div class="field"><label>Plataforma de Acesso</label>${chipGroup('plataforma_acesso',[['ambos','Ambos'],['desktop','Somente Desktop'],['mobile','Somente Mobile']],ed?.plataforma_acesso||'ambos')}</div>
-        ${ed?`<div class="field"><label>Status</label>${chipGroup('status',[['ativo','Ativo'],['inativo','Inativo']],ed.status)}</div>`:''}
+        <div class="field"><label>Status</label>${chipGroup('status',[['ativo','Ativo'],['inativo','Inativo']],ed?.status||'ativo')}</div>
       </div>
       <div class="field" style="margin-top:14px;">
         <label>Obras com Acesso Liberado</label>
@@ -1759,15 +1783,21 @@ function renderCadastroUsuarios(){
       <div class="muted" style="margin-top:8px;">Após o PIN, o sistema redireciona automaticamente para a plataforma configurada acima.</div>
     </form>
   </div>
-  ${S.usuarios.map(u=>{
+  <div class="card">
+    <input placeholder="🔎 Buscar por nome, matrícula ou cargo…" oninput="S.buscaUsuarios=this.value;render();" value="${esc(S.buscaUsuarios||'')}">
+  </div>
+  ${S.usuarios.filter(u=>{
+    const q=(S.buscaUsuarios||'').toLowerCase(); if(!q) return true;
+    return (u.nome||'').toLowerCase().includes(q) || (u.matricula||'').includes(q) || (u.cargo||'').toLowerCase().includes(q);
+  }).map(u=>{
     const om=obraMap();
     const obrasTxt = (u.obras_acesso&&u.obras_acesso.length) ? u.obras_acesso.map(id=>om[id]?.nome||'?').join(', ') : 'Todas as obras';
-    return `<div class="mcard"><div class="mc-title" style="display:flex;align-items:center;gap:8px;">${u.foto?`<img src="${u.foto}" style="width:28px;height:28px;object-fit:cover;border-radius:50%;">`:''}${esc(u.nome)}</div>
+    return `<div class="mcard"><div class="mc-title" style="display:flex;align-items:center;gap:8px;">${u.foto?`<img src="${u.foto}" style="width:28px;height:28px;object-fit:cover;border-radius:50%;">`:''}${esc(u.nome)} <span class="muted mono" style="font-size:12px;">#${esc(u.matricula||'—')}</span></div>
     <div class="mc-meta">${PERFIL_LABELS[u.perfil]} · ${esc(u.cargo||'—')}</div>
     <div class="mc-meta">${badge(u.plataforma_acesso==='ambos'?'andamento':'concluido', u.plataforma_acesso==='desktop'?'Desktop':u.plataforma_acesso==='mobile'?'Mobile':'Ambos')}</div>
     <div class="mc-meta">🏗️ ${esc(obrasTxt)}</div>
-    <div class="mc-meta">${badge(u.status==='ativo'?'ok':'critico',u.status)}</div>
-    <div class="mc-actions"><button class="btn-icon" onclick="iniciarEdicaoUsuario('${u.id}')">✏️</button>
+    <div class="mc-actions"><button class="btn-icon" onclick="toggleStatusUsuario('${u.id}','${u.status==='ativo'?'inativo':'ativo'}')">${badge(u.status==='ativo'?'ok':'critico',u.status)}</button>
+    <button class="btn-icon" onclick="iniciarEdicaoUsuario('${u.id}')">✏️</button>
     <button class="btn-icon" onclick="redefinirPin('${u.id}')">🔑</button>
     <button class="btn-icon danger" onclick="excluirUsuario('${u.id}')">🗑</button></div>
   </div>`;
@@ -2192,8 +2222,14 @@ function renderPessoas(){
         </div></div>`; }).join('') || '<div class="empty-state">Nenhuma solicitação pendente.</div>'}
     <div class="divider"></div>
     <div class="section-header">Colaboradores</div>
-    ${S.usuarios.map(u=>`<div class="mcard"><div class="mc-top"><span>${esc(u.nome)}</span></div>
-      <div class="mc-meta">${esc(u.cargo||'—')} · ${esc(PERFIL_LABELS[u.perfil]||u.perfil)}</div></div>`).join('')}`;
+    <div class="card">
+      <input placeholder="🔎 Buscar por matrícula, nome ou tipo…" oninput="S.buscaColaboradoresRH=this.value;render();" value="${esc(S.buscaColaboradoresRH||'')}">
+    </div>
+    ${S.usuarios.filter(u=>{
+      const q=(S.buscaColaboradoresRH||'').toLowerCase(); if(!q) return true;
+      return (u.matricula||'').includes(q) || (u.nome||'').toLowerCase().includes(q) || (PERFIL_LABELS[u.perfil]||'').toLowerCase().includes(q);
+    }).map(u=>`<div class="mcard"><div class="mc-top"><span>${esc(u.nome)}</span><span class="muted mono">#${esc(u.matricula||'—')}</span></div>
+      <div class="mc-meta">${esc(PERFIL_LABELS[u.perfil]||u.perfil)}</div></div>`).join('') || '<div class="empty-state">Nenhum colaborador encontrado.</div>'}`;
   }
   const u = S.user;
   return `<form class="card" onsubmit="event.preventDefault();solicitarAtualizacaoCadastral(this);">
@@ -2875,12 +2911,13 @@ function carregarEpiTab(tab){
   S.epiTab=tab; S.loading=true; render();
   const done=()=>{ S.loading=false; render(); };
   const fail=e=>{ toast('Erro: '+e.message); done(); };
-  if(tab==='cadastro') loadEpis().then(done).catch(fail);
-  else if(tab==='matriz') Promise.all([loadEpis(), loadEpiMatriz()]).then(done).catch(fail);
-  else if(tab==='entrega') loadEpis().then(done).catch(fail);
-  else if(tab==='estoque') Promise.all([loadEpis(), loadEpiEstoque()]).then(done).catch(fail);
-  else if(tab==='fichas') Promise.all([loadEpis(), loadEpiMovimentacoes()]).then(done).catch(fail);
-  else done();
+  const base = Promise.all([loadEpis(), loadEpiEstoque()]);
+  if(tab==='cadastro') base.then(done).catch(fail);
+  else if(tab==='matriz') base.then(()=>loadEpiMatriz()).then(done).catch(fail);
+  else if(tab==='entrega') base.then(()=>loadEpiMatriz()).then(done).catch(fail);
+  else if(tab==='estoque') base.then(done).catch(fail);
+  else if(tab==='fichas') base.then(()=>loadEpiMovimentacoes()).then(done).catch(fail);
+  else base.then(done).catch(fail);
 }
 async function loadEpis(){ S.epis = await sb('epis?select=*&order=nome.asc&limit=300'); S.episLoaded=true; }
 async function loadEpiMatriz(){ S.epiMatriz = await sb('epi_matriz_cargo?select=*&order=cargo_perfil.asc'); }
@@ -3080,6 +3117,87 @@ async function registrarEntradaEpi(form){
   S.loading=false; render();
 }
 
+function renderSegurancaHub(){
+  const cards=[];
+  if(canAccess('seguranca_epi')) cards.push(['⛑️','Entrega de EPI','Controle e entrega de equipamentos de proteção',"carregarEpiTab('entrega')"]);
+  cards.push(['🦺','DDS Diário','Diálogo Diário de Segurança — sorteio de tema e registro',"S.view='dds';render();"]);
+  if(canAccess('checklists')) cards.push(['✅','Checklist','Checklists de segurança de veículos e equipamentos',"S.view='checklists';render();"]);
+  return `<div class="wrap">
+    <div class="section-header">🦺 Segurança</div>
+    ${cards.map(([ic,titulo,desc,onclick])=>`
+      <div class="card clickable" style="display:flex;align-items:center;gap:14px;margin-bottom:10px;" onclick="${onclick}">
+        <div style="font-size:28px;">${ic}</div>
+        <div><div style="font-weight:700;">${titulo}</div><div class="muted" style="font-size:13px;">${desc}</div></div>
+      </div>`).join('')}
+  </div>`;
+}
+/* ==========================================================
+   MÓDULO MENSAGENS — AVISOS DO RH
+   ========================================================== */
+function carregarMensagens(){
+  S.loading=true; render();
+  loadAvisos().then(()=>{ S.loading=false; render(); }).catch(e=>{ toast('Erro: '+e.message); S.loading=false; render(); });
+}
+async function loadAvisos(){
+  S.avisos = await sb(`avisos?select=*&or=(destino.eq.todos,usuario_id.eq.${S.user.id})&order=criado_em.desc&limit=200`);
+  const lidos = await sb(`avisos_leituras?select=aviso_id&usuario_id=eq.${S.user.id}`);
+  S.avisosLidos = lidos.map(l=>l.aviso_id);
+  S.avisosLoaded = true;
+  if(isRHStaff()){ S.avisosEnviados = await sb('avisos?select=*&order=criado_em.desc&limit=200'); }
+}
+async function marcarAvisoLido(id){
+  if(S.avisosLidos.includes(id)) return;
+  try{ await sb('avisos_leituras',{method:'POST',body:{aviso_id:id, usuario_id:S.user.id}}); S.avisosLidos.push(id); }catch(e){}
+}
+function abrirAviso(id){
+  S.avisoExpandido = S.avisoExpandido===id?null:id;
+  marcarAvisoLido(id);
+  render();
+}
+function selecionarDestinoAviso(v){ S.novoAvisoDestino=v; render(); }
+function renderMensagens(){
+  const naoLidos = (S.avisos||[]).filter(a=>!S.avisosLidos.includes(a.id)).length;
+  return `<div class="wrap">
+    <div class="section-header">💬 Mensagens${naoLidos?` <span class="badge critico" style="margin-left:6px;">${naoLidos} nova(s)</span>`:''}</div>
+    ${isRHStaff()?renderComporAviso():''}
+    <div class="section-header">Recebidas</div>
+    ${(S.avisos||[]).map(a=>`<div class="mcard" style="${!S.avisosLidos.includes(a.id)?'border-left:4px solid var(--mega-laranja);':''}" onclick="abrirAviso('${a.id}')">
+      <div class="mc-top"><span>${esc(a.titulo)}</span>${badge(a.prioridade==='urgente'?'critico':a.prioridade==='importante'?'pendente':'ok',a.prioridade)}</div>
+      <div class="mc-meta">${fmtDate(a.criado_em)} · ${a.destino==='todos'?'Para todos':'Individual'}</div>
+      ${S.avisoExpandido===a.id?`<div class="muted" style="margin-top:6px;white-space:pre-wrap;">${esc(a.mensagem)}</div>`:`<div class="muted">${esc(a.mensagem.slice(0,80))}${a.mensagem.length>80?'…':''}</div>`}
+    </div>`).join('') || '<div class="empty-state">Nenhuma mensagem recebida.</div>'}
+    ${isRHStaff()?renderAvisosEnviados():''}
+  </div>`;
+}
+function renderComporAviso(){
+  return `<form class="card" onsubmit="event.preventDefault();enviarAviso(this);">
+    <div class="section-header" style="margin:0 0 8px;">Novo aviso</div>
+    <div class="form-grid">
+      <div class="field"><label>Destino</label>${chipGroup('destino_aviso',[['individual','Um colaborador'],['todos','Todos os colaboradores']],S.novoAvisoDestino,'selecionarDestinoAviso')}</div>
+      ${S.novoAvisoDestino==='individual'?`<div class="field"><label>Colaborador</label><select name="usuario_id" required>${opt(S.usuarios.map(u=>[u.id,u.nome]),'')}</select></div>`:''}
+      <div class="field"><label>Prioridade</label>${chipGroup('prioridade',[['normal','Normal'],['importante','Importante'],['urgente','Urgente']],'normal')}</div>
+      <div class="field field-span2"><label>Título</label><input name="titulo" required></div>
+      <div class="field field-span2"><label>Mensagem</label><textarea name="mensagem" rows="3" required style="width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;font:inherit;"></textarea></div>
+    </div>
+    <button class="btn btn-primary btn-block" ${S.loading?'disabled':''}>${S.loading?'Enviando…':'Enviar aviso'}</button>
+  </form><div class="divider"></div>`;
+}
+async function enviarAviso(form){
+  const fd = new FormData(form);
+  S.loading=true; render();
+  try{
+    await sb('avisos',{method:'POST',body:{titulo:fd.get('titulo'), mensagem:fd.get('mensagem'), destino:S.novoAvisoDestino,
+      usuario_id:S.novoAvisoDestino==='individual'?fd.get('usuario_id'):null, prioridade:fd.get('prioridade'), criado_por:S.user.id}});
+    toast('Aviso enviado.'); form.reset(); await loadAvisos();
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+function renderAvisosEnviados(){
+  return `<div class="divider"></div><div class="section-header">Todos os avisos enviados</div>
+  ${(S.avisosEnviados||[]).map(a=>`<div class="mcard"><div class="mc-top"><span>${esc(a.titulo)}</span>${badge(a.destino==='todos'?'andamento':'ok',a.destino==='todos'?'Todos':esc(usuMap()[a.usuario_id]?.nome||''))}</div>
+  <div class="mc-meta">${fmtDate(a.criado_em)}</div></div>`).join('') || '<div class="empty-state">Nenhum aviso enviado ainda.</div>'}`;
+}
+
 function render(){
   const app = document.getElementById('app');
   if(!S.user){ app.innerHTML = renderLogin(); return; }
@@ -3097,6 +3215,8 @@ function render(){
   else if(S.view==='suprimentos') body=renderSuprimentos();
   else if(S.view==='dre_sinalizacao') body=renderDreSinalizacao();
   else if(S.view==='epi') body=renderEpi();
+  else if(S.view==='seguranca_hub') body=renderSegurancaHub();
+  else if(S.view==='mensagens') body=renderMensagens();
   else if(S.view==='detalhe') body=renderDetalheOS();
   app.innerHTML = renderTopBar() + body + (S.loading?'<div class="spinner"></div>':'') + renderBottomNav();
   if(S.view==='nova'){
