@@ -422,7 +422,13 @@ function defaultPermissoes(perfil){
   if(perfil==='coordenador') return {...all,dashboard:true,seguranca_epi:true};
   return {...all, checkin_veiculo:true}; // encarregado (campo)
 }
-function canAccess(mod){ return !!(S.user && S.user.permissoes && S.user.permissoes[mod]); }
+function canAccess(mod){
+  if(!S.user) return false;
+  const p = S.user.permissoes||{};
+  if(mod in p) return !!p[mod];
+  const defaults = defaultPermissoes(S.user.perfil)||{};
+  return !!defaults[mod];
+}
 
 /* ==========================================================
    HELPERS DE FORMATAÇÃO
@@ -1418,7 +1424,6 @@ function renderMaisSheet(){
   if(canAccess('suprimentos')) items.push(['suprimentos','📦','Suprimentos']);
   if(canAccess('dre_sinalizacao')) items.push(['dre_sinalizacao','🎨','DRE Sinalização Horizontal']);
   items.push(['rdo','📝','RDO — Diário de Obra']);
-  if(canAccess('mobilizacao')) items.push(['mobilizacao','💰','Mobilização']);
   items.push(['mensagens','💬','Mensagens']);
   return `<div class="modal-overlay" onclick="if(event.target===this){S.showMais=false;render();}">
     <div class="modal-panel"><div class="modal-head"><b>Mais opções</b>
@@ -2093,10 +2098,11 @@ function renderFinanceiro(){
     ['reprovadas','🚫','Reprovadas','Despesas reprovadas com o motivo'],
   ];
   if(canAccess('financeiro_geral')) tabs.push(['geral','🗂️','Geral','Visão consolidada de todas as despesas']);
+  if(canAccess('mobilizacao')) tabs.push(['mobilizacao','📐','Mobilização','Planejar, solicitar e prestar contas de recursos de mobilização']);
   if(!S.financeiroView || S.financeiroView==='hub'){
     return `<div class="wrap">
       <div class="section-header">💰 Financeiro</div>
-      ${tabs.map(([k,ic,titulo,desc])=>hubCard(ic,titulo,desc,`irFinanceiroTab('${k}')`)).join('')}
+      ${tabs.map(([k,ic,titulo,desc])=>hubCard(ic,titulo,desc,k==='mobilizacao'?"S.view='mobilizacao';S.mobView='hub';render();":`irFinanceiroTab('${k}')`)).join('')}
     </div>`;
   }
   const atual = tabs.find(t=>t[0]===S.financeiroView);

@@ -486,7 +486,13 @@ function defaultPermissoes(perfil){
   if(perfil==='coordenador') return {...all,dashboard:true,seguranca_epi:true};
   return {...all, checkin_veiculo:true}; // encarregado (campo)
 }
-function canAccess(mod){ return !!(S.user && S.user.permissoes && S.user.permissoes[mod]); }
+function canAccess(mod){
+  if(!S.user) return false;
+  const p = S.user.permissoes||{};
+  if(mod in p) return !!p[mod];
+  const defaults = defaultPermissoes(S.user.perfil)||{};
+  return !!defaults[mod];
+}
 
 /* ==========================================================
    HELPERS DE FORMATAÇÃO
@@ -660,7 +666,7 @@ const S = {
   atestados:[], atestadosLoaded:false, pontos:[], pontosLoaded:false, ajustesPonto:[],
   documentos:[], documentosLoaded:false, indicacoes:[], indicacoesLoaded:false,
   solicitacoesDocRH:[], minhasSolicitacoesDoc:[],
-  ddsScreen:'sorteio', ddsTemaAtual:null, ddsHistorico:[], ddsHistoricoLoaded:false,
+  ddsScreen:'hub', ddsTemaAtual:null, ddsHistorico:[], ddsHistoricoLoaded:false,
   suprimentosTab:'materiais', materiais:[], materiaisLoaded:false, movimentacoesMateriais:[], movimentacoesLoaded:false,
   dreForm:{rod:'',trecho:'',kmi:'',kmf:'',tipoPintura:'mec_aut',basePintura:'solvente',temEixo:1,tipoEixo:'simples',largEixo:0.12,lEc:'',temBordo:1,largBordo:0.15,lBc:'',temTacha:0,cadE:12,cadB:12,tipoTE:'biamarel',tipoTB:'bobibranca'}, dreRes:null,
   epiTab:'entrega', epis:[], episLoaded:false, epiMatriz:[], epiEstoque:[], epiMovimentacoes:[], epiColaboradorSel:null,
@@ -1434,6 +1440,7 @@ function navGoto(k){
   else if(k==='suprimentos'){ carregarSuprimentosTab(S.suprimentosTab); }
   else if(k==='epi'){ carregarEpiTab(S.epiTab); }
   else if(k==='mensagens'){ carregarMensagens(); }
+  else if(k==='dds'){ S.view='dds'; S.ddsScreen='hub'; render(); }
   else if(k==='mobilizacao'){ carregarMobTab('nova'); }
   else { S.view=k; render(); }
 }
@@ -1451,13 +1458,11 @@ function renderHeader(){
       (canAccess('cadastros_obras')||canAccess('cadastros_equipes')||canAccess('cadastros_usuarios')||canAccess('cadastros_veiculos')||canAccess('cadastros_equipamentos'))?['cadastros','🗂️','Cadastros']:null,
       canAccess('financeiro')?['financeiro','💰','Financeiro']:null,
       canAccess('suprimentos')?['suprimentos','📦','Suprimentos']:null,
-      canAccess('mobilizacao')?['mobilizacao','💵','Mobilização']:null,
       canAccess('dre_sinalizacao')?['dre_sinalizacao','🎨','DRE Sinalização']:null,
     ].filter(Boolean)],
     ['PESSOAS & SEGURANÇA', [
       ['rh','👥','Pessoas / RH'],
       ['dds','🦺','Segurança'],
-      canAccess('seguranca_epi')?['epi','⛑️','EPI']:null,
       ['mensagens','💬','Mensagens'],
     ].filter(Boolean)],
     ['ADMINISTRAÇÃO', [
@@ -2499,11 +2504,14 @@ function renderFinanceiro(){
       <div class="flex-row">
         <button class="btn ${S.financeiroView==='enviar'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.financeiroView='enviar';render()">+ Enviar Nota</button>
         <button class="btn ${S.financeiroView==='meu_painel'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.financeiroView='meu_painel';loadMinhasNotas().then(render);">Meu Painel</button>
+        <button class="btn ${S.financeiroView==='reprovadas'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.financeiroView='reprovadas';loadMinhasNotas().then(render);">Reprovadas</button>
         ${canAccess('financeiro_geral')?`<button class="btn ${S.financeiroView==='geral'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.financeiroView='geral';loadTodasNotas().then(render);">Painel Geral</button>`:''}
+        ${canAccess('mobilizacao')?`<button class="btn btn-secondary btn-sm" onclick="S.view='mobilizacao';carregarMobTab('nova');">📐 Mobilização</button>`:''}
       </div>
     </div>
     ${S.financeiroView==='enviar'?renderFinanceiroEnviar():''}
     ${S.financeiroView==='meu_painel'?renderFinanceiroMeuPainel():''}
+    ${S.financeiroView==='reprovadas'?renderFinanceiroReprovadas():''}
     ${S.financeiroView==='geral'?renderFinanceiroGeral():''}
     ${S.financeiroView==='detalhe'?renderFinanceiroDetalhe():''}
   </div>`;
@@ -2522,6 +2530,14 @@ function renderFinanceiroEnviar(){
     <div class="divider"></div>
     <button class="btn btn-primary btn-block" ${S.loading?'disabled':''}>${S.loading?'Enviando…':'Enviar Nota Fiscal'}</button>
   </form>`;
+}
+function renderFinanceiroReprovadas(){
+  const reprovadas = (S.minhasNotas||[]).filter(n=>n.status==='reprovado');
+  return `<div class="table-scroll"><table class="mega-table">
+    <thead><tr><th>Tipo</th><th>Data</th><th>Valor</th><th>Motivo</th></tr></thead>
+    <tbody>${reprovadas.map(n=>`<tr class="clickable" onclick="abrirNota('${n.id}')"><td>${esc(n.tipo_despesa||'Despesa')}</td><td>${fmtDateOnly(n.data_despesa)}</td>
+      <td class="mono">${fmtMoney(n.valor)}</td><td>${esc(n.comentario_financeiro||'—')}</td></tr>`).join('') || `<tr><td colspan="4" class="empty-state">Nenhuma despesa reprovada.</td></tr>`}
+    </tbody></table></div>`;
 }
 function renderFinanceiroMeuPainel(){
   if(!S.minhasNotasLoaded){ S.minhasNotasLoaded=true; loadMinhasNotas().then(render).catch(e=>{toast('Erro ao carregar notas: '+e.message); render();}); }
@@ -3082,11 +3098,21 @@ async function enviarItemSolicitado(itemId, widgetKey){
 function renderDDS(){
   if(S.ddsScreen==='form') return renderDDSForm();
   if(S.ddsScreen==='historico') return renderDDSHistorico();
-  return renderDDSSorteio();
+  if(S.ddsScreen==='sorteio') return renderDDSSorteio();
+  const cards=[];
+  if(canAccess('seguranca_epi')) cards.push(['⛑️','Entrega de EPI','Controle e entrega de equipamentos de proteção',"carregarEpiTab('entrega')"]);
+  cards.push(['🦺','DDS Diário','Diálogo Diário de Segurança — sorteio de tema e registro',"S.ddsScreen='sorteio';render();"]);
+  if(canAccess('checklists')) cards.push(['✅','Checklist','Checklists de segurança de veículos e equipamentos',"S.view='checklists';render();"]);
+  cards.push(['📞','Canal Direto','Denúncias e comunicação direta — viasseguras.com.br',"window.open('https://viasseguras.com.br','_blank');"]);
+  return `<div class="wrap"><div class="section-header">🦺 Segurança</div>${cards.map(([ic,t,d,oc])=>`
+    <div class="card clickable" style="display:flex;align-items:center;gap:14px;margin-bottom:10px;" onclick="${oc}">
+      <div style="font-size:28px;">${ic}</div><div><div style="font-weight:700;">${t}</div><div class="muted" style="font-size:13px;">${d}</div></div>
+    </div>`).join('')}</div>`;
 }
 function renderDDSSorteio(){
   const t = S.ddsTemaAtual;
   return `<div class="wrap">
+    <button class="btn btn-secondary" style="margin-bottom:12px;" onclick="S.ddsScreen='hub';render();">← Voltar à Segurança</button>
     <div class="section-header">🦺 DDS — Diálogo Diário de Segurança</div>
     <div class="card" style="text-align:center;">
       ${t?`<div style="display:inline-block;background:${t.cor};color:#fff;font-size:11px;font-weight:700;letter-spacing:1px;padding:4px 12px;border-radius:12px;margin-bottom:10px;text-transform:uppercase;">${esc(t.cat)}</div>
