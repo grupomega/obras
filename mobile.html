@@ -3684,44 +3684,42 @@ async function salvarMobilizacao(form){
 }
 
 /* ---------- Nova Solicitação ---------- */
-let __mobMobilizacaoSel=null;
-function selecionarMobilizacaoSolicitacao(id){
-  __mobMobilizacaoSel = (S.mobilizacoes||[]).find(m=>m.id===id) || null;
-  render();
+let __mobObraSel=null, __mobEquipeSel=null;
+function mobEncontrarMobilizacao(){
+  if(!__mobObraSel && !__mobEquipeSel) return null;
+  return (S.mobilizacoes||[]).find(m=>(!__mobObraSel||m.obra_id===__mobObraSel) && (!__mobEquipeSel||m.equipe_id===__mobEquipeSel)) || null;
 }
+function selecionarObraSolicitacao(v){ __mobObraSel=v||null; render(); }
+function selecionarEquipeSolicitacao(v){ __mobEquipeSel=v||null; render(); }
 function renderMobNovaSolicitacao(){
-  const m = __mobMobilizacaoSel;
+  const m = mobEncontrarMobilizacao();
   return `
-  <div class="card">
-    <div class="field"><label>Mobilização (obra/equipe/período)</label>
-      <select onchange="selecionarMobilizacaoSolicitacao(this.value)">
-        <option value="">Selecione…</option>
-        ${(S.mobilizacoes||[]).map(mm=>`<option value="${mm.id}" ${m?.id===mm.id?'selected':''}>${esc(obraMap()[mm.obra_id]?.nome||'')} · ${esc(equipeMap()[mm.equipe_id]?.nome||'')} (${fmtDateOnly(mm.periodo_inicio)}–${fmtDateOnly(mm.periodo_fim)})</option>`).join('')}
-      </select>
-    </div>
-  </div>
-  ${m?`
   <form class="card" onsubmit="event.preventDefault();enviarSolicitacaoMob(this);">
+    <div class="muted" style="margin-bottom:10px;">Qualquer colaborador pode solicitar. A obra é opcional, mas se informada e existir um planejamento de mobilização para ela, o sistema mostra o orçamento previsto automaticamente.</div>
     <div class="form-grid">
+      <div class="field"><label>Obra (opcional)</label><select onchange="selecionarObraSolicitacao(this.value)"><option value="">Sem obra vinculada</option>${opt(S.obras.map(o=>[o.id,o.nome]),__mobObraSel)}</select></div>
+      <div class="field"><label>Equipe (opcional)</label><select onchange="selecionarEquipeSolicitacao(this.value)"><option value="">Sem equipe vinculada</option>${opt(S.equipes.map(e=>[e.id,e.nome]),__mobEquipeSel)}</select></div>
       <div class="field"><label>Centro de custo</label><input name="centro_custo"></div>
       <div class="field"><label>Tipo de solicitação</label>${chipGroup('tipo_solicitacao',Object.entries(MOB_TIPO_LABELS),'alimentacao','selecionarTipoSolicitacaoMob')}</div>
       <div class="field"><label>Valor solicitado (R$)</label><input type="number" step="0.01" name="valor_solicitado" required oninput="atualizarAlertaOrcamentoMob(this.value)"></div>
       <div class="field"><label>Urgência</label>${chipGroup('urgencia',[['normal','Normal'],['urgente','Urgente']],'normal')}</div>
       <div class="field field-span2"><label>Justificativa</label><input name="justificativa"></div>
     </div>
+    ${m?`<div class="muted" style="margin:6px 0;">Mobilização encontrada: período ${fmtDateOnly(m.periodo_inicio)}–${fmtDateOnly(m.periodo_fim)}, orçamento previsto total ${fmtMoney(m.valor_previsto_total)}.</div>`:''}
     <div id="mob-alerta-orcamento"></div>
     <div class="field" style="margin:10px 0;"><label>Anexos (foto/orçamento/documento)</label>${photoWidget('mob_anexos')}</div>
     <button class="btn btn-primary btn-block" style="margin-top:10px;" ${S.loading?'disabled':''}>${S.loading?'Enviando…':'Enviar solicitação'}</button>
-  </form>`:'<div class="empty-state">Selecione uma mobilização para solicitar recursos.</div>'}`;
+  </form>`;
 }
 let __mobTipoSel='alimentacao';
 function selecionarTipoSolicitacaoMob(v){ __mobTipoSel=v; render(); }
 function atualizarAlertaOrcamentoMob(valor){
-  const m = __mobMobilizacaoSel; if(!m) return;
-  const previstoPorTipo = {alimentacao:m.valor_previsto_alimentacao, hospedagem:m.valor_previsto_hospedagem, combustivel:m.valor_previsto_combustivel, pedagio:m.valor_previsto_pedagio, viagem:0, outro:0}[__mobTipoSel]||0;
-  const v = parseFloat(valor)||0;
+  const m = mobEncontrarMobilizacao();
   const el = document.getElementById('mob-alerta-orcamento');
   if(!el) return;
+  if(!m){ el.innerHTML=''; return; }
+  const previstoPorTipo = {alimentacao:m.valor_previsto_alimentacao, hospedagem:m.valor_previsto_hospedagem, combustivel:m.valor_previsto_combustivel, pedagio:m.valor_previsto_pedagio, viagem:0, outro:0}[__mobTipoSel]||0;
+  const v = parseFloat(valor)||0;
   if(previstoPorTipo<=0){ el.innerHTML=''; return; }
   if(v<=previstoPorTipo*MOB_LIMITE_ACIMA_PREVISTO){
     el.innerHTML = `<div class="muted">Previsto para ${MOB_TIPO_LABELS[__mobTipoSel]}: ${fmtMoney(previstoPorTipo)} · 🟢 Dentro do orçamento.</div>`;
@@ -3731,27 +3729,29 @@ function atualizarAlertaOrcamentoMob(valor){
 }
 async function enviarSolicitacaoMob(form){
   const fd=new FormData(form);
-  const m = __mobMobilizacaoSel;
+  const m = mobEncontrarMobilizacao();
   const valor = parseFloat(fd.get('valor_solicitado'));
-  const previstoPorTipo = {alimentacao:m.valor_previsto_alimentacao, hospedagem:m.valor_previsto_hospedagem, combustivel:m.valor_previsto_combustivel, pedagio:m.valor_previsto_pedagio, viagem:0, outro:0}[fd.get('tipo_solicitacao')]||0;
+  const previstoPorTipo = m ? ({alimentacao:m.valor_previsto_alimentacao, hospedagem:m.valor_previsto_hospedagem, combustivel:m.valor_previsto_combustivel, pedagio:m.valor_previsto_pedagio, viagem:0, outro:0}[fd.get('tipo_solicitacao')]||0) : 0;
   const acimaOrcamento = previstoPorTipo>0 && valor>previstoPorTipo*MOB_LIMITE_ACIMA_PREVISTO;
   if((acimaOrcamento || fd.get('tipo_solicitacao')==='outro') && !fd.get('justificativa')){ toast('Justificativa obrigatória para este pedido.'); return; }
-  if(S.equipes.find(e=>e.id===m.equipe_id)?.status==='inativa'){ toast('Bloqueado: equipe inativa.'); return; }
-  const pendencias = (S.minhasSolicitacoesMob||[]).filter(s=>s.equipe_id===m.equipe_id && s.status==='paga');
-  if(pendencias.length){ toast('Bloqueado: existe prestação de contas pendente para esta equipe.'); return; }
-  const abertaMesmoPeriodo = (S.minhasSolicitacoesMob||[]).some(s=>s.equipe_id===m.equipe_id && !['concluida','reprovada'].includes(s.status));
-  if(abertaMesmoPeriodo){ if(!confirm('Já existe uma solicitação em andamento para esta equipe. Deseja continuar mesmo assim?')) return; }
+  if(__mobEquipeSel){
+    if(S.equipes.find(e=>e.id===__mobEquipeSel)?.status==='inativa'){ toast('Bloqueado: equipe inativa.'); return; }
+    const pendencias = (S.minhasSolicitacoesMob||[]).filter(s=>s.equipe_id===__mobEquipeSel && s.status==='paga');
+    if(pendencias.length){ toast('Bloqueado: existe prestação de contas pendente para esta equipe.'); return; }
+    const abertaMesmoPeriodo = (S.minhasSolicitacoesMob||[]).some(s=>s.equipe_id===__mobEquipeSel && !['concluida','reprovada'].includes(s.status));
+    if(abertaMesmoPeriodo){ if(!confirm('Já existe uma solicitação em andamento para esta equipe. Deseja continuar mesmo assim?')) return; }
+  }
   const files = window.pendingFiles['mob_anexos']||[];
   S.loading=true; render();
   try{
     const anexos=[];
     for(const f of files){ anexos.push(await uploadArquivo(f, `${S.user.id}/${Date.now()}_${f.name}`, 'mobilizacao')); }
     await sb('solicitacoes_mobilizacao',{method:'POST',body:{
-      mobilizacao_id:m.id, obra_id:m.obra_id, equipe_id:m.equipe_id, centro_custo:fd.get('centro_custo')||null,
-      periodo_inicio:m.periodo_inicio, periodo_fim:m.periodo_fim, tipo_solicitacao:fd.get('tipo_solicitacao'),
+      mobilizacao_id:m?.id||null, obra_id:__mobObraSel||null, equipe_id:__mobEquipeSel||null, centro_custo:fd.get('centro_custo')||null,
+      periodo_inicio:m?.periodo_inicio||null, periodo_fim:m?.periodo_fim||null, tipo_solicitacao:fd.get('tipo_solicitacao'),
       valor_previsto:previstoPorTipo||null, valor_solicitado:valor, justificativa:fd.get('justificativa')||null,
       urgencia:fd.get('urgencia'), anexos, status:'solicitada', requer_admin:acimaOrcamento, solicitante_id:S.user.id}});
-    clearPending('mob_anexos'); toast('Solicitação enviada.'); form.reset(); __mobMobilizacaoSel=null; await loadMinhasSolicitacoesMob();
+    clearPending('mob_anexos'); toast('Solicitação enviada.'); form.reset(); __mobObraSel=null; __mobEquipeSel=null; await loadMinhasSolicitacoesMob();
   }catch(e){ toast('Erro: '+e.message); }
   S.loading=false; render();
 }
