@@ -45,6 +45,55 @@ a.applink{color:#aaa;font-size:12px;text-decoration:underline;}
 
 .wrap{max-width:1280px;margin:0 auto;padding:20px;}
 
+/* ===== NOVO LAYOUT: SIDEBAR ESQUERDA + TOPBAR ===== */
+body{background:#f4f5f6;}
+.shell{display:flex;min-height:100vh;}
+.sidebar{width:250px;background:var(--mega-cinza-esc);color:#eee;flex-shrink:0;display:flex;flex-direction:column;
+  position:fixed;top:0;left:0;bottom:0;overflow-y:auto;z-index:60;}
+.sidebar-brand{display:flex;align-items:center;gap:10px;padding:20px 18px;border-bottom:1px solid #333;}
+.sidebar-brand img{height:30px;}
+.sidebar-scroll{flex:1;padding:10px 0 16px;}
+.sidebar-section{font-family:var(--font-display);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#888;padding:16px 20px 6px;}
+.sidebar-item{display:flex;align-items:center;gap:10px;padding:9px 20px;color:#ccc;cursor:pointer;font-size:13.5px;
+  border-left:3px solid transparent;transition:background .1s;}
+.sidebar-item .ic{font-size:15px;width:18px;text-align:center;}
+.sidebar-item:hover{background:#2a2a2a;color:#fff;}
+.sidebar-item.active{background:rgba(232,82,10,.16);color:#fff;border-left-color:var(--mega-laranja);font-weight:700;}
+.sidebar-user{display:flex;align-items:center;gap:10px;padding:14px 18px;border-top:1px solid #333;}
+.sidebar-user .avatar{width:34px;height:34px;border-radius:8px;background:var(--mega-laranja);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;}
+.main-area{margin-left:250px;flex:1;display:flex;flex-direction:column;min-height:100vh;width:calc(100% - 250px);}
+.topbar{background:#fff;border-bottom:1px solid var(--mega-cinza-bdr);padding:14px 26px;
+  display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:45;}
+.topbar-crumb{font-family:var(--font-display);font-size:10.5px;letter-spacing:1.5px;text-transform:uppercase;color:#999;}
+.topbar-title{font-family:var(--font-display);font-size:26px;font-weight:800;color:var(--mega-cinza-esc);line-height:1.15;}
+.topbar-right{display:flex;align-items:center;gap:10px;}
+.icon-btn{width:38px;height:38px;border-radius:10px;border:1px solid var(--mega-cinza-bdr);background:#fff;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;font-size:15px;}
+.content-scroll{padding:26px;flex:1;}
+.dash-banner{background:var(--mega-cinza-esc);border-left:5px solid var(--mega-laranja);border-radius:var(--radius-md);
+  padding:24px 28px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;margin-bottom:22px;color:#fff;}
+.dash-banner .eyebrow{font-family:var(--font-display);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--mega-laranja-cl);}
+.dash-banner h2{font-family:var(--font-display);font-size:30px;font-weight:800;margin:6px 0;}
+.dash-banner p{color:#bbb;font-size:14px;max-width:600px;}
+.kpi-card2{background:#fff;border-radius:var(--radius-md);padding:16px 18px;box-shadow:var(--shadow-card);}
+.kpi-card2 .top-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.kpi-card2 .ic-box{font-size:18px;}
+.kpi-card2 .trend{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;background:var(--mega-verde-cl);color:var(--mega-verde);}
+.kpi-card2 .trend.warn{background:var(--mega-amarelo-cl);color:var(--mega-amarelo);}
+.kpi-card2 .trend.bad{background:var(--mega-vermelho-cl);color:var(--mega-vermelho);}
+.kpi-card2 .val{font-family:var(--font-display);font-size:32px;font-weight:800;line-height:1;}
+.kpi-card2 .lbl{font-size:13px;color:var(--mega-cinza-sub);margin-top:4px;}
+.kpi-card2 .sub{font-size:11.5px;color:#aaa;margin-top:2px;}
+.panel-card{background:#fff;border-radius:var(--radius-md);padding:20px 22px;box-shadow:var(--shadow-card);}
+.panel-eyebrow{font-family:var(--font-display);font-size:10.5px;letter-spacing:1.5px;text-transform:uppercase;color:var(--mega-laranja);}
+.panel-title{font-family:var(--font-display);font-size:19px;font-weight:800;margin-top:4px;}
+.alert-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid #f0f0f0;}
+.alert-row:last-child{border-bottom:none;}
+.alert-row .ic-box{width:38px;height:38px;border-radius:10px;background:var(--mega-laranja-bg);display:flex;align-items:center;justify-content:center;font-size:16px;margin-right:12px;}
+.donut-legend-row{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;}
+.donut-legend-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+
 .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;}
 .dash-section-title{font-family:var(--font-display);font-size:15px;font-weight:700;color:var(--mega-cinza-med);text-transform:uppercase;letter-spacing:0.5px;margin:24px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--mega-cinza-bdr);}
 .kpi-card.clickable{cursor:pointer;transition:transform .12s;}
@@ -1374,38 +1423,85 @@ function trocarMatricula(){ S.loginUsuarioEncontrado=null; S.loginMatricula=''; 
 /* ==========================================================
    RENDER — HEADER / NAV
    ========================================================== */
+const VIEW_TITULOS = {dashboard:'Visão Geral', lista:'Ordens de Serviço', nova:'Nova Ordem de Serviço', cadastros:'Cadastros',
+  checklists:'Checklists', veiculo_checkin:'Frota', financeiro:'Financeiro', permissoes:'Permissões de Acesso', rh:'Pessoas / RH',
+  dds:'Segurança', suprimentos:'Suprimentos', dre_sinalizacao:'DRE Sinalização Horizontal', epi:'Segurança — EPI', mensagens:'Mensagens',
+  rdo:'RDO — Diário de Obra', mobilizacao:'Mobilização', historico:'Histórico', detalhe:'Detalhe da OS'};
+function navGoto(k){
+  if(k==='lista'){ S.view='lista'; loadOSList().then(render); }
+  else if(k==='veiculo_checkin'){ S.view='veiculo_checkin'; S.veiculoUsoView='pendentes'; loadVeiculoUsos().then(render); }
+  else if(k==='rh'){ carregarRHTab(S.rhTab); }
+  else if(k==='suprimentos'){ carregarSuprimentosTab(S.suprimentosTab); }
+  else if(k==='epi'){ carregarEpiTab(S.epiTab); }
+  else if(k==='mensagens'){ carregarMensagens(); }
+  else if(k==='mobilizacao'){ carregarMobTab('nova'); }
+  else { S.view=k; render(); }
+}
 function renderHeader(){
-  const tabs=[];
-  if(canAccess('dashboard')) tabs.push(['dashboard','Dashboard']);
-  if(canAccess('os_lista')) tabs.push(['lista','Ordens de Serviço']);
-  if(canAccess('os_nova')) tabs.push(['nova','Nova OS']);
-  if(canAccess('cadastros_obras')||canAccess('cadastros_equipes')||canAccess('cadastros_usuarios')||canAccess('cadastros_veiculos')||canAccess('cadastros_equipamentos')) tabs.push(['cadastros','Cadastros']);
-  if(canAccess('checklists')) tabs.push(['checklists','Checklists']);
-  if(canAccess('checkin_veiculo')) tabs.push(['veiculo_checkin','Check-in Veículo']);
-  if(canAccess('financeiro')) tabs.push(['financeiro','Financeiro']);
-  if(canAccess('permissoes')) tabs.push(['permissoes','Permissões']);
-  tabs.push(['rh','Pessoas / RH']);
-  tabs.push(['dds','🦺 Segurança']);
-  if(canAccess('suprimentos')) tabs.push(['suprimentos','📦 Suprimentos']);
-  if(canAccess('dre_sinalizacao')) tabs.push(['dre_sinalizacao','🎨 DRE Sinalização']);
-  if(canAccess('seguranca_epi')) tabs.push(['epi','⛑️ EPI']);
-  tabs.push(['mensagens','💬 Mensagens']);
-  tabs.push(['rdo','📝 RDO — Diário de Obra']);
-  if(canAccess('mobilizacao')) tabs.push(['mobilizacao','💰 Mobilização']);
-  if(S.user.perfil==='administrador') tabs.push(['historico','🕘 Histórico']);
+  const grupos = [
+    ['PRINCIPAL', [canAccess('dashboard')?['dashboard','📊','Dashboard']:null].filter(Boolean)],
+    ['OPERAÇÃO', [
+      canAccess('os_lista')?['lista','📋','Ordens de Serviço']:null,
+      canAccess('os_nova')?['nova','➕','Nova OS']:null,
+      canAccess('checklists')?['checklists','✅','Checklists']:null,
+      canAccess('checkin_veiculo')?['veiculo_checkin','🚚','Frota']:null,
+      ['rdo','📝','RDO — Diário de Obra'],
+    ].filter(Boolean)],
+    ['GESTÃO', [
+      (canAccess('cadastros_obras')||canAccess('cadastros_equipes')||canAccess('cadastros_usuarios')||canAccess('cadastros_veiculos')||canAccess('cadastros_equipamentos'))?['cadastros','🗂️','Cadastros']:null,
+      canAccess('financeiro')?['financeiro','💰','Financeiro']:null,
+      canAccess('suprimentos')?['suprimentos','📦','Suprimentos']:null,
+      canAccess('mobilizacao')?['mobilizacao','💵','Mobilização']:null,
+      canAccess('dre_sinalizacao')?['dre_sinalizacao','🎨','DRE Sinalização']:null,
+    ].filter(Boolean)],
+    ['PESSOAS & SEGURANÇA', [
+      ['rh','👥','Pessoas / RH'],
+      ['dds','🦺','Segurança'],
+      canAccess('seguranca_epi')?['epi','⛑️','EPI']:null,
+      ['mensagens','💬','Mensagens'],
+    ].filter(Boolean)],
+    ['ADMINISTRAÇÃO', [
+      canAccess('permissoes')?['permissoes','🔐','Permissões']:null,
+      S.user.perfil==='administrador'?['historico','🕘','Histórico']:null,
+    ].filter(Boolean)],
+  ].filter(([,items])=>items.length);
+
+  const totalAlertas = S.alertasResumo.mensagens+S.alertasResumo.documentos+S.alertasResumo.osNovas;
+  const iniciais = (S.user.nome||'?').split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
   return `
-  <div class="app-header">
-    <div style="display:flex;align-items:center;gap:10px;"><img src="${MEGA_LOGO_URL}" alt="Grupo MEGA" style="height:28px;"><span class="sub">DESKTOP</span></div>
-    <div class="user-box">
-      <span style="position:relative;cursor:pointer;" onclick="S.showNotif=!S.showNotif;render()">🔔${(S.alertasResumo.mensagens+S.alertasResumo.documentos+S.alertasResumo.osNovas)>0?`<span class="notif-dot"></span>`:''}</span>
-      <span><b>${esc(S.user.nome)}</b> · ${PERFIL_LABELS[S.user.perfil]}</span>
-      <button class="btn-logout" onclick="doLogout()">Sair</button>
+  <div class="sidebar">
+    <div class="sidebar-brand"><img src="${MEGA_LOGO_URL}" alt="Grupo MEGA"></div>
+    <div class="sidebar-scroll">
+      ${grupos.map(([titulo,items])=>`
+        <div class="sidebar-section">${titulo}</div>
+        ${items.map(([k,ic,l])=>`<div class="sidebar-item ${S.view===k?'active':''}" onclick="navGoto('${k}')"><span class="ic">${ic}</span>${l}</div>`).join('')}
+      `).join('')}
+    </div>
+    <div class="sidebar-user">
+      <div class="avatar">${S.user.foto?`<img src="${S.user.foto}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">`:iniciais}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(S.user.nome)}</div>
+        <div style="font-size:11px;color:#999;">${esc(PERFIL_LABELS[S.user.perfil]||S.user.perfil)}</div>
+      </div>
+      <button class="btn-logout" onclick="doLogout()" title="Sair">⏻</button>
+    </div>
+  </div>`;
+}
+function renderTopbar(){
+  const totalAlertas = S.alertasResumo.mensagens+S.alertasResumo.documentos+S.alertasResumo.osNovas;
+  const iniciais = (S.user.nome||'?').split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
+  return `
+  <div class="topbar">
+    <div>
+      <div class="topbar-crumb">SISTEMA MEGA / ${(VIEW_TITULOS[S.view]||'').toUpperCase()}</div>
+      <div class="topbar-title">${VIEW_TITULOS[S.view]||''}</div>
+    </div>
+    <div class="topbar-right">
+      <div class="icon-btn" style="position:relative;" onclick="S.showNotif=!S.showNotif;render()">🔔${totalAlertas>0?`<span class="notif-dot"></span>`:''}</div>
+      <div class="avatar" style="border-radius:10px;">${S.user.foto?`<img src="${S.user.foto}" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">`:iniciais}</div>
     </div>
   </div>
-  ${S.showNotif?renderNotifDropdown():''}
-  <div class="app-nav">
-    ${tabs.map(([k,l])=>`<button class="${S.view===k?'active':''}" onclick="${k==='lista'?"S.view='lista';loadOSList().then(render);":k==='veiculo_checkin'?"S.view='veiculo_checkin';S.veiculoUsoView='pendentes';loadVeiculoUsos().then(render);":k==='rh'?"carregarRHTab(S.rhTab);":k==='suprimentos'?"carregarSuprimentosTab(S.suprimentosTab);":k==='epi'?"carregarEpiTab(S.epiTab);":k==='mensagens'?"carregarMensagens();":k==='mobilizacao'?"carregarMobTab('nova');":"S.view='"+k+"';render();"}">${l}</button>`).join('')}
-  </div>`;
+  ${S.showNotif?renderNotifDropdown():''}`;
 }
 async function carregarAlertasResumo(){
   try{
@@ -1490,41 +1586,25 @@ function renderDashboard(){
   const osAprovadasMes = list.filter(o=>o.status==='aprovada' && new Date(o.criado_em)>=inicioMes).length;
 
   const kpi = (label,val,color,onclick)=>`<div class="kpi-card${onclick?' clickable':''}"${color?` style="border-left-color:${color};"`:''}${onclick?` onclick="${onclick}"`:''}><div class="kpi-label">${label}</div><div class="kpi-value">${val}</div></div>`;
-
-  // Gráfico gauge: taxa de aprovação financeira do mês
-  const totalMesFin = valorAprovadoMes + valorPendente;
-  const taxaAprovFin = totalMesFin>0 ? Math.round((valorAprovadoMes/totalMesFin)*100) : 0;
-  const gaugeStop = (taxaAprovFin/100)*50;
-  const gaugeChart = (titulo,pct,cor)=>`<div class="card" style="text-align:center;">
-    <div class="muted" style="font-weight:700;margin-bottom:6px;">${titulo}</div>
-    <div style="position:relative;width:180px;height:90px;overflow:hidden;margin:0 auto;">
-      <div style="width:180px;height:180px;border-radius:50%;background:conic-gradient(from -90deg, ${cor} 0% ${(pct/100)*50}%, var(--mega-cinza-bdr) ${(pct/100)*50}% 50%, transparent 50% 100%);"></div>
-    </div>
-    <div style="font-size:28px;font-weight:800;margin-top:-8px;">${pct}%</div>
+  const kpi2 = (ic,label,val,sub,trendCls,trendTxt)=>`<div class="kpi-card2">
+    <div class="top-row"><span class="ic-box">${ic}</span>${trendTxt?`<span class="trend ${trendCls||''}">${trendTxt}</span>`:''}</div>
+    <div class="val">${val}</div><div class="lbl">${label}</div>${sub?`<div class="sub">${sub}</div>`:''}
   </div>`;
 
   // Gráfico de barras horizontais: OS por status
   const statusData = Object.keys(STATUS_LABELS).map(s=>[STATUS_LABELS[s], cnt(s), s]).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
   const maxStatus = Math.max(...statusData.map(s=>s[1]),1);
   const barColor = s=>s==='reprovada'||s==='impedida'||s==='cancelada'?'var(--mega-vermelho)':s==='aprovada'?'var(--mega-verde)':'var(--mega-laranja)';
-  const barChartH = `<div class="card">
-    <div class="muted" style="font-weight:700;margin-bottom:10px;">Ordens de Serviço por Status</div>
-    ${statusData.map(([label,val,s])=>`<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-      <div style="width:140px;font-size:13px;text-align:right;">${label}</div>
-      <div style="flex:1;background:var(--mega-cinza-bg);border-radius:4px;overflow:hidden;height:22px;">
-        <div style="width:${(val/maxStatus)*100}%;background:${barColor(s)};height:100%;border-radius:4px;"></div>
-      </div>
-      <div style="width:36px;font-weight:700;">${val}</div>
-    </div>`).join('') || '<div class="empty-state">Sem OS registradas.</div>'}
-  </div>`;
+  const donutCoresLista = ['var(--mega-laranja)','var(--mega-azul)','var(--mega-amarelo)','var(--mega-verde)','var(--mega-vermelho)','var(--mega-cinza-sub)'];
+  let accDonut=0; const donutFatias = statusData.slice(0,6).map(([label,val],i)=>{ const pct=val/list.length*100; const start=accDonut; accDonut+=pct; return `${donutCoresLista[i%donutCoresLista.length]} ${start}% ${accDonut}%`; }).join(', ');
 
-  // Gráfico de barras verticais: atividade diária (RDOs) últimos 14 dias
+  // Gráfico de barras verticais: atividade diária (OS) últimos 14 dias
   const dias14=[]; for(let i=13;i>=0;i--){ const d=new Date(hoje); d.setDate(d.getDate()-i); dias14.push(d.toISOString().slice(0,10)); }
   const atividadePorDia = dias14.map(d=> list.filter(o=>o.criado_em && o.criado_em.slice(0,10)===d).length );
   const maxAtiv = Math.max(...atividadePorDia,1);
-  const barChartV = `<div class="card">
-    <div class="muted" style="font-weight:700;margin-bottom:10px;">OS Criadas — Últimos 14 dias</div>
-    <div style="display:flex;align-items:flex-end;gap:6px;height:120px;">
+  const barChartV = `<div class="panel-card">
+    <div class="panel-eyebrow">MOVIMENTO</div><div class="panel-title">OS criadas — últimos 14 dias</div>
+    <div style="display:flex;align-items:flex-end;gap:6px;height:120px;margin-top:16px;">
       ${atividadePorDia.map((v,i)=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;">
         <div title="${dias14[i]}: ${v}" style="width:100%;background:var(--mega-laranja);border-radius:3px 3px 0 0;height:${Math.max(v/maxAtiv*90,2)}px;"></div>
       </div>`).join('')}
@@ -1534,64 +1614,104 @@ function renderDashboard(){
     </div>
   </div>`;
 
+  // Alertas críticos (lista estilo modelo)
+  const alertasCriticos = [];
+  if(criticas>0) alertasCriticos.push(['⚠️', `${criticas} OS crítica(s)`, 'pendentes ou em execução', "S.view='lista';loadOSList().then(render);"]);
+  if(atrasadas>0) alertasCriticos.push(['⏱️', `${atrasadas} OS atrasada(s)`, 'prazo de retorno vencido', "S.view='lista';loadOSList().then(render);"]);
+  if(notasPendentes.length>0) alertasCriticos.push(['💰', `${notasPendentes.length} nota(s) fiscal(is)`, 'aguardando aprovação financeira', "S.view='financeiro';render();"]);
+  if(materiaisCriticos.length>0) alertasCriticos.push(['📦', `${materiaisCriticos.length} material(is)`, 'abaixo do estoque mínimo', "carregarSuprimentosTab('estoque');"]);
+  if(D.atestados.length>0) alertasCriticos.push(['🩺', `${D.atestados.length} atestado(s)`, 'aguardando análise do RH', "carregarRHTab('atestados');"]);
+  if(checklistsNaoConforme>0) alertasCriticos.push(['✅', `${checklistsNaoConforme} checklist(s)`, 'não conformes no mês', "S.view='checklists';render();"]);
+
+  const bannerMsg = criticas>0||atrasadas>0 ? ['Atenção necessária.', `${criticas} OS crítica(s) e ${atrasadas} atrasada(s) precisam de ação imediata.`]
+    : ['Operação sob controle.', `${list.length} ordens de serviço · ${abertas} em aberto · ${emExec} em execução nesta semana.`];
+
   return `
-  <div class="wrap">
-    <div class="section-header">📊 Painel Geral — Grupo MEGA</div>
-
-    <div class="dash-section-title">🏭 Produção (mês atual)</div>
-    <div class="kpi-grid">
-      ${kpi('OS concluídas no mês', osAprovadasMes, 'var(--mega-verde)')}
-      ${kpi('Km sinalizados no mês', dreFmt(kmSinalizadosMes,1))}
-      ${kpi('Área pintada no mês', dreFmt(areaPintadaMes,0)+' m²')}
-      ${kpi('Checklists no mês', checklistsMes.length)}
-      ${kpi('Checklists não conformes', checklistsNaoConforme, checklistsNaoConforme>0?'var(--mega-vermelho)':null)}
-      ${kpi('Veículos em uso agora', veiculosEmUso)}
+  <div class="dash-banner">
+    <div>
+      <div class="eyebrow">CONTROLE OPERACIONAL · ${hoje.toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'}).toUpperCase()}</div>
+      <h2>${bannerMsg[0]}</h2>
+      <p>${bannerMsg[1]}</p>
     </div>
+    <button class="btn btn-primary" onclick="S.view='nova';render();">+ Nova Ordem de Serviço</button>
+  </div>
 
-    <div style="display:grid;grid-template-columns:1fr 2fr;gap:16px;align-items:start;">
-      ${gaugeChart('Taxa de Aprovação Financeira (mês)', taxaAprovFin, taxaAprovFin>=70?'var(--mega-verde)':taxaAprovFin>=40?'var(--mega-amarelo)':'var(--mega-vermelho)')}
-      ${barChartV}
+  <div class="kpi-grid" style="grid-template-columns:repeat(5,1fr);margin-bottom:22px;">
+    ${kpi2('📋','Total de OS', list.length, `${abertas} em aberto`, '', 'Atualizado')}
+    ${kpi2('🚧','Em execução', emExec, `${list.length?Math.round(emExec/list.length*100):0}% da operação`, '', 'Atualizado')}
+    ${kpi2('⚠️','Críticas', criticas, `${atrasadas} atrasada(s)`, criticas>0?'bad':'', criticas>0?'Atenção':'Ok')}
+    ${kpi2('✅','Aprovadas no mês', osAprovadasMes, 'produção concluída', '', 'Atualizado')}
+    ${kpi2('💰','Valor pendente', fmtMoney(valorPendente), `${notasPendentes.length} nota(s)`, notasPendentes.length>0?'warn':'', notasPendentes.length>0?'Atenção':'Ok')}
+  </div>
+
+  <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:18px;margin-bottom:22px;align-items:start;">
+    <div class="panel-card">
+      <div class="panel-eyebrow">ATENÇÃO IMEDIATA</div><div class="panel-title">Alertas críticos</div>
+      <div style="margin-top:10px;">
+        ${alertasCriticos.map(([ic,titulo,sub,onclick])=>`<div class="alert-row" style="cursor:pointer;" onclick="${onclick}">
+          <div style="display:flex;align-items:center;"><span class="ic-box">${ic}</span><div><div style="font-weight:700;font-size:14px;">${titulo}</div><div class="muted" style="font-size:12.5px;">${sub}</div></div></div>
+          <span style="color:#bbb;">→</span>
+        </div>`).join('') || '<div class="empty-state">Nenhum alerta no momento. Tudo em dia.</div>'}
+      </div>
     </div>
-
-    <div class="dash-section-title">Operação — Ordens de Serviço</div>
-    <div class="kpi-grid">
-      ${kpi('Total de OS', list.length)}
-      ${kpi('Abertas', abertas)}
-      ${kpi('Em execução', emExec)}
-      ${kpi('Críticas', criticas, 'var(--mega-vermelho)')}
-      ${kpi('Atrasadas', atrasadas, 'var(--mega-amarelo)')}
+    <div class="panel-card">
+      <div class="panel-eyebrow">DISTRIBUIÇÃO</div><div class="panel-title">OS por status</div>
+      <div style="display:flex;align-items:center;gap:20px;margin-top:16px;">
+        <div style="position:relative;width:130px;height:130px;flex-shrink:0;">
+          <div style="width:130px;height:130px;border-radius:50%;background:conic-gradient(${donutFatias||'#ddd 0% 100%'});"></div>
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:76px;height:76px;border-radius:50%;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+            <div style="font-family:var(--font-display);font-size:22px;font-weight:800;">${list.length}</div><div style="font-size:9.5px;color:#999;">OS</div>
+          </div>
+        </div>
+        <div style="flex:1;">
+          ${statusData.slice(0,6).map(([label,val],i)=>`<div class="donut-legend-row"><span class="donut-legend-dot" style="background:${donutCoresLista[i%donutCoresLista.length]};"></span>${label} <span style="margin-left:auto;font-weight:700;">${val}</span></div>`).join('')}
+        </div>
+      </div>
     </div>
-    ${barChartH}
+  </div>
 
-    <div class="dash-section-title">💰 Financeiro</div>
-    <div class="kpi-grid">
-      ${kpi('Notas pendentes', notasPendentes.length, 'var(--mega-amarelo)', "S.view='financeiro';render();")}
-      ${kpi('Valor pendente', fmtMoney(valorPendente), 'var(--mega-amarelo)')}
-      ${kpi('Aprovado no mês', fmtMoney(valorAprovadoMes), 'var(--mega-verde)')}
-    </div>
+  ${barChartV}
 
-    <div class="dash-section-title">⛑️ Segurança</div>
-    <div class="kpi-grid">
-      ${kpi('EPIs entregues no mês', entregasEpiMes)}
-      ${kpi('Trocas em até 7 dias', trocasProximas, trocasProximas>0?'var(--mega-amarelo)':null)}
-      ${kpi('DDS realizados no mês', ddsMes)}
-    </div>
+  <div class="dash-section-title">🏭 Produção (mês atual)</div>
+  <div class="kpi-grid">
+    ${kpi('Km sinalizados no mês', dreFmt(kmSinalizadosMes,1))}
+    ${kpi('Área pintada no mês', dreFmt(areaPintadaMes,0)+' m²')}
+    ${kpi('Checklists no mês', checklistsMes.length)}
+    ${kpi('Checklists não conformes', checklistsNaoConforme, checklistsNaoConforme>0?'var(--mega-vermelho)':null)}
+    ${kpi('Veículos em uso agora', veiculosEmUso)}
+  </div>
+  ${barChartH}
 
-    <div class="dash-section-title">👥 Pessoas / RH</div>
-    <div class="kpi-grid">
-      ${kpi('Colaboradores ativos', ativosCount, 'var(--mega-verde)', "carregarRHTab('pessoas')")}
-      ${kpi('Colaboradores inativos', inativosCount, inativosCount>0?'var(--mega-cinza-sub)':null)}
-      ${kpi('Atestados aguardando análise', D.atestados.length, D.atestados.length>0?'var(--mega-amarelo)':null)}
-      ${kpi('Solicitações cadastrais pendentes', D.solicit.length, D.solicit.length>0?'var(--mega-amarelo)':null)}
-    </div>
+  <div class="dash-section-title">💰 Financeiro</div>
+  <div class="kpi-grid">
+    ${kpi('Notas pendentes', notasPendentes.length, 'var(--mega-amarelo)', "S.view='financeiro';render();")}
+    ${kpi('Valor pendente', fmtMoney(valorPendente), 'var(--mega-amarelo)')}
+    ${kpi('Aprovado no mês', fmtMoney(valorAprovadoMes), 'var(--mega-verde)')}
+  </div>
 
-    <div class="dash-section-title">📦 Suprimentos</div>
-    <div class="kpi-grid">
-      ${kpi('Materiais abaixo do mínimo', materiaisCriticos.length, materiaisCriticos.length>0?'var(--mega-vermelho)':null)}
-    </div>
+  <div class="dash-section-title">⛑️ Segurança</div>
+  <div class="kpi-grid">
+    ${kpi('EPIs entregues no mês', entregasEpiMes)}
+    ${kpi('Trocas em até 7 dias', trocasProximas, trocasProximas>0?'var(--mega-amarelo)':null)}
+    ${kpi('DDS realizados no mês', ddsMes)}
+  </div>
 
-    <div class="section-header">Ordens de Serviço Recentes</div>
-    <div class="table-scroll"><table class="mega-table">
+  <div class="dash-section-title">👥 Pessoas / RH</div>
+  <div class="kpi-grid">
+    ${kpi('Colaboradores ativos', ativosCount, 'var(--mega-verde)', "carregarRHTab('pessoas')")}
+    ${kpi('Colaboradores inativos', inativosCount, inativosCount>0?'var(--mega-cinza-sub)':null)}
+    ${kpi('Atestados aguardando análise', D.atestados.length, D.atestados.length>0?'var(--mega-amarelo)':null)}
+    ${kpi('Solicitações cadastrais pendentes', D.solicit.length, D.solicit.length>0?'var(--mega-amarelo)':null)}
+  </div>
+
+  <div class="dash-section-title">📦 Suprimentos</div>
+  <div class="kpi-grid">
+    ${kpi('Materiais abaixo do mínimo', materiaisCriticos.length, materiaisCriticos.length>0?'var(--mega-vermelho)':null)}
+  </div>
+
+  <div class="panel-card" style="margin-top:22px;">
+    <div class="panel-eyebrow">MOVIMENTO RECENTE</div><div class="panel-title">Ordens de serviço recentes</div>
+    <div class="table-scroll" style="margin-top:14px;"><table class="mega-table">
       <thead><tr><th>Nº OS</th><th>Obra</th><th>Equipe</th><th>Serviço</th><th>KM</th><th>Criticidade</th><th>Status</th><th>Criada em</th></tr></thead>
       <tbody>
         ${list.slice(0,10).map(o=>`<tr class="clickable" onclick="abrirOS('${o.id}')">
@@ -4184,7 +4304,7 @@ function render(){
   else if(S.view==='mobilizacao') body=renderMobilizacao();
   else if(S.view==='historico') body=renderHistorico();
   else if(S.view==='detalhe') body=renderDetalheOS();
-  app.innerHTML = renderHeader() + body + (S.loading?'<div class="spinner"></div>':'');
+  app.innerHTML = `<div class="shell">${renderHeader()}<div class="main-area">${renderTopbar()}<div class="content-scroll">${body}</div></div></div>${S.loading?'<div class="spinner"></div>':''}`;
   if(S.view==='nova'){
     const c = document.getElementById('itens-container');
     if(c && c.children.length===0) addItemRow('itens-container');
