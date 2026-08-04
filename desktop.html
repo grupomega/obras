@@ -4018,16 +4018,56 @@ function rdoStatusBadgeCls(s){ return s==='aprovado'?'ok':s==='reprovado'?'criti
 function renderRDOHistorico(){
   const podeRevisar = ['administrador','departamento_pessoal','supervisor','coordenador'].includes(S.user.perfil);
   return `<div class="table-scroll"><table class="mega-table">
-    <thead><tr><th>Data</th><th>Tipo</th><th>Obra</th><th>Equipe</th><th>Encarregado</th><th>Total m²</th><th>Fotos</th><th>Status</th>${podeRevisar?'<th></th>':''}</tr></thead>
+    <thead><tr><th>Data</th><th>Tipo</th><th>Obra</th><th>Equipe</th><th>Encarregado</th><th>Total m²</th><th>Fotos</th><th>Status</th><th></th>${podeRevisar?'<th></th>':''}</tr></thead>
     <tbody>${(S.rdoList||[]).map(r=>`<tr><td>${fmtDateOnly(r.data_rdo)}</td><td>${badge('andamento',r.tipo==='horizontal'?'Horizontal':'Vertical')}</td>
       <td>${esc(obraMap()[r.obra_id]?.nome||'—')}</td><td>${esc(equipeMap()[r.equipe_id]?.nome||'—')}</td><td>${esc(usuMap()[r.encarregado_id]?.nome||'—')}</td>
       <td class="mono">${r.total_m2?parseFloat(r.total_m2).toFixed(1):'—'}</td>
       <td>${(r.fotos||[]).map(url=>`<a href="${url}" target="_blank"><img src="${url}" style="width:32px;height:32px;object-fit:cover;border-radius:4px;margin-right:2px;"></a>`).join('')||'—'}</td>
       <td>${badge(rdoStatusBadgeCls(r.status),RDO_STATUS_LABELS[r.status]||r.status)}</td>
+      <td><button class="btn btn-secondary btn-sm" onclick="compartilharInformeRDO('${r.id}')">📤 Compartilhar</button></td>
       ${podeRevisar?`<td>${r.status==='revisar'?`<button class="btn btn-verde btn-sm" onclick="revisarRDO('${r.id}','aprovado')">Aprovar</button>
         <button class="btn btn-vermelho btn-sm" onclick="revisarRDO('${r.id}','reprovado')">Reprovar</button>`:''}</td>`:''}
-      </tr>`).join('') || `<tr><td colspan="${podeRevisar?9:8}" class="empty-state">Nenhum RDO registrado ainda.</td></tr>`}
+      </tr>`).join('') || `<tr><td colspan="${podeRevisar?10:9}" class="empty-state">Nenhum RDO registrado ainda.</td></tr>`}
     </tbody></table></div>`;
+}
+const RDO_TACHA_NOMES = ['Tacha','Tachão','Tacha Bi Amarela tipo II','Tacha Bi Br/Verm tipo II','Tacha Mono branca','Tachão Bi Amarelo'];
+function gerarInformeRDO(r){
+  const obra = obraMap()[r.obra_id];
+  const equipe = equipeMap()[r.equipe_id];
+  const prod = r.producao||[];
+  const parseKm = v=>{ const n=parseFloat(String(v||'').replace(',','.')); return isNaN(n)?null:n; };
+  const kms = prod.map(p=>[parseKm(p.km_inicial), parseKm(p.km_final)]).filter(([a,b])=>a!=null&&b!=null);
+  let trechoTxt = '';
+  if(kms.length){
+    const min = Math.min(...kms.map(k=>k[0])), max = Math.max(...kms.map(k=>k[1]));
+    const direcao = prod.find(p=>p.pista)?.pista || '';
+    trechoTxt = `km ${min} ao km ${max}${direcao?' – '+direcao:''}`;
+  }
+  const linhas = [];
+  if(r.tipo==='horizontal'){
+    const implantacao = (r.materiais_consumidos||[]).filter(m=>RDO_TACHA_NOMES.includes(m.descricao)).reduce((a,m)=>a+(parseFloat(m.qtd)||0),0);
+    const remocaoItem = (r.materiais_consumidos||[]).find(m=>m.descricao==='Remoção');
+    if(implantacao>0) linhas.push(`• Implantação: ${implantacao} tachas`);
+    if(remocaoItem && parseFloat(remocaoItem.qtd)>0) linhas.push(`• Remoção: ${remocaoItem.qtd} tachas`);
+    if(r.total_m2) linhas.push(`• Área pintada: ${parseFloat(r.total_m2).toFixed(0)} m²`);
+  } else {
+    const totalInstalado = prod.reduce((a,p)=>a+(parseFloat(p.qtda)||0),0);
+    if(totalInstalado>0) linhas.push(`• Placas instaladas: ${totalInstalado}`);
+  }
+  return `📍 INFORME DE PRODUÇÃO
+📅 ${fmtDateOnly(r.data_rdo)}
+🏢 ${obra?.nome||'—'}
+🛣️ ${obra?.rodovia||'—'}
+Equipe ${equipe?.nome||'—'}
+${trechoTxt?`Trecho: ${trechoTxt}\n`:''}${linhas.join('\n')}
+
+Enviado por: ${S.user.nome}`;
+}
+function compartilharInformeRDO(id){
+  const r = (S.rdoList||[]).find(x=>x.id===id);
+  if(!r){ toast('RDO não encontrado.'); return; }
+  const texto = gerarInformeRDO(r);
+  window.open('https://wa.me/?text='+encodeURIComponent(texto), '_blank');
 }
 async function revisarRDO(id, novoStatus){
   let motivo=null;
