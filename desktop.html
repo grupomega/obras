@@ -651,7 +651,7 @@ function toast(msg){
 const S = {
   view:'login', user:null, loading:false, error:null,
   usuariosLogin:[], loginSel:null, pin:'', loginMatricula:'', loginUsuarioEncontrado:null,
-  usuarios:[], obras:[], equipes:[], veiculos:[], equipamentos:[],
+  usuarios:[], obras:[], equipes:[], veiculos:[], equipamentos:[], colaboradores:[], editColaborador:null,
   osList:[], osFilters:{obra:'',equipe:'',status:'',criticidade:'',busca:'',ordenar:'criticidade'},
   currentOS:null, currentItens:[], currentFotos:[], currentRetorno:null, currentMedicoes:[], currentImpedimentos:[], currentHistorico:[], currentComentarios:[],
   lightboxUrl:null, notificacoes:[], showNotif:false, showAddItem:false, editingOS:false,
@@ -674,6 +674,7 @@ const S = {
   historicoTipo:'colaborador', historicoEntidadeId:null, historicoEventos:[],
   rdoTipo:'horizontal', rdoView:'novo', rdoList:[], rdoListLoaded:false, rdoMaoObra:[], rdoEquipVeic:[], rdoMateriais:[], rdoSuportes:[], rdoProducao:[],
   mobView:'hub', mobilizacoes:[], mobilizacoesLoaded:false, minhasSolicitacoesMob:[], filaFinanceiroMob:[], mobBloqueios:[], mobPrestacaoSolicitacaoId:null,
+  obraItensSelecionada:null, itensObraLista:[],
   dashGeral:null, buscaUsuarios:''
 };
 
@@ -696,14 +697,15 @@ async function loadLoginList(){
   S.usuariosLoginLoaded = true;
 }
 async function loadBaseData(){
-  const [usuarios,obras,equipes,veiculos,equipamentos] = await Promise.all([
+  const [usuarios,obras,equipes,veiculos,equipamentos,colaboradores] = await Promise.all([
     sb('usuarios?select=id,codigo,matricula,foto,nome,cpf,cargo,email,telefone,perfil,equipe_id,obra_id,status,permissoes,plataforma_acesso,obras_acesso,criado_em,data_nascimento,estado_civil,naturalidade,rg,telefone_whatsapp,data_admissao&order=nome.asc'),
     sb('obras?select=*&order=nome.asc'),
     sb('equipes?select=*&order=nome.asc'),
     sb('veiculos?select=*&order=placa.asc'),
-    sb('equipamentos?select=*&order=nome.asc')
+    sb('equipamentos?select=*&order=nome.asc'),
+    sb('colaboradores?select=*&order=nome.asc&limit=500')
   ]);
-  S.usuarios=usuarios; S.obras=obras; S.equipes=equipes; S.veiculos=veiculos; S.equipamentos=equipamentos;
+  S.usuarios=usuarios; S.obras=obras; S.equipes=equipes; S.veiculos=veiculos; S.equipamentos=equipamentos; S.colaboradores=colaboradores;
 }
 async function loadNotificacoes(){
   if(!S.user) return;
@@ -2026,6 +2028,7 @@ function renderCadastros(){
   const tabs=[];
   if(canAccess('cadastros_obras')) tabs.push(['obras','Obras']);
   if(canAccess('cadastros_equipes')) tabs.push(['equipes','Equipes']);
+  if(canAccess('cadastros_equipes')) tabs.push(['colaboradores','Colaboradores']);
   if(canAccess('cadastros_usuarios')) tabs.push(['usuarios','Usuários']);
   if(canAccess('cadastros_veiculos')) tabs.push(['veiculos','Veículos']);
   if(canAccess('cadastros_equipamentos')) tabs.push(['equipamentos','Equipamentos']);
@@ -2045,6 +2048,7 @@ function renderCadastros(){
     </div>
     ${S.cadastroTab==='obras'?renderCadastroObras():''}
     ${S.cadastroTab==='equipes'?renderCadastroEquipes():''}
+    ${S.cadastroTab==='colaboradores'?renderCadastroColaboradores():''}
     ${S.cadastroTab==='usuarios'?renderCadastroUsuarios():''}
     ${S.cadastroTab==='veiculos'?renderCadastroVeiculos():''}
     ${S.cadastroTab==='equipamentos'?renderCadastroEquipamentos():''}
@@ -2082,11 +2086,110 @@ function renderCadastroObras(){
   <div class="table-scroll"><table class="mega-table"><thead><tr><th>Nome</th><th>Rodovia</th><th>KM</th><th>Cidade/UF</th><th>Status</th><th></th></tr></thead>
   <tbody>${S.obras.map(o=>`<tr><td>${esc(o.nome)}</td><td>${esc(o.rodovia||'—')}</td><td class="mono">${o.km_inicial??'—'}-${o.km_final??'—'}</td>
     <td>${esc(o.cidade||'')}/${esc(o.estado||'')}</td><td>${badge(o.status==='em_andamento'?'andamento':o.status==='concluida'?'concluido':'pendente',o.status)}</td>
-    <td><button class="btn-icon" onclick="iniciarEdicaoObra('${o.id}')">✏️</button> <button class="btn-icon danger" onclick="excluirObra('${o.id}')">🗑</button></td></tr>`).join('')}</tbody></table></div>`;
+    <td><button class="btn-icon" onclick="iniciarEdicaoObra('${o.id}')">✏️</button> <button class="btn-icon" onclick="abrirItensObra('${o.id}')">📋 Itens</button> <button class="btn-icon danger" onclick="excluirObra('${o.id}')">🗑</button></td></tr>`).join('')}</tbody></table></div>
+  ${S.obraItensSelecionada?renderItensObra():''}`;
 }
+function abrirItensObra(obraId){
+  S.obraItensSelecionada = obraId; S.loading=true; render();
+  sb(`itens_obra?select=*&obra_id=eq.${obraId}&order=item.asc`).then(rows=>{ S.itensObraLista=rows; S.loading=false; render(); }).catch(e=>{ toast('Erro: '+e.message); S.loading=false; render(); });
+}
+function fecharItensObra(){ S.obraItensSelecionada=null; render(); }
+function renderItensObra(){
+  const obra = S.obras.find(o=>o.id===S.obraItensSelecionada);
+  const lista = S.itensObraLista||[];
+  const totalGeral = lista.reduce((a,i)=>a+((parseFloat(i.valor_unitario)||0)*(parseFloat(i.qtda_total)||0)),0);
+  return `<div class="panel-card" style="margin-top:16px;">
+    <div class="flex-row" style="justify-content:space-between;">
+      <div><div class="panel-eyebrow">ITENS DA OBRA</div><div class="panel-title">${esc(obra?.nome||'')}</div></div>
+      <button class="btn btn-secondary btn-sm" onclick="fecharItensObra()">✕ Fechar</button>
+    </div>
+    <form class="form-grid" style="margin-top:14px;" onsubmit="event.preventDefault();criarItemObra(this);">
+      <div class="field"><label>Item</label><input name="item" required></div>
+      <div class="field"><label>Unidade</label><input name="unidade" placeholder="un, m², km…"></div>
+      <div class="field"><label>Valor unitário (R$)</label><input type="number" step="0.01" name="valor_unitario"></div>
+      <div class="field"><label>Qtda total</label><input type="number" step="0.01" name="qtda_total"></div>
+      <div class="field" style="align-self:end;"><button class="btn btn-primary">+ Adicionar item</button></div>
+    </form>
+    <div class="table-scroll" style="margin-top:14px;"><table class="mega-table">
+      <thead><tr><th>Item</th><th>Unidade</th><th>Valor unitário</th><th>Qtda total</th><th>Total</th><th></th></tr></thead>
+      <tbody>${lista.map(i=>`<tr><td>${esc(i.item)}</td><td>${esc(i.unidade||'—')}</td><td class="mono">${i.valor_unitario?fmtMoney(i.valor_unitario):'—'}</td>
+        <td class="mono">${i.qtda_total??'—'}</td><td class="mono">${fmtMoney((parseFloat(i.valor_unitario)||0)*(parseFloat(i.qtda_total)||0))}</td>
+        <td><button class="btn-icon danger" onclick="excluirItemObra('${i.id}')">🗑</button></td></tr>`).join('') || `<tr><td colspan="6" class="empty-state">Nenhum item cadastrado.</td></tr>`}
+      </tbody>
+      <tfoot><tr><td colspan="4" style="text-align:right;font-weight:700;">Total geral</td><td class="mono" style="font-weight:700;">${fmtMoney(totalGeral)}</td><td></td></tr></tfoot>
+    </table></div>
+  </div>`;
+}
+async function criarItemObra(form){
+  const fd = new FormData(form);
+  try{
+    await sb('itens_obra',{method:'POST',body:{obra_id:S.obraItensSelecionada, item:fd.get('item'), unidade:fd.get('unidade')||null,
+      valor_unitario:fd.get('valor_unitario')?parseFloat(fd.get('valor_unitario')):null, qtda_total:fd.get('qtda_total')?parseFloat(fd.get('qtda_total')):null, criado_por:S.user.id}});
+    toast('Item adicionado.'); form.reset(); abrirItensObra(S.obraItensSelecionada);
+  }catch(e){ toast('Erro: '+e.message); }
+}
+async function excluirItemObra(id){
+  if(!confirm('Excluir este item?')) return;
+  try{ await sb(`itens_obra?id=eq.${id}`,{method:'DELETE'}); toast('Item excluído.'); abrirItensObra(S.obraItensSelecionada); }
+  catch(e){ toast('Erro: '+e.message); }
+}
+function colabsDaEquipe(equipeId){
+  const doSistema = S.usuarios.filter(u=>u.equipe_id===equipeId).map(u=>u.nome);
+  const semAcesso = (S.colaboradores||[]).filter(c=>c.equipe_id===equipeId && c.status==='ativo').map(c=>c.nome+' (sem acesso)');
+  return [...doSistema, ...semAcesso].join(', ') || '—';
+}
+function renderCadastroColaboradores(){
+  const ed = S.editColaborador;
+  return `
+  <div class="muted" style="margin-bottom:10px;">Colaboradores sem acesso ao sistema — usados só pra compor equipes. Quem precisa entrar no app é cadastrado em "Usuários".</div>
+  <div class="card">
+    <div class="muted" style="margin-bottom:10px;font-weight:700;">${ed?'Editando colaborador':'Novo colaborador'}</div>
+    <form onsubmit="event.preventDefault();${ed?'salvarEdicaoColaborador(this)':'criarColaborador(this)'};">
+      <div class="form-grid">
+        <div class="field"><label>Nome *</label><input name="nome" required value="${esc(ed?.nome||'')}"></div>
+        <div class="field"><label>Cargo</label><input name="cargo" value="${esc(ed?.cargo||'')}"></div>
+        <div class="field"><label>Equipe</label><select name="equipe_id">${opt(S.equipes.map(e=>[e.id,e.nome]),ed?.equipe_id,true)}</select></div>
+        ${ed?`<div class="field"><label>Status</label><select name="status"><option value="ativo" ${ed.status==='ativo'?'selected':''}>Ativo</option><option value="inativo" ${ed.status==='inativo'?'selected':''}>Inativo</option></select></div>`:''}
+      </div>
+      <div class="flex-row" style="margin-top:12px;">
+        <button class="btn btn-primary">${ed?'Salvar alterações':'Cadastrar Colaborador'}</button>
+        ${ed?`<button type="button" class="btn btn-secondary" onclick="cancelarEdicaoColaborador()">Cancelar</button>`:''}
+      </div>
+    </form>
+  </div>
+  <div class="table-scroll"><table class="mega-table"><thead><tr><th>Nome</th><th>Cargo</th><th>Equipe</th><th>Status</th><th></th></tr></thead>
+  <tbody>${(S.colaboradores||[]).map(c=>`<tr><td>${esc(c.nome)}</td><td>${esc(c.cargo||'—')}</td><td>${esc(equipeMap()[c.equipe_id]?.nome||'—')}</td>
+    <td>${badge(c.status==='ativo'?'ok':'critico',c.status)}</td>
+    <td><button class="btn-icon" onclick="iniciarEdicaoColaborador('${c.id}')">✏️</button> <button class="btn-icon danger" onclick="excluirColaborador('${c.id}')">🗑</button></td></tr>`).join('') || `<tr><td colspan="5" class="empty-state">Nenhum colaborador cadastrado.</td></tr>`}</tbody></table></div>`;
+}
+async function criarColaborador(form){
+  const fd = new FormData(form);
+  try{
+    await sb('colaboradores',{method:'POST',body:{nome:fd.get('nome'), cargo:fd.get('cargo')||null, equipe_id:fd.get('equipe_id')||null, criado_por:S.user.id}});
+    toast('Colaborador cadastrado.'); form.reset(); await loadColaboradores();
+  }catch(e){ toast('Erro: '+e.message); }
+}
+function iniciarEdicaoColaborador(id){ S.editColaborador = {...(S.colaboradores||[]).find(c=>c.id===id)}; render(); }
+function cancelarEdicaoColaborador(){ S.editColaborador=null; render(); }
+async function salvarEdicaoColaborador(form){
+  const fd = new FormData(form);
+  try{
+    await sb(`colaboradores?id=eq.${S.editColaborador.id}`,{method:'PATCH',body:{nome:fd.get('nome'), cargo:fd.get('cargo')||null, equipe_id:fd.get('equipe_id')||null, status:fd.get('status')||'ativo'}});
+    toast('Colaborador atualizado.'); S.editColaborador=null; await loadColaboradores();
+  }catch(e){ toast('Erro: '+e.message); }
+  render();
+}
+async function excluirColaborador(id){
+  if(!confirm('Excluir este colaborador?')) return;
+  try{ await sb(`colaboradores?id=eq.${id}`,{method:'DELETE'}); toast('Colaborador excluído.'); await loadColaboradores(); }
+  catch(e){ toast('Erro: '+e.message); }
+  render();
+}
+async function loadColaboradores(){ S.colaboradores = await sb('colaboradores?select=*&order=nome.asc&limit=500'); render(); }
 function renderCadastroEquipes(){
   const ed = S.editEquipe;
   const membros = ed ? S.usuarios.filter(u=>u.equipe_id===ed.id) : [];
+  const colabSemAcesso = ed ? (S.colaboradores||[]).filter(c=>c.equipe_id===ed.id && c.status==='ativo') : [];
   const veiculosEquipe = ed ? S.veiculos.filter(v=>v.equipe_id===ed.id) : [];
   const equipamentosEquipe = ed ? S.equipamentos.filter(e=>e.equipe_id===ed.id) : [];
   return `
@@ -2113,8 +2216,10 @@ function renderCadastroEquipes(){
   </div>
   ${ed?`
   <div class="card">
-    <div class="muted" style="font-weight:700;margin-bottom:8px;">Colaboradores da equipe (${membros.length})</div>
-    ${membros.map(u=>`<div class="flex-row" style="justify-content:space-between;padding:4px 0;">${esc(u.nome)} <span class="muted">${esc(u.cargo||'')}</span></div>`).join('') || '<div class="muted">Nenhum colaborador vinculado. Edite o colaborador em Cadastros → Usuários e defina a Equipe.</div>'}
+    <div class="muted" style="font-weight:700;margin-bottom:8px;">Colaboradores da equipe (${membros.length+colabSemAcesso.length})</div>
+    ${membros.map(u=>`<div class="flex-row" style="justify-content:space-between;padding:4px 0;">${esc(u.nome)} <span class="muted">${esc(u.cargo||'')} · com acesso</span></div>`).join('')}
+    ${colabSemAcesso.map(c=>`<div class="flex-row" style="justify-content:space-between;padding:4px 0;">${esc(c.nome)} <span class="muted">${esc(c.cargo||'')} · sem acesso</span></div>`).join('')}
+    ${!membros.length && !colabSemAcesso.length?'<div class="muted">Nenhum colaborador vinculado. Cadastre em Cadastros → Usuários (com acesso) ou Colaboradores (sem acesso).</div>':''}
   </div>
   <div class="card">
     <div class="muted" style="font-weight:700;margin-bottom:8px;">Veículos da equipe (${veiculosEquipe.length})</div>
@@ -2130,11 +2235,38 @@ function renderCadastroEquipes(){
       <option value="">Selecione…</option>${opt(S.equipamentos.filter(e=>e.equipe_id!==ed.id).map(e=>[e.id,e.nome]),'')}
     </select></div>
   </div>`:''}
-  <div class="table-scroll"><table class="mega-table"><thead><tr><th>Nome</th><th>Código</th><th>Tipo de serviço</th><th>Encarregado</th><th>Obra</th><th>Custo/mês</th><th></th></tr></thead>
-  <tbody>${S.equipes.map(e=>`<tr><td>${esc(e.nome)}</td><td class="mono">${esc(e.codigo||'—')}</td><td>${esc(e.tipo_servico||'—')}</td>
-    <td>${esc(usuMap()[e.encarregado_id]?.nome||'—')}</td>
-    <td>${esc(obraMap()[e.obra_id]?.nome||'—')}</td><td class="mono">${e.custo_mensal?fmtMoney(e.custo_mensal):'—'}</td>
-    <td><button class="btn-icon" onclick="iniciarEdicaoEquipe('${e.id}')">✏️</button> <button class="btn-icon danger" onclick="excluirEquipe('${e.id}')">🗑</button></td></tr>`).join('')}</tbody></table></div>`;
+  <div class="section-header">Equipes por Obra</div>
+  ${S.obras.map(o=>{
+    const equipesDaObra = S.equipes.filter(e=>e.obra_id===o.id);
+    if(!equipesDaObra.length) return '';
+    return `<div class="panel-card" style="margin-bottom:14px;">
+      <div class="panel-eyebrow">OBRA</div><div class="panel-title">${esc(o.nome)}</div>
+      <div class="table-scroll" style="margin-top:12px;"><table class="mega-table">
+        <thead><tr><th>Equipe</th><th>Encarregado</th><th>Veículos</th><th>Colaboradores</th><th></th></tr></thead>
+        <tbody>${equipesDaObra.map(e=>{
+          const veic = S.veiculos.filter(v=>v.equipe_id===e.id).map(v=>v.placa||v.codigo_ativo||'—').join(', ')||'—';
+          const colab = colabsDaEquipe(e.id);
+          return `<tr><td>${esc(e.nome)}</td><td>${esc(usuMap()[e.encarregado_id]?.nome||'—')}</td>
+            <td style="font-size:12.5px;">${esc(veic)}</td><td style="font-size:12.5px;">${esc(colab)}</td>
+            <td><button class="btn-icon" onclick="iniciarEdicaoEquipe('${e.id}')">✏️</button> <button class="btn-icon danger" onclick="excluirEquipe('${e.id}')">🗑</button></td></tr>`;
+        }).join('')}</tbody>
+      </table></div>
+    </div>`;
+  }).join('') || ''}
+  ${(() => { const semObra = S.equipes.filter(e=>!e.obra_id); if(!semObra.length) return ''; return `
+  <div class="panel-card" style="margin-bottom:14px;">
+    <div class="panel-eyebrow">SEM OBRA VINCULADA</div>
+    <div class="table-scroll" style="margin-top:12px;"><table class="mega-table">
+      <thead><tr><th>Equipe</th><th>Encarregado</th><th>Veículos</th><th>Colaboradores</th><th></th></tr></thead>
+      <tbody>${semObra.map(e=>{
+        const veic = S.veiculos.filter(v=>v.equipe_id===e.id).map(v=>v.placa||v.codigo_ativo||'—').join(', ')||'—';
+        const colab = colabsDaEquipe(e.id);
+        return `<tr><td>${esc(e.nome)}</td><td>${esc(usuMap()[e.encarregado_id]?.nome||'—')}</td>
+          <td style="font-size:12.5px;">${esc(veic)}</td><td style="font-size:12.5px;">${esc(colab)}</td>
+          <td><button class="btn-icon" onclick="iniciarEdicaoEquipe('${e.id}')">✏️</button> <button class="btn-icon danger" onclick="excluirEquipe('${e.id}')">🗑</button></td></tr>`;
+      }).join('')}</tbody>
+    </table></div>
+  </div>`; })()}`;
 }
 async function vincularVeiculoEquipe(veiculoId, equipeId){
   try{ await sb(`veiculos?id=eq.${veiculoId}`,{method:'PATCH',body:{equipe_id:equipeId}}); await loadBaseData(); toast('Veículo vinculado.'); }
