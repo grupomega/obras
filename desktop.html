@@ -675,6 +675,8 @@ const S = {
   rdoTipo:'horizontal', rdoView:'novo', rdoList:[], rdoListLoaded:false, rdoMaoObra:[], rdoEquipVeic:[], rdoMateriais:[], rdoSuportes:[], rdoProducao:[],
   mobView:'hub', mobilizacoes:[], mobilizacoesLoaded:false, minhasSolicitacoesMob:[], filaFinanceiroMob:[], mobBloqueios:[], mobPrestacaoSolicitacaoId:null,
   obraItensSelecionada:null, itensObraLista:[],
+  obraSubView:'hub', informeView:'novo', informeLista:[], servicosObraLista:[], obraServicosSelecionada:null,
+  programacaoView:'novo', programacaoLista:[],
   dashGeral:null, buscaUsuarios:''
 };
 
@@ -997,14 +999,31 @@ async function excluirObra(id){
   render();
 }
 
+async function sincronizarEquipeAtribuicoes(form, equipeId){
+  const fd = new FormData(form);
+  const veiculoId = fd.get('veiculo_id')||null;
+  const colabsUsuarios = fd.getAll('colab_usuario');
+  const colabsSemAcesso = fd.getAll('colab_sem_acesso');
+  const proms = [];
+  S.veiculos.filter(v=>v.equipe_id===equipeId && v.id!==veiculoId).forEach(v=>proms.push(sb(`veiculos?id=eq.${v.id}`,{method:'PATCH',body:{equipe_id:null}})));
+  if(veiculoId) proms.push(sb(`veiculos?id=eq.${veiculoId}`,{method:'PATCH',body:{equipe_id:equipeId}}));
+  S.usuarios.filter(u=>u.equipe_id===equipeId && !colabsUsuarios.includes(u.id)).forEach(u=>proms.push(sb(`usuarios?id=eq.${u.id}`,{method:'PATCH',body:{equipe_id:null}})));
+  colabsUsuarios.forEach(id=>proms.push(sb(`usuarios?id=eq.${id}`,{method:'PATCH',body:{equipe_id:equipeId}})));
+  (S.colaboradores||[]).filter(c=>c.equipe_id===equipeId && !colabsSemAcesso.includes(c.id)).forEach(c=>proms.push(sb(`colaboradores?id=eq.${c.id}`,{method:'PATCH',body:{equipe_id:null}})));
+  colabsSemAcesso.forEach(id=>proms.push(sb(`colaboradores?id=eq.${id}`,{method:'PATCH',body:{equipe_id:equipeId}})));
+  await Promise.all(proms);
+}
 async function criarEquipe(form){
   const fd=new FormData(form);
   const payload={nome:fd.get('nome'),codigo:fd.get('codigo')||null,encarregado_id:fd.get('encarregado_id')||null,
     supervisor_id:fd.get('supervisor_id')||null,tipo_servico:fd.get('tipo_servico')||null,
     obra_id:fd.get('obra_id')||null,telefone:fd.get('telefone')||null,
     custo_mensal:fd.get('custo_mensal')?parseFloat(fd.get('custo_mensal')):null, custo_diario:fd.get('custo_diario')?parseFloat(fd.get('custo_diario')):null, custo_hora:fd.get('custo_hora')?parseFloat(fd.get('custo_hora')):null};
-  try{ await sb('equipes',{method:'POST',body:payload}); toast('Equipe cadastrada.'); await loadBaseData(); form.reset(); render(); }
-  catch(e){ toast('Erro: '+e.message); }
+  try{
+    const criada = await sb('equipes?select=id',{method:'POST',body:payload,prefer:'return=representation'});
+    await sincronizarEquipeAtribuicoes(form, criada[0].id);
+    toast('Equipe cadastrada.'); await loadBaseData(); form.reset(); render();
+  }catch(e){ toast('Erro: '+e.message); }
 }
 function iniciarEdicaoEquipe(id){ S.editEquipe = {...S.equipes.find(e=>e.id===id)}; render(); }
 function cancelarEdicaoEquipe(){ S.editEquipe=null; render(); }
@@ -1014,8 +1033,11 @@ async function salvarEdicaoEquipe(form){
     supervisor_id:fd.get('supervisor_id')||null,tipo_servico:fd.get('tipo_servico')||null,
     obra_id:fd.get('obra_id')||null,telefone:fd.get('telefone')||null,
     custo_mensal:fd.get('custo_mensal')?parseFloat(fd.get('custo_mensal')):null, custo_diario:fd.get('custo_diario')?parseFloat(fd.get('custo_diario')):null, custo_hora:fd.get('custo_hora')?parseFloat(fd.get('custo_hora')):null};
-  try{ await sb(`equipes?id=eq.${S.editEquipe.id}`,{method:'PATCH',body:payload}); toast('Equipe atualizada.'); S.editEquipe=null; await loadBaseData(); }
-  catch(e){ toast('Erro: '+e.message); }
+  try{
+    await sb(`equipes?id=eq.${S.editEquipe.id}`,{method:'PATCH',body:payload});
+    await sincronizarEquipeAtribuicoes(form, S.editEquipe.id);
+    toast('Equipe atualizada.'); S.editEquipe=null; await loadBaseData();
+  }catch(e){ toast('Erro: '+e.message); }
   render();
 }
 async function excluirEquipe(id){
@@ -1434,7 +1456,7 @@ function trocarMatricula(){ S.loginUsuarioEncontrado=null; S.loginMatricula=''; 
 const VIEW_TITULOS = {dashboard:'Visão Geral', lista:'Ordens de Serviço', nova:'Nova Ordem de Serviço', cadastros:'Cadastros',
   checklists:'Checklists', veiculo_checkin:'Frota', financeiro:'Financeiro', permissoes:'Permissões de Acesso', rh:'Pessoas / RH',
   dds:'Segurança', suprimentos:'Suprimentos', dre_sinalizacao:'DRE Sinalização Horizontal', epi:'Segurança — EPI', mensagens:'Mensagens',
-  rdo:'RDO — Diário de Obra', mobilizacao:'Mobilização', historico:'Histórico', detalhe:'Detalhe da OS'};
+  rdo:'RDO — Diário de Obra', mobilizacao:'Mobilização', historico:'Histórico', detalhe:'Detalhe da OS', obra:'Obra'};
 function navGoto(k){
   if(k==='lista'){ S.view='lista'; loadOSList().then(render); }
   else if(k==='veiculo_checkin'){ S.view='veiculo_checkin'; S.veiculoUsoView='pendentes'; loadVeiculoUsos().then(render); }
@@ -1444,11 +1466,12 @@ function navGoto(k){
   else if(k==='mensagens'){ carregarMensagens(); }
   else if(k==='dds'){ S.view='dds'; S.ddsScreen='hub'; render(); }
   else if(k==='mobilizacao'){ carregarMobTab('nova'); }
+  else if(k==='obra'){ S.view='obra'; S.obraSubView='hub'; render(); }
   else { S.view=k; render(); }
 }
 function renderHeader(){
   const grupos = [
-    ['PRINCIPAL', [canAccess('dashboard')?['dashboard','📊','Dashboard']:null].filter(Boolean)],
+    ['PRINCIPAL', [['obra','📍','Obra'], canAccess('dashboard')?['dashboard','📊','Dashboard']:null].filter(Boolean)],
     ['OPERAÇÃO', [
       canAccess('os_lista')?['lista','📋','Ordens de Serviço']:null,
       canAccess('os_nova')?['nova','➕','Nova OS']:null,
@@ -2086,7 +2109,8 @@ function renderCadastroObras(){
   <div class="table-scroll"><table class="mega-table"><thead><tr><th>Nome</th><th>Rodovia</th><th>KM</th><th>Cidade/UF</th><th>Status</th><th></th></tr></thead>
   <tbody>${S.obras.map(o=>`<tr><td>${esc(o.nome)}</td><td>${esc(o.rodovia||'—')}</td><td class="mono">${o.km_inicial??'—'}-${o.km_final??'—'}</td>
     <td>${esc(o.cidade||'')}/${esc(o.estado||'')}</td><td>${badge(o.status==='em_andamento'?'andamento':o.status==='concluida'?'concluido':'pendente',o.status)}</td>
-    <td><button class="btn-icon" onclick="iniciarEdicaoObra('${o.id}')">✏️</button> <button class="btn-icon" onclick="abrirItensObra('${o.id}')">📋 Itens</button> <button class="btn-icon danger" onclick="excluirObra('${o.id}')">🗑</button></td></tr>`).join('')}</tbody></table></div>
+    <td><button class="btn-icon" onclick="iniciarEdicaoObra('${o.id}')">✏️</button> <button class="btn-icon" onclick="abrirItensObra('${o.id}')">📋 Itens</button> <button class="btn-icon" onclick="abrirServicosObra('${o.id}')">🔧 Serviços</button> <button class="btn-icon danger" onclick="excluirObra('${o.id}')">🗑</button></td></tr>`).join('')}</tbody></table></div>
+  ${S.obraServicosSelecionada?renderServicosObra():''}
   ${S.obraItensSelecionada?renderItensObra():''}`;
 }
 function abrirItensObra(obraId){
@@ -2204,9 +2228,17 @@ function renderCadastroEquipes(){
         <div class="field"><label>Encarregado</label><select name="encarregado_id">${opt(S.usuarios.map(u=>[u.id,u.nome]),ed?.encarregado_id,true)}</select></div>
         <div class="field"><label>Supervisor</label><select name="supervisor_id">${opt(S.usuarios.map(u=>[u.id,u.nome]),ed?.supervisor_id,true)}</select></div>
         <div class="field"><label>Telefone</label><input name="telefone" value="${esc(ed?.telefone||'')}"></div>
+        <div class="field"><label>Veículo</label><select name="veiculo_id">${opt(S.veiculos.filter(v=>!v.equipe_id||v.equipe_id===ed?.id).map(v=>[v.id,(v.placa||v.codigo_ativo||'—')+' — '+(v.tipo||'')]), ed?S.veiculos.find(v=>v.equipe_id===ed.id)?.id:'', true)}</select></div>
         <div class="field"><label>Custo mensal (R$)</label><input type="number" step="0.01" name="custo_mensal" value="${ed?.custo_mensal??''}"></div>
         <div class="field"><label>Custo diário (R$)</label><input type="number" step="0.01" name="custo_diario" value="${ed?.custo_diario??''}"></div>
         <div class="field"><label>Custo por hora (R$)</label><input type="number" step="0.01" name="custo_hora" value="${ed?.custo_hora??''}"></div>
+      </div>
+      <div class="field" style="margin-top:14px;">
+        <label>Colaboradores disponíveis (marque quem faz parte da equipe)</label>
+        <div style="max-height:220px;overflow-y:auto;border:1px solid var(--mega-cinza-bdr);border-radius:var(--radius-sm);padding:4px 12px;background:#fff;columns:2;">
+          ${S.usuarios.filter(u=>!u.equipe_id||u.equipe_id===ed?.id).map(u=>`<label class="perm-check"><input type="checkbox" name="colab_usuario" value="${u.id}" ${ed&&u.equipe_id===ed.id?'checked':''}> ${esc(u.nome)} <span class="muted">(com acesso)</span></label>`).join('')}
+          ${(S.colaboradores||[]).filter(c=>c.status==='ativo'&&(!c.equipe_id||c.equipe_id===ed?.id)).map(c=>`<label class="perm-check"><input type="checkbox" name="colab_sem_acesso" value="${c.id}" ${ed&&c.equipe_id===ed.id?'checked':''}> ${esc(c.nome)} <span class="muted">(sem acesso)</span></label>`).join('')}
+        </div>
       </div>
       <div class="flex-row" style="margin-top:12px;">
         <button class="btn btn-primary">${ed?'Salvar alterações':'Cadastrar Equipe'}</button>
@@ -4480,6 +4512,359 @@ function renderMobDashboard(){
   ${renderMobFila()}`;
 }
 
+/* ==========================================================
+   SERVIÇOS POR OBRA (catálogo usado no Informe de Produção)
+   ========================================================== */
+function abrirServicosObra(obraId){
+  S.obraServicosSelecionada = obraId; S.loading=true; render();
+  sb(`servicos_obra?select=*&obra_id=eq.${obraId}&order=servico.asc`).then(rows=>{ S.servicosObraLista=rows; S.loading=false; render(); }).catch(e=>{ toast('Erro: '+e.message); S.loading=false; render(); });
+}
+function fecharServicosObra(){ S.obraServicosSelecionada=null; render(); }
+function renderServicosObra(){
+  const obra = S.obras.find(o=>o.id===S.obraServicosSelecionada);
+  const lista = S.servicosObraLista||[];
+  return `<div class="panel-card" style="margin-top:16px;">
+    <div class="flex-row" style="justify-content:space-between;">
+      <div><div class="panel-eyebrow">SERVIÇOS DA OBRA</div><div class="panel-title">${esc(obra?.nome||'')}</div></div>
+      <button class="btn btn-secondary btn-sm" onclick="fecharServicosObra()">✕ Fechar</button>
+    </div>
+    <form class="form-grid" style="margin-top:14px;" onsubmit="event.preventDefault();criarServicoObra(this);">
+      <div class="field"><label>Serviço</label><input name="servico" required></div>
+      <div class="field"><label>Unidade</label><input name="unidade" placeholder="un, m², km, tachas…"></div>
+      <div class="field" style="align-self:end;"><button class="btn btn-primary">+ Adicionar serviço</button></div>
+    </form>
+    <div class="table-scroll" style="margin-top:14px;"><table class="mega-table">
+      <thead><tr><th>Serviço</th><th>Unidade</th><th></th></tr></thead>
+      <tbody>${lista.map(s=>`<tr><td>${esc(s.servico)}</td><td>${esc(s.unidade||'—')}</td><td><button class="btn-icon danger" onclick="excluirServicoObra('${s.id}')">🗑</button></td></tr>`).join('') || `<tr><td colspan="3" class="empty-state">Nenhum serviço cadastrado.</td></tr>`}</tbody>
+    </table></div>
+  </div>`;
+}
+async function criarServicoObra(form){
+  const fd = new FormData(form);
+  try{
+    await sb('servicos_obra',{method:'POST',body:{obra_id:S.obraServicosSelecionada, servico:fd.get('servico'), unidade:fd.get('unidade')||null, criado_por:S.user.id}});
+    toast('Serviço adicionado.'); form.reset(); abrirServicosObra(S.obraServicosSelecionada);
+  }catch(e){ toast('Erro: '+e.message); }
+}
+async function excluirServicoObra(id){
+  if(!confirm('Excluir este serviço?')) return;
+  try{ await sb(`servicos_obra?id=eq.${id}`,{method:'DELETE'}); toast('Serviço excluído.'); abrirServicosObra(S.obraServicosSelecionada); }
+  catch(e){ toast('Erro: '+e.message); }
+}
+
+/* ==========================================================
+   OBRA — hub (Informe de Produção + Abertura de CCO/Programação)
+   ========================================================== */
+function renderObraHub(){
+  const cards=[
+    ['📍','Informe de Produção','Registro diário de produção executada em campo',"carregarInformeTab('novo')"],
+    ['📐','Abertura de CCO — Programação','Planejamento de frentes de serviço',"carregarProgramacaoTab('novo')"],
+  ];
+  return `<div class="wrap">${cards.map(([ic,t,d,oc])=>`
+    <div class="card clickable" style="display:flex;align-items:center;gap:14px;margin-bottom:10px;" onclick="${oc}">
+      <div style="font-size:28px;">${ic}</div><div><div style="font-weight:700;">${t}</div><div class="muted" style="font-size:13px;">${d}</div></div>
+    </div>`).join('')}</div>`;
+}
+function renderObra(){
+  if(!S.obraSubView || S.obraSubView==='hub') return renderObraHub();
+  return `<div class="wrap">
+    <button class="btn btn-secondary" style="margin-bottom:12px;" onclick="S.obraSubView='hub';render();">← Voltar ao menu</button>
+    ${S.obraSubView==='informe'?renderInformeProducao():''}
+    ${S.obraSubView==='programacao'?renderProgramacaoProducao():''}
+  </div>`;
+}
+
+/* ==========================================================
+   INFORME DE PRODUÇÃO — lançamento próprio, múltiplas equipes, auditoria
+   ========================================================== */
+let __informeObraSel=null, __informeBlocos=[], __informeMateriais=[];
+function carregarInformeTab(tab){
+  S.view='obra'; S.obraSubView='informe'; S.informeView=tab; S.loading=true; render();
+  const done=()=>{ S.loading=false; render(); };
+  if(tab==='historico'){ sb('informes_producao?select=*&order=data_producao.desc,criado_em.desc&limit=100').then(rows=>{ S.informeLista=rows; done(); }).catch(e=>{toast('Erro: '+e.message);done();}); }
+  else { __informeObraSel=null; __informeBlocos=[]; __informeMateriais=[]; if(!S.materiais.length) loadMateriais().then(done); else done(); }
+}
+function informeSelecionarObra(v){
+  __informeObraSel = v||null; __informeBlocos=[]; __informeMateriais=[];
+  if(v){
+    Promise.all([
+      sb(`servicos_obra?select=*&obra_id=eq.${v}&order=servico.asc`),
+      sb(`rodovias_obra?select=*&obra_id=eq.${v}&status=eq.ativa&order=rodovia.asc`)
+    ]).then(([servicos,rodovias])=>{ S.servicosObraLista=servicos; S.rodoviasObraLista=rodovias; render(); });
+  } else render();
+}
+function informeAdicionarBloco(){ __informeBlocos.push({equipe_id:'',km_inicial:'',km_final:'',sentido:'',servicos:[]}); render(); }
+function informeRemoverBloco(i){ __informeBlocos.splice(i,1); render(); }
+function informeAtualizarBloco(i,campo,valor){ __informeBlocos[i][campo]=valor; render(); }
+function informeAdicionarServicoBloco(i){ __informeBlocos[i].servicos.push({servico_id:'',quantidade:''}); render(); }
+function informeRemoverServicoBloco(i,j){ __informeBlocos[i].servicos.splice(j,1); render(); }
+function informeAtualizarServicoBloco(i,j,campo,valor){ __informeBlocos[i].servicos[j][campo]=valor; render(); }
+function informeAdicionarMaterial(){ __informeMateriais.push({material_id:'',quantidade:''}); render(); }
+function informeRemoverMaterial(i){ __informeMateriais.splice(i,1); render(); }
+function informeAtualizarMaterial(i,campo,valor){ __informeMateriais[i][campo]=valor; render(); }
+function renderInformeProducao(){
+  const tabs=[['novo','+ Novo Informe'],['historico','Histórico']];
+  return `<div class="section-header">📍 Informe de Produção</div>
+    <div class="flex-row" style="margin-bottom:14px;gap:6px;">${tabs.map(([k,l])=>`<button class="btn ${S.informeView===k?'btn-primary':'btn-secondary'} btn-sm" onclick="carregarInformeTab('${k}')">${l}</button>`).join('')}</div>
+    ${S.informeView==='novo'?renderInformeNovo():''}
+    ${S.informeView==='historico'?renderInformeHistorico():''}`;
+}
+function renderInformeNovo(){
+  const obra = S.obras.find(o=>o.id===__informeObraSel);
+  const equipesDaObra = obra ? S.equipes.filter(e=>e.obra_id===obra.id) : [];
+  return `<form onsubmit="event.preventDefault();salvarInformeProducao(this);">
+    <div class="card">
+      <div class="muted" style="font-size:12px;margin-bottom:8px;">Cabeçalho fixo — GRUPO MEGA / Cliente / Data / Obra / Rodovia / Apontador. O apontador é sempre você, não pode ser alterado.</div>
+      <div class="form-grid">
+        <div class="field"><label>Data</label><input type="date" name="data_producao" value="${new Date().toISOString().slice(0,10)}" required></div>
+        <div class="field"><label>Obra</label><select onchange="informeSelecionarObra(this.value)" required><option value="">Selecione…</option>${opt(S.obras.map(o=>[o.id,o.nome]),__informeObraSel)}</select></div>
+        ${obra?`<div class="field"><label>Cliente</label><input value="${esc(obra.cliente||'—')}" disabled></div>
+        <div class="field"><label>Rodovia</label>${(S.rodoviasObraLista||[]).length?`<select name="rodovia_nome">${opt((S.rodoviasObraLista||[]).map(r=>[r.rodovia,r.rodovia]),'')}</select>`:`<input name="rodovia_nome" value="${esc(obra.rodovia||'')}" placeholder="Rodovia">`}</div>`:''}
+        <div class="field"><label>Apontador</label><input value="${esc(S.user.nome)}" disabled></div>
+      </div>
+    </div>
+    ${obra?`
+    ${__informeBlocos.map((b,i)=>{
+      const totalM2 = (b.servicos||[]).reduce((a,s)=>{ const so=(S.servicosObraLista||[]).find(x=>x.id===s.servico_id); const un=(so?.unidade||'').toLowerCase(); return (un==='m²'||un==='m2') ? a+(parseFloat(s.quantidade)||0) : a; },0);
+      return `<div class="panel-card" style="margin-top:14px;">
+      <div class="flex-row" style="justify-content:space-between;"><b>Equipe ${i+1}</b><button type="button" class="btn-icon danger" onclick="informeRemoverBloco(${i})">🗑</button></div>
+      <div class="form-grid">
+        <div class="field field-span2"><label>Equipe</label><select onchange="informeAtualizarBloco(${i},'equipe_id',this.value)"><option value="">Selecione…</option>${opt(equipesDaObra.map(e=>[e.id,e.nome]),b.equipe_id)}</select></div>
+        <div class="field"><label>Km inicial</label><input value="${esc(b.km_inicial)}" oninput="informeAtualizarBloco(${i},'km_inicial',this.value)"></div>
+        <div class="field"><label>Km final</label><input value="${esc(b.km_final)}" oninput="informeAtualizarBloco(${i},'km_final',this.value)"></div>
+        <div class="field field-span2"><label>Sentido da pista</label><input value="${esc(b.sentido)}" oninput="informeAtualizarBloco(${i},'sentido',this.value)" placeholder="Crescente, Decrescente, Norte, Sul…"></div>
+      </div>
+      <div class="table-scroll" style="margin-top:10px;"><table class="mega-table">
+        <thead><tr><th>Serviço</th><th>Qtd</th><th>Unidade</th><th></th></tr></thead>
+        <tbody>${(b.servicos||[]).map((s,j)=>{ const so=(S.servicosObraLista||[]).find(x=>x.id===s.servico_id);
+          return `<tr><td><select onchange="informeAtualizarServicoBloco(${i},${j},'servico_id',this.value)"><option value="">Serviço…</option>${opt((S.servicosObraLista||[]).map(x=>[x.id,x.servico]),s.servico_id)}</select></td>
+          <td><input type="number" step="0.01" style="width:90px;" value="${esc(s.quantidade)}" oninput="informeAtualizarServicoBloco(${i},${j},'quantidade',this.value)"></td>
+          <td>${esc(so?.unidade||'')}</td><td><button type="button" class="btn-icon danger" onclick="informeRemoverServicoBloco(${i},${j})">🗑</button></td></tr>`; }).join('') || `<tr><td colspan="4" class="empty-state">Nenhum serviço adicionado.</td></tr>`}
+        </tbody></table></div>
+      <button type="button" class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="informeAdicionarServicoBloco(${i})">+ Adicionar serviço</button>
+      ${totalM2>0?`<div class="muted" style="margin-top:6px;font-weight:700;">Total: ${totalM2} m²</div>`:''}
+    </div>`;
+    }).join('')}
+    <button type="button" class="btn btn-secondary" style="margin-top:12px;" onclick="informeAdicionarBloco()">+ Adicionar equipe</button>
+
+    <div class="panel-card" style="margin-top:14px;">
+      <div class="panel-eyebrow">CONSUMO DE MATERIAIS</div>
+      ${!S.materiais.length?`<div class="empty-state">Nenhum material cadastrado em Suprimentos.</div>`:''}
+      <div class="table-scroll" style="margin-top:10px;"><table class="mega-table">
+        <thead><tr><th>Material</th><th>Qtd</th><th>Unidade</th><th></th></tr></thead>
+        <tbody>${__informeMateriais.map((m,i)=>{ const mo=(S.materiais||[]).find(x=>x.id===m.material_id);
+          return `<tr><td><select onchange="informeAtualizarMaterial(${i},'material_id',this.value)"><option value="">Material…</option>${opt(S.materiais.map(x=>[x.id,x.item]),m.material_id)}</select></td>
+          <td><input type="number" step="0.01" style="width:90px;" value="${esc(m.quantidade)}" oninput="informeAtualizarMaterial(${i},'quantidade',this.value)"></td>
+          <td>${esc(mo?.unidade||'')}</td><td><button type="button" class="btn-icon danger" onclick="informeRemoverMaterial(${i})">🗑</button></td></tr>`; }).join('')}
+        </tbody></table></div>
+      <button type="button" class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="informeAdicionarMaterial()">+ Adicionar material</button>
+    </div>
+    <button class="btn btn-primary" style="margin-top:16px;" ${S.loading?'disabled':''}>${S.loading?'Salvando…':'Salvar e Compartilhar Informe'}</button>`:''}
+  </form>`;
+}
+async function salvarInformeProducao(form){
+  const fd = new FormData(form);
+  if(!__informeObraSel){ toast('Selecione a obra.'); return; }
+  const obra = S.obras.find(o=>o.id===__informeObraSel);
+  const blocosResolvidos = __informeBlocos.map(b=>{
+    const equipe = S.equipes.find(e=>e.id===b.equipe_id);
+    const servicos = (b.servicos||[]).filter(s=>s.servico_id&&s.quantidade).map(s=>{
+      const so = (S.servicosObraLista||[]).find(x=>x.id===s.servico_id);
+      return {servico:so?.servico||'', unidade:so?.unidade||'', quantidade:parseFloat(s.quantidade)};
+    });
+    return {equipe_id:b.equipe_id||null, equipe_nome:equipe?.nome||'', km_inicial:b.km_inicial||'', km_final:b.km_final||'', sentido:b.sentido||'', servicos};
+  }).filter(b=>b.servicos.length);
+  if(!blocosResolvidos.length){ toast('Adicione ao menos uma equipe com um serviço.'); return; }
+  const materiaisResolvidos = __informeMateriais.filter(m=>m.material_id&&m.quantidade).map(m=>{
+    const mo = (S.materiais||[]).find(x=>x.id===m.material_id);
+    return {material:mo?.item||'', unidade:mo?.unidade||'', quantidade:parseFloat(m.quantidade)};
+  });
+  S.loading=true; render();
+  try{
+    const body = {
+      data_producao:fd.get('data_producao'), obra_id:__informeObraSel,
+      cliente_nome:obra?.cliente||null, rodovia_nome:fd.get('rodovia_nome')||obra?.rodovia||null,
+      blocos:blocosResolvidos, materiais_consumidos:materiaisResolvidos,
+      apontador_id:S.user.id, apontador_usuario_id:S.user.id, apontador_nome_registrado:S.user.nome
+    };
+    const texto = gerarTextoInforme({...body,_obra:obra});
+    body.mensagem_gerada = texto; body.mensagem_enviada = true; body.enviado_em = new Date().toISOString();
+    await sb('informes_producao',{method:'POST',body});
+    toast('Informe salvo.');
+    window.open('https://wa.me/?text='+encodeURIComponent(texto), '_blank');
+    __informeObraSel=null; __informeBlocos=[]; __informeMateriais=[]; form.reset();
+    carregarInformeTab('historico');
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+function gerarTextoInforme(r){
+  const obra = r._obra || S.obras.find(o=>o.id===r.obra_id);
+  let msg = `📍 GRUPO MEGA
+INFORME DE PRODUÇÃO
+👤 Cliente: ${r.cliente_nome||obra?.cliente||'—'}
+📅 Data: ${fmtDateOnly(r.data_producao)}
+🏗️ Obra: ${obra?.nome||'—'}
+🛣️ Rodovia: ${r.rodovia_nome||obra?.rodovia||'—'}
+✍️ Apontador: ${r.apontador_nome_registrado||S.user.nome}`;
+  (r.blocos||[]).forEach(b=>{
+    let totalM2 = (b.servicos||[]).reduce((a,s)=>{ const un=(s.unidade||'').toLowerCase(); return (un==='m²'||un==='m2') ? a+(parseFloat(s.quantidade)||0) : a; },0);
+    msg += `
+
+Sentido da Pista: ${b.sentido||'—'}
+Segmento: Km Inicial ${b.km_inicial||'—'}   -   Km Final ${b.km_final||'—'}
+
+*${b.equipe_nome||'Equipe'}*
+${(b.servicos||[]).map(s=>`• ${s.servico}: ${s.quantidade} ${s.unidade||''}`.trim()).join('\n')}${totalM2>0?`\n\nTotal: ${totalM2} m².`:''}`;
+  });
+  if((r.materiais_consumidos||[]).length){
+    msg += `
+
+CONSUMO MATERIAIS
+${r.materiais_consumidos.map(m=>`• ${m.material}: ${m.quantidade} ${m.unidade||''}`.trim()).join('\n')}`;
+  }
+  return msg;
+}
+function compartilharTextoInforme(r){
+  window.open('https://wa.me/?text='+encodeURIComponent(r.mensagem_gerada||gerarTextoInforme(r)), '_blank');
+}
+async function conferirInforme(id){
+  try{ await sb(`informes_producao?id=eq.${id}`,{method:'PATCH',body:{conferido_por_usuario_id:S.user.id, conferido_em:new Date().toISOString()}});
+    toast('Informe conferido.'); carregarInformeTab('historico');
+  }catch(e){ toast('Erro: '+e.message); }
+}
+function renderInformeHistorico(){
+  const podeConferir = ['administrador','departamento_pessoal','supervisor','coordenador'].includes(S.user.perfil);
+  return `<div class="table-scroll"><table class="mega-table">
+    <thead><tr><th>Data</th><th>Obra</th><th>Apontador</th><th>Equipes / Serviços</th><th>Status</th><th></th></tr></thead>
+    <tbody>${(S.informeLista||[]).map(r=>`<tr><td>${fmtDateOnly(r.data_producao)}</td><td>${esc(obraMap()[r.obra_id]?.nome||'—')}</td><td>${esc(r.apontador_nome_registrado||'—')}</td>
+      <td style="font-size:12.5px;">${(r.blocos||[]).map(b=>`${b.equipe_nome}: ${(b.servicos||[]).map(s=>s.servico+' '+s.quantidade+s.unidade).join(', ')}`).join(' | ')}</td>
+      <td>${r.conferido_em?badge('ok','Conferido'):badge('pendente','Aguard. conferência')}</td>
+      <td><button class="btn btn-secondary btn-sm" onclick='compartilharTextoInforme(${JSON.stringify(r).replace(/'/g,"&apos;")})'>📤 Compartilhar</button>
+        ${podeConferir&&!r.conferido_em?`<button class="btn btn-verde btn-sm" onclick="conferirInforme('${r.id}')">✅ Conferir</button>`:''}</td></tr>`).join('') || `<tr><td colspan="6" class="empty-state">Nenhum informe registrado ainda.</td></tr>`}
+    </tbody></table></div>`;
+}
+
+/* ==========================================================
+   ABERTURA DE CCO — PROGRAMAÇÃO (planejamento, mesma estrutura do Informe)
+   ========================================================== */
+let __progObraSel=null, __progBlocos=[];
+function carregarProgramacaoTab(tab){
+  S.view='obra'; S.obraSubView='programacao'; S.programacaoView=tab; S.loading=true; render();
+  const done=()=>{ S.loading=false; render(); };
+  if(tab==='historico'){ sb('programacoes_cco?select=*&order=data_programacao.desc,criado_em.desc&limit=100').then(rows=>{ S.programacaoLista=rows; done(); }).catch(e=>{toast('Erro: '+e.message);done();}); }
+  else { __progObraSel=null; __progBlocos=[]; done(); }
+}
+function progSelecionarObra(v){
+  __progObraSel = v||null; __progBlocos=[];
+  if(v){ sb(`servicos_obra?select=*&obra_id=eq.${v}&order=servico.asc`).then(rows=>{ S.servicosObraLista=rows; render(); }); }
+  else render();
+}
+function progAdicionarBloco(){ __progBlocos.push({equipe_id:'',km_inicial:'',km_final:'',sentido:'',servicos:[]}); render(); }
+function progRemoverBloco(i){ __progBlocos.splice(i,1); render(); }
+function progAtualizarBloco(i,campo,valor){ __progBlocos[i][campo]=valor; render(); }
+function progAdicionarServicoBloco(i){ __progBlocos[i].servicos.push({servico_id:''}); render(); }
+function progRemoverServicoBloco(i,j){ __progBlocos[i].servicos.splice(j,1); render(); }
+function progAtualizarServicoBloco(i,j,campo,valor){ __progBlocos[i].servicos[j][campo]=valor; render(); }
+function renderProgramacaoProducao(){
+  const tabs=[['novo','+ Nova Programação'],['historico','Histórico']];
+  return `<div class="section-header">📐 Abertura de CCO — Programação</div>
+    <div class="flex-row" style="margin-bottom:14px;gap:6px;">${tabs.map(([k,l])=>`<button class="btn ${S.programacaoView===k?'btn-primary':'btn-secondary'} btn-sm" onclick="carregarProgramacaoTab('${k}')">${l}</button>`).join('')}</div>
+    ${S.programacaoView==='novo'?renderProgramacaoNova():''}
+    ${S.programacaoView==='historico'?renderProgramacaoHistorico():''}`;
+}
+function renderProgramacaoNova(){
+  const obra = S.obras.find(o=>o.id===__progObraSel);
+  const equipesDaObra = obra ? S.equipes.filter(e=>e.obra_id===obra.id) : [];
+  return `<form onsubmit="event.preventDefault();salvarProgramacao(this);">
+    <div class="card">
+      <div class="form-grid">
+        <div class="field"><label>Data</label><input type="date" name="data_programacao" value="${new Date().toISOString().slice(0,10)}" required></div>
+        <div class="field"><label>Obra</label><select onchange="progSelecionarObra(this.value)" required><option value="">Selecione…</option>${opt(S.obras.map(o=>[o.id,o.nome]),__progObraSel)}</select></div>
+        ${obra?`<div class="field"><label>Cliente</label><input value="${esc(obra.cliente||'—')}" disabled></div>
+        <div class="field"><label>Rodovia</label><input name="rodovia_nome" value="${esc(obra.rodovia||'')}"></div>`:''}
+        <div class="field"><label>Apontador</label><input value="${esc(S.user.nome)}" disabled></div>
+      </div>
+    </div>
+    ${obra?`
+    ${__progBlocos.map((b,i)=>`<div class="panel-card" style="margin-top:14px;">
+      <div class="flex-row" style="justify-content:space-between;"><b>Equipe ${i+1}</b><button type="button" class="btn-icon danger" onclick="progRemoverBloco(${i})">🗑</button></div>
+      <div class="form-grid">
+        <div class="field field-span2"><label>Equipe</label><select onchange="progAtualizarBloco(${i},'equipe_id',this.value)"><option value="">Selecione…</option>${opt(equipesDaObra.map(e=>[e.id,e.nome]),b.equipe_id)}</select></div>
+        <div class="field"><label>Km inicial</label><input value="${esc(b.km_inicial)}" oninput="progAtualizarBloco(${i},'km_inicial',this.value)"></div>
+        <div class="field"><label>Km final</label><input value="${esc(b.km_final)}" oninput="progAtualizarBloco(${i},'km_final',this.value)"></div>
+        <div class="field field-span2"><label>Sentido da pista</label><input value="${esc(b.sentido)}" oninput="progAtualizarBloco(${i},'sentido',this.value)"></div>
+      </div>
+      <div class="table-scroll" style="margin-top:10px;"><table class="mega-table">
+        <thead><tr><th>Serviço programado</th><th></th></tr></thead>
+        <tbody>${(b.servicos||[]).map((s,j)=>`<tr><td><select onchange="progAtualizarServicoBloco(${i},${j},'servico_id',this.value)"><option value="">Serviço…</option>${opt((S.servicosObraLista||[]).map(x=>[x.id,x.servico]),s.servico_id)}</select></td>
+          <td><button type="button" class="btn-icon danger" onclick="progRemoverServicoBloco(${i},${j})">🗑</button></td></tr>`).join('') || `<tr><td colspan="2" class="empty-state">Nenhum serviço adicionado.</td></tr>`}
+        </tbody></table></div>
+      <button type="button" class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="progAdicionarServicoBloco(${i})">+ Adicionar serviço</button>
+    </div>`).join('')}
+    <button type="button" class="btn btn-secondary" style="margin-top:12px;" onclick="progAdicionarBloco()">+ Adicionar equipe</button>
+    <button class="btn btn-primary" style="margin-top:16px;" ${S.loading?'disabled':''}>${S.loading?'Salvando…':'Salvar e Compartilhar Programação'}</button>`:''}
+  </form>`;
+}
+async function salvarProgramacao(form){
+  const fd = new FormData(form);
+  if(!__progObraSel){ toast('Selecione a obra.'); return; }
+  const obra = S.obras.find(o=>o.id===__progObraSel);
+  const blocosResolvidos = __progBlocos.map(b=>{
+    const equipe = S.equipes.find(e=>e.id===b.equipe_id);
+    const servicos = (b.servicos||[]).filter(s=>s.servico_id).map(s=>{
+      const so = (S.servicosObraLista||[]).find(x=>x.id===s.servico_id);
+      return {servico:so?.servico||''};
+    });
+    return {equipe_id:b.equipe_id||null, equipe_nome:equipe?.nome||'', km_inicial:b.km_inicial||'', km_final:b.km_final||'', sentido:b.sentido||'', servicos};
+  }).filter(b=>b.servicos.length);
+  if(!blocosResolvidos.length){ toast('Adicione ao menos uma equipe com um serviço.'); return; }
+  S.loading=true; render();
+  try{
+    const body = { data_programacao:fd.get('data_programacao'), obra_id:__progObraSel,
+      cliente_nome:obra?.cliente||null, rodovia_nome:fd.get('rodovia_nome')||obra?.rodovia||null,
+      blocos:blocosResolvidos, apontador_usuario_id:S.user.id, apontador_nome_registrado:S.user.nome };
+    const texto = gerarTextoProgramacao({...body,_obra:obra});
+    body.mensagem_gerada = texto; body.mensagem_enviada = true; body.enviado_em = new Date().toISOString();
+    await sb('programacoes_cco',{method:'POST',body});
+    toast('Programação salva.');
+    window.open('https://wa.me/?text='+encodeURIComponent(texto), '_blank');
+    __progObraSel=null; __progBlocos=[]; form.reset();
+    carregarProgramacaoTab('historico');
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+function gerarTextoProgramacao(r){
+  const obra = r._obra || S.obras.find(o=>o.id===r.obra_id);
+  let msg = `📍 GRUPO MEGA
+PROGRAMAÇÃO
+👤 Cliente: ${r.cliente_nome||obra?.cliente||'—'}
+📅 Data: ${fmtDateOnly(r.data_programacao)}
+🏗️ Obra: ${obra?.nome||'—'}
+🛣️ Rodovia: ${r.rodovia_nome||obra?.rodovia||'—'}
+✍️ Apontador: ${r.apontador_nome_registrado||S.user.nome}`;
+  (r.blocos||[]).forEach(b=>{
+    msg += `
+
+Sentido da Pista: ${b.sentido||'—'}
+Segmento: Km Inicial ${b.km_inicial||'—'}   -   Km Final ${b.km_final||'—'}
+
+*${b.equipe_nome||'Equipe'}*
+${(b.servicos||[]).map(s=>`• ${s.servico}`).join('\n')}`;
+  });
+  return msg;
+}
+function compartilharTextoProgramacao(r){
+  window.open('https://wa.me/?text='+encodeURIComponent(r.mensagem_gerada||gerarTextoProgramacao(r)), '_blank');
+}
+function renderProgramacaoHistorico(){
+  return `<div class="table-scroll"><table class="mega-table">
+    <thead><tr><th>Data</th><th>Obra</th><th>Apontador</th><th>Equipes / Serviços</th><th></th></tr></thead>
+    <tbody>${(S.programacaoLista||[]).map(r=>`<tr><td>${fmtDateOnly(r.data_programacao)}</td><td>${esc(obraMap()[r.obra_id]?.nome||'—')}</td><td>${esc(r.apontador_nome_registrado||'—')}</td>
+      <td style="font-size:12.5px;">${(r.blocos||[]).map(b=>`${b.equipe_nome}: ${(b.servicos||[]).map(s=>s.servico).join(', ')}`).join(' | ')}</td>
+      <td><button class="btn btn-secondary btn-sm" onclick='compartilharTextoProgramacao(${JSON.stringify(r).replace(/'/g,"&apos;")})'>📤 Compartilhar</button></td></tr>`).join('') || `<tr><td colspan="5" class="empty-state">Nenhuma programação registrada ainda.</td></tr>`}
+    </tbody></table></div>`;
+}
+
 function render(){
   const app = document.getElementById('app');
   if(!S.user){ app.innerHTML = renderLogin(); return; }
@@ -4500,6 +4885,7 @@ function render(){
   else if(S.view==='mensagens') body=renderMensagens();
   else if(S.view==='rdo') body=renderRDO();
   else if(S.view==='mobilizacao') body=renderMobilizacao();
+  else if(S.view==='obra') body=renderObra();
   else if(S.view==='historico') body=renderHistorico();
   else if(S.view==='detalhe') body=renderDetalheOS();
   app.innerHTML = `<div class="shell">${renderHeader()}<div class="main-area">${renderTopbar()}<div class="content-scroll">${body}</div></div></div>${S.loading?'<div class="spinner"></div>':''}`;
