@@ -151,7 +151,7 @@ a.applink{color:#aaa;font-size:12px;text-decoration:underline;}
 .mcard .mc-num{font-family:var(--font-mono);font-size:12px;color:var(--mega-cinza-sub);}
 .mcard .mc-title{font-size:15px;font-weight:700;margin-bottom:6px;}
 .mcard .mc-meta{font-size:12px;color:var(--mega-cinza-sub);display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
-.mcard .mc-actions{display:flex;gap:8px;margin-top:10px;}
+.mcard .mc-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
 </style>
 </head>
 <body>
@@ -420,7 +420,7 @@ function defaultPermissoes(perfil){
   if(perfil==='suprimentos') return {...all,cadastros_veiculos:true,cadastros_equipamentos:true,suprimentos:true};
   if(perfil==='supervisor') return {...all,dashboard:true,checkin_veiculo:true,seguranca_epi:true};
   if(perfil==='coordenador') return {...all,dashboard:true,seguranca_epi:true};
-  return {...all, checkin_veiculo:true}; // encarregado (campo)
+  return {...all, checkin_veiculo:true, seguranca_epi:true}; // encarregado (campo)
 }
 function canAccess(mod){
   if(!S.user) return false;
@@ -3523,7 +3523,6 @@ function rdoAtualizarLinhaProducao(idx, campo, valor){
     const h=parseFloat(__rdoProducaoRows[idx].h)||0, l=parseFloat(__rdoProducaoRows[idx].l)||0;
     if(campo==='h'||campo==='l') __rdoProducaoRows[idx].area = (h*l)? (h*l).toFixed(2) : '';
   }
-  render();
 }
 function renderRDO(){
   const tabs=[['novo','📝','Novo RDO','Preencher o relatório diário de obra'],['painel','📊','Painel','Indicadores e gráficos dos RDOs'],['historico','🕘','Histórico','RDOs já registrados']];
@@ -4225,13 +4224,13 @@ function informeSelecionarObra(v){
 }
 function informeAdicionarBloco(){ __informeBlocos.push({equipe_id:'',km_inicial:'',km_final:'',sentido:'',servicos:[]}); render(); }
 function informeRemoverBloco(i){ __informeBlocos.splice(i,1); render(); }
-function informeAtualizarBloco(i,campo,valor){ __informeBlocos[i][campo]=valor; render(); }
+function informeAtualizarBloco(i,campo,valor){ __informeBlocos[i][campo]=valor; }
 function informeAdicionarServicoBloco(i){ __informeBlocos[i].servicos.push({servico_id:'',quantidade:''}); render(); }
 function informeRemoverServicoBloco(i,j){ __informeBlocos[i].servicos.splice(j,1); render(); }
-function informeAtualizarServicoBloco(i,j,campo,valor){ __informeBlocos[i].servicos[j][campo]=valor; render(); }
+function informeAtualizarServicoBloco(i,j,campo,valor){ __informeBlocos[i].servicos[j][campo]=valor; }
 function informeAdicionarMaterial(){ __informeMateriais.push({material_id:'',quantidade:''}); render(); }
 function informeRemoverMaterial(i){ __informeMateriais.splice(i,1); render(); }
-function informeAtualizarMaterial(i,campo,valor){ __informeMateriais[i][campo]=valor; render(); }
+function informeAtualizarMaterial(i,campo,valor){ __informeMateriais[i][campo]=valor; }
 function renderInformeProducao(){
   const tabs=[['novo','+ Novo Informe'],['historico','Histórico']];
   return `<div class="section-header">📍 Informe de Produção</div>
@@ -4390,10 +4389,10 @@ function progSelecionarObra(v){
 }
 function progAdicionarBloco(){ __progBlocos.push({equipe_id:'',km_inicial:'',km_final:'',sentido:'',servicos:[]}); render(); }
 function progRemoverBloco(i){ __progBlocos.splice(i,1); render(); }
-function progAtualizarBloco(i,campo,valor){ __progBlocos[i][campo]=valor; render(); }
+function progAtualizarBloco(i,campo,valor){ __progBlocos[i][campo]=valor; }
 function progAdicionarServicoBloco(i){ __progBlocos[i].servicos.push({servico_id:''}); render(); }
 function progRemoverServicoBloco(i,j){ __progBlocos[i].servicos.splice(j,1); render(); }
-function progAtualizarServicoBloco(i,j,campo,valor){ __progBlocos[i].servicos[j][campo]=valor; render(); }
+function progAtualizarServicoBloco(i,j,campo,valor){ __progBlocos[i].servicos[j][campo]=valor; }
 function renderProgramacaoProducao(){
   const tabs=[['novo','+ Nova Programação'],['historico','Histórico']];
   return `<div class="section-header">📐 Abertura de CCO — Programação</div>
