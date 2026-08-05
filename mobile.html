@@ -405,6 +405,7 @@ const MODULES=[['dashboard','Dashboard'],['os_lista','Ordens de Serviço'],['os_
   ['cadastros_obras','Cadastro de Obras'],['cadastros_equipes','Cadastro de Equipes'],['cadastros_usuarios','Cadastro de Usuários'],
   ['cadastros_veiculos','Cadastro de Veículos'],['cadastros_equipamentos','Cadastro de Equipamentos'],
   ['checklists','Checklists de Segurança'],['checkin_veiculo','Check-in/Check-out de Veículo'],
+  ['seguranca_epi','Segurança — Entrega de EPI'],['suprimentos','Suprimentos'],['dre_sinalizacao','DRE Sinalização Horizontal'],['mobilizacao','Mobilização'],
   ['financeiro','Financeiro — Notas Fiscais'],['financeiro_geral','Painel Financeiro Geral'],['permissoes','Permissões de Acesso']];
 
 function defaultPermissoes(perfil){
@@ -418,9 +419,9 @@ function defaultPermissoes(perfil){
   if(perfil==='engenharia') return {...all,dashboard:true,os_nova:true,cadastros_obras:true,cadastros_equipes:true,checkin_veiculo:true,dre_sinalizacao:true};
   if(perfil==='financeiro') return {...all,dashboard:true,financeiro_geral:true};
   if(perfil==='suprimentos') return {...all,cadastros_veiculos:true,cadastros_equipamentos:true,suprimentos:true};
-  if(perfil==='supervisor') return {...all,dashboard:true,checkin_veiculo:true,seguranca_epi:true};
-  if(perfil==='coordenador') return {...all,dashboard:true,seguranca_epi:true};
-  return {...all, checkin_veiculo:true, seguranca_epi:true}; // encarregado (campo)
+  if(perfil==='supervisor') return {...all,dashboard:true,checkin_veiculo:true};
+  if(perfil==='coordenador') return {...all,dashboard:true};
+  return {...all, checkin_veiculo:true}; // encarregado (campo)
 }
 function canAccess(mod){
   if(!S.user) return false;
@@ -599,7 +600,7 @@ const S = {
   lightboxUrl:null, notificacoes:[], showNotif:false, showAddItem:false, editingOS:false,
   alertasResumo:{mensagens:0, documentos:0, osNovas:0},
   cadastroTab:'obras', editObra:null, editEquipe:null, editUsuario:null, editVeiculo:null, editEquipamento:null,
-  checklistTipo:'veiculo_seta_luminosa', checklistView:'novo', checklists:[], currentChecklist:null, currentChecklistItens:[],
+  checklistTipo:'veiculo_seta_luminosa', checklistView:'historico', checklists:[], currentChecklist:null, currentChecklistItens:[],
   editPermUserId:null,
   veiculoUsoView:'pendentes', veiculoUsos:[], currentUso:null, currentUsoItens:[],
   financeiroView:'hub', minhasNotas:[], todasNotas:[], currentNota:null, financeiroNotaOrigem:'meu_painel',
@@ -618,6 +619,7 @@ const S = {
   obraItensSelecionada:null, itensObraLista:[],
   obraSubView:'hub', informeView:'novo', informeLista:[], servicosObraLista:[], obraServicosSelecionada:null,
   programacaoView:'novo', programacaoLista:[],
+  ocorrenciaFrotaTab:'nova', ocorrenciasFrotaLista:[], ocorrenciaRHTab:'nova', ocorrenciasRHLista:[],
   obraRodoviasSelecionada:null, rodoviasObraLista:[], obraFiscaisSelecionada:null, fiscaisObraLista:[]
 };
 
@@ -1123,7 +1125,7 @@ function renderChecklistItensHTML(tipo){
       <div style="font-size:26px;line-height:1.2;flex-shrink:0;" aria-hidden="true">${iconeItem(texto)}</div>
       <b>${i+1}. ${esc(texto)}</b>
     </div>
-    <div style="margin-top:8px;">${chipGroup('resp_'+i,[['ok','OK'],['pendente','Pendente'],['na','N/A']],'na')}</div>
+    <div style="margin-top:8px;">${chipGroup('resp_'+i,[['ok','OK'],['pendente','Pendente'],['na','N/A']],'ok')}</div>
     <div class="field" style="margin-top:8px;"><input name="pend_${i}" placeholder="Descrição da pendência (se houver)"></div>
   </div>`).join('');
 }
@@ -1143,12 +1145,16 @@ async function salvarChecklist(form){
   };
   S.loading=true; render();
   try{
-    const created = await sb('checklists',{method:'POST',body:payload,prefer:'return=representation'});
+    const fotoFiles = window.pendingFiles['checklist_fotos']||[];
+    const fotoUrls=[];
+    for(const f of fotoFiles){ fotoUrls.push(await uploadArquivo(f, `${S.user.id}/${Date.now()}_${f.name}`, 'fotos-os')); }
+    const created = await sb('checklists',{method:'POST',body:{...payload, fotos:fotoUrls},prefer:'return=representation'});
     const cl = created[0];
     for(let i=0;i<itens.length;i++){
       await sb('checklist_itens',{method:'POST',body:{checklist_id:cl.id, item_numero:i+1, item_texto:itens[i],
-        resposta:fd.get('resp_'+i)||'na', descricao_pendencia:fd.get('pend_'+i)||null}});
+        resposta:fd.get('resp_'+i)||'ok', descricao_pendencia:fd.get('pend_'+i)||null}});
     }
+    clearPending('checklist_fotos');
     toast('Checklist salvo com sucesso.');
     S.checklistView='historico'; await loadChecklists();
   }catch(e){ toast('Erro ao salvar checklist: '+e.message); }
@@ -2121,6 +2127,7 @@ function renderChecklistNovo(){
     <div class="divider"></div>
     <div id="checklist-itens-container">${renderChecklistItensHTML(S.checklistTipo)}</div>
     <div class="divider"></div>
+    <div class="field" style="margin-bottom:12px;"><label>Fotos</label>${photoWidget('checklist_fotos')}</div>
     <div class="field" style="margin-bottom:12px;"><label>Resultado da Inspeção</label>${chipGroup('resultado_geral',RESULTADO_OPTS,'conforme_liberado')}</div>
     <button class="btn btn-primary btn-block" ${S.loading?'disabled':''}>${S.loading?'Salvando…':'Salvar Checklist'}</button>
   </form>`;
@@ -2147,6 +2154,7 @@ function renderChecklistDetalheView(){
       <div><b>Resultado:</b> ${resultadoBadge(c.resultado_geral)}</div>
     </div>
     <div class="divider"></div>
+    ${(c.fotos||[]).length?`<div class="flex-row" style="gap:6px;flex-wrap:wrap;margin-bottom:10px;">${c.fotos.map(url=>`<a href="${url}" target="_blank"><img src="${url}" style="width:64px;height:64px;object-fit:cover;border-radius:6px;"></a>`).join('')}</div>`:''}
     ${S.currentChecklistItens.map(it=>`<div class="item-row"><b>${iconeItem(it.item_texto)} ${it.item_numero}. ${esc(it.item_texto)}</b>
       <div style="margin-top:6px;">${badge(it.resposta==='ok'?'ok':it.resposta==='pendente'?'critico':'concluido',it.resposta.toUpperCase())}</div>
       ${it.descricao_pendencia?`<div class="muted" style="margin-top:4px;">${esc(it.descricao_pendencia)}</div>`:''}</div>`).join('')}
@@ -2158,16 +2166,18 @@ function renderChecklistDetalheView(){
    ========================================================== */
 function renderCheckinVeiculo(){
   return `<div class="wrap">
-    <div class="section-header">Check-in / Check-out de Veículo</div>
-    <div class="flex-row" style="margin-bottom:12px;">
+    <div class="section-header">Frota</div>
+    <div class="flex-row" style="margin-bottom:12px;flex-wrap:wrap;gap:6px;">
       <button class="btn ${S.veiculoUsoView==='novo'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.veiculoUsoView='novo';render()">Check In / Out Veículo</button>
       <button class="btn ${S.veiculoUsoView==='pendentes'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.veiculoUsoView='pendentes';loadVeiculoUsos().then(render);">Pendente</button>
       <button class="btn ${S.veiculoUsoView==='historico'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.veiculoUsoView='historico';loadVeiculoUsos().then(render);">Histórico</button>
+      <button class="btn ${S.veiculoUsoView==='ocorrencias'?'btn-primary':'btn-secondary'} btn-sm" onclick="carregarOcorrenciasFrotaTab('nova');">⚠️ Ocorrências</button>
     </div>
     ${S.veiculoUsoView==='novo'?renderCheckinNovo():''}
     ${S.veiculoUsoView==='pendentes'?renderCheckinPendentes():''}
     ${S.veiculoUsoView==='historico'?renderCheckinHistorico():''}
     ${S.veiculoUsoView==='checkout'?renderCheckoutForm():''}
+    ${S.veiculoUsoView==='ocorrencias'?renderOcorrenciasFrota():''}
   </div>`;
 }
 function renderCheckinNovo(){
@@ -2409,7 +2419,8 @@ function renderRH(){
     ['pessoas','👤','Meus Dados','Dados cadastrais, dependentes e dados bancários'],
     ['atestados','🩺','Atestados','Enviar e acompanhar atestados médicos'],
     ['documentos','📄','Documentos','Documentos publicados e solicitados pelo RH'],
-    ['indicacoes','🤝','Indique um Amigo','Indicar candidatos para vagas']];
+    ['indicacoes','🤝','Indique um Amigo','Indicar candidatos para vagas'],
+    ['ocorrencias','⚠️','Ocorrências','Registro de ocorrências disciplinares/incidentes']];
   if(!S.rhTab || S.rhTab==='hub'){
     return `<div class="wrap">
       <div class="section-header">👥 Pessoas / RH</div>
@@ -2426,6 +2437,7 @@ function renderRH(){
     ${S.rhTab==='ponto'?renderPonto():''}
     ${S.rhTab==='documentos'?renderDocumentos():''}
     ${S.rhTab==='indicacoes'?renderIndicacoes():''}
+    ${S.rhTab==='ocorrencias'?renderOcorrenciasRH():''}
   </div>`;
 }
 function carregarRHTab(tab){
@@ -2437,6 +2449,7 @@ function carregarRHTab(tab){
   else if(tab==='ponto'){ loadMeuPonto().then(done).catch(fail); }
   else if(tab==='documentos'){ Promise.all([loadDocumentos(), isRHStaff()?loadSolicitacoesDocumentosRH():loadMinhasSolicitacoesDocumentos()]).then(done).catch(fail); }
   else if(tab==='indicacoes'){ loadIndicacoes().then(done).catch(fail); }
+  else if(tab==='ocorrencias'){ done(); }
   else done();
 }
 
@@ -2876,18 +2889,34 @@ function sortearTemaDDS(){
   S.ddsTemaAtual = opcoes[Math.floor(Math.random()*opcoes.length)];
   render();
 }
+let __ddsEquipeSel=null;
+function ddsSelecionarEquipe(v){ __ddsEquipeSel=v||null; render(); }
 function renderDDSForm(){
   const t = S.ddsTemaAtual;
+  const daEquipe = __ddsEquipeSel ? [
+    ...S.usuarios.filter(u=>u.equipe_id===__ddsEquipeSel).map(u=>({id:u.id,nome:u.nome,tipo:'usuario'})),
+    ...(S.colaboradores||[]).filter(c=>c.equipe_id===__ddsEquipeSel && c.status==='ativo').map(c=>({id:c.id,nome:c.nome,tipo:'colaborador'}))
+  ] : [];
+  const idsDaEquipe = new Set(daEquipe.map(p=>p.tipo+':'+p.id));
+  const outros = [
+    ...S.usuarios.filter(u=>u.equipe_id!==__ddsEquipeSel).map(u=>({id:u.id,nome:u.nome,tipo:'usuario'})),
+    ...(S.colaboradores||[]).filter(c=>c.equipe_id!==__ddsEquipeSel && c.status==='ativo').map(c=>({id:c.id,nome:c.nome,tipo:'colaborador'}))
+  ].filter(p=>!idsDaEquipe.has(p.tipo+':'+p.id));
   return `<div class="wrap">
     <div class="section-header">Registrar DDS</div>
     <form class="card" onsubmit="event.preventDefault();salvarDDS(this);">
       <div class="form-grid">
         <div class="field field-span2"><label>Tema sorteado</label><input value="${esc(t.nome)}" disabled></div>
         <div class="field"><label>Obra</label><select name="obra_id">${opt(S.obras.map(o=>[o.id,o.nome]),'',true)}</select></div>
-        <div class="field"><label>Equipe</label><select name="equipe_id">${opt(S.equipes.map(e=>[e.id,e.nome]),'',true)}</select></div>
+        <div class="field"><label>Equipe</label><select name="equipe_id" onchange="ddsSelecionarEquipe(this.value)">${opt(S.equipes.map(e=>[e.id,e.nome]),__ddsEquipeSel,true)}</select></div>
       </div>
-      <div class="field" style="margin:10px 0;"><label>Colaboradores presentes</label>
-        <div class="chip-group">${S.usuarios.map(u=>`<label class="chip"><input type="checkbox" name="colaborador" value="${u.id}" style="margin-right:6px;">${esc(u.nome)}</label>`).join('')}</div>
+      <div class="field" style="margin:10px 0;">
+        <label>Colaboradores da equipe${daEquipe.length?` (${daEquipe.length})`:''}</label>
+        <div class="chip-group">${daEquipe.map(p=>`<label class="chip"><input type="checkbox" name="colaborador" value="${p.tipo}:${p.id}" checked style="margin-right:6px;">${esc(p.nome)}</label>`).join('') || '<div class="muted" style="padding:6px 0;">Selecione a equipe acima, ou marque manualmente na lista abaixo.</div>'}</div>
+      </div>
+      <div class="field" style="margin:10px 0;">
+        <label>+ Adicionar outros colaboradores</label>
+        <div class="chip-group">${outros.map(p=>`<label class="chip"><input type="checkbox" name="colaborador" value="${p.tipo}:${p.id}" style="margin-right:6px;">${esc(p.nome)}</label>`).join('')}</div>
       </div>
       <div class="field"><label>Tópicos discutidos / observações</label>
         <textarea name="topicos_obs" rows="4" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;font:inherit;" placeholder="Anote os pontos discutidos com a equipe sobre: ${esc(t.nome)}"></textarea></div>
@@ -2902,8 +2931,12 @@ function renderDDSForm(){
 }
 async function salvarDDS(form){
   const fd = new FormData(form);
-  const colaboradoresIds = Array.from(form.querySelectorAll('input[name="colaborador"]:checked')).map(el=>el.value);
-  const colaboradores = colaboradoresIds.map(id=>({id, nome: usuMap()[id]?.nome||''}));
+  const colaboradoresVals = Array.from(form.querySelectorAll('input[name="colaborador"]:checked')).map(el=>el.value);
+  const colaboradores = colaboradoresVals.map(v=>{
+    const [tipo,id] = v.split(':');
+    const nome = tipo==='usuario' ? (usuMap()[id]?.nome||'') : ((S.colaboradores||[]).find(c=>c.id===id)?.nome||'');
+    return {id, nome, tipo};
+  });
   const files = window.pendingFiles['dds_fotos']||[];
   S.loading=true; render();
   try{
@@ -2913,7 +2946,7 @@ async function salvarDDS(form){
       tema_nome:S.ddsTemaAtual.nome, tema_categoria:S.ddsTemaAtual.cat, obra_id:fd.get('obra_id')||null, equipe_id:fd.get('equipe_id')||null,
       lider_id:S.user.id, colaboradores, topicos_obs:fd.get('topicos_obs')||null, fotos:fotoUrls, assinatura_lider:fd.get('assinatura_lider')}});
     clearPending('dds_fotos'); toast('DDS registrado com sucesso.');
-    S.ddsTemaAtual=null; S.ddsScreen='sorteio';
+    S.ddsTemaAtual=null; S.ddsScreen='sorteio'; __ddsEquipeSel=null;
   }catch(e){ toast('Erro: '+e.message); }
   S.loading=false; render();
 }
@@ -3377,7 +3410,7 @@ function renderSegurancaHub(){
   const cards=[];
   if(canAccess('seguranca_epi')) cards.push(['⛑️','Entrega de EPI','Controle e entrega de equipamentos de proteção',"carregarEpiTab('entrega')"]);
   cards.push(['🦺','DDS Diário','Diálogo Diário de Segurança — sorteio de tema e registro',"S.view='dds';render();"]);
-  if(canAccess('checklists')) cards.push(['✅','Checklist','Checklists de segurança de veículos e equipamentos',"S.view='checklists';render();"]);
+  if(canAccess('checklists')) cards.push(['✅','Checklist','Checklists de segurança de veículos e equipamentos',"S.view='checklists';S.checklistView='historico';loadChecklists().then(render);"]);
   cards.push(['📞','Canal Direto','Denúncias e comunicação direta — viasseguras.com.br',"window.open('https://viasseguras.com.br','_blank');"]);
   return `<div class="wrap">
     <div class="section-header">🦺 Segurança</div>
@@ -4319,9 +4352,9 @@ async function salvarInformeProducao(form){
     body.mensagem_gerada = texto; body.mensagem_enviada = true; body.enviado_em = new Date().toISOString();
     await sb('informes_producao',{method:'POST',body});
     toast('Informe salvo.');
-    window.open('https://wa.me/?text='+encodeURIComponent(texto), '_blank');
     __informeObraSel=null; __informeBlocos=[]; __informeMateriais=[]; form.reset();
     carregarInformeTab('historico');
+    setTimeout(()=>{ window.open('https://wa.me/?text='+encodeURIComponent(texto), '_blank'); }, 300);
   }catch(e){ toast('Erro: '+e.message); }
   S.loading=false; render();
 }
@@ -4455,9 +4488,9 @@ async function salvarProgramacao(form){
     body.mensagem_gerada = texto; body.mensagem_enviada = true; body.enviado_em = new Date().toISOString();
     await sb('programacoes_cco',{method:'POST',body});
     toast('Programação salva.');
-    window.open('https://wa.me/?text='+encodeURIComponent(texto), '_blank');
     __progObraSel=null; __progBlocos=[]; form.reset();
     carregarProgramacaoTab('historico');
+    setTimeout(()=>{ window.open('https://wa.me/?text='+encodeURIComponent(texto), '_blank'); }, 300);
   }catch(e){ toast('Erro: '+e.message); }
   S.loading=false; render();
 }
@@ -4490,6 +4523,151 @@ function renderProgramacaoHistorico(){
     <div class="mc-meta">${(r.blocos||[]).map(b=>`${b.equipe_nome}: ${(b.servicos||[]).map(s=>s.servico).join(', ')}`).join(' | ')}</div>
     <div class="mc-actions"><button class="btn-icon" onclick='compartilharTextoProgramacao(${JSON.stringify(r).replace(/'/g,"&apos;")})'>📤 Compartilhar</button></div>
   </div>`).join('') || '<div class="empty-state">Nenhuma programação registrada ainda.</div>';
+}
+
+/* ==========================================================
+   FROTA — OCORRÊNCIAS (avarias/danos, aprovação de gestores)
+   ========================================================== */
+function carregarOcorrenciasFrotaTab(tab){
+  S.view='veiculo_checkin'; S.veiculoUsoView='ocorrencias'; S.ocorrenciaFrotaTab=tab; S.loading=true; render();
+  const done=()=>{ S.loading=false; render(); };
+  if(tab==='lista'){ sb('ocorrencias_frota?select=*&order=criado_em.desc&limit=200').then(rows=>{ S.ocorrenciasFrotaLista=rows; done(); }).catch(e=>{toast('Erro: '+e.message);done();}); }
+  else done();
+}
+function renderOcorrenciasFrota(){
+  const tabs=[['nova','+ Nova Ocorrência'],['lista','Lista / Aprovação']];
+  return `<div class="flex-row" style="margin-bottom:12px;gap:6px;">${tabs.map(([k,l])=>`<button class="btn ${(S.ocorrenciaFrotaTab||'nova')===k?'btn-primary':'btn-secondary'} btn-sm" onclick="carregarOcorrenciasFrotaTab('${k}')">${l}</button>`).join('')}</div>
+  ${(S.ocorrenciaFrotaTab||'nova')==='nova'?renderOcorrenciaFrotaNova():''}
+  ${S.ocorrenciaFrotaTab==='lista'?renderOcorrenciasFrotaLista():''}`;
+}
+function renderOcorrenciaFrotaNova(){
+  return `<form class="card" onsubmit="event.preventDefault();salvarOcorrenciaFrota(this);">
+    <div class="form-grid">
+      <div class="field field-span2"><label>Veículo</label><select name="veiculo_id" required>${opt(S.veiculos.map(v=>[v.id,(v.placa||v.codigo_ativo||'—')+' — '+(v.tipo||'')]),'')}</select></div>
+      <div class="field field-span2"><label>Descrição da ocorrência</label><input name="descricao_ocorrencia" required placeholder="O que aconteceu"></div>
+      <div class="field"><label>Responsável pelo dano</label><select name="responsavel_dano_id">${opt(S.usuarios.map(u=>[u.id,u.nome]),'',true)}</select></div>
+      <div class="field"><label>Valor previsto (R$)</label><input type="number" step="0.01" name="valor_previsto"></div>
+    </div>
+    <div class="field" style="margin:10px 0;"><label>Fotos</label>${photoWidget('ocorrencia_frota_fotos')}</div>
+    <div class="field"><label>Observações gerais / relato</label><textarea name="observacoes" rows="3" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;font:inherit;"></textarea></div>
+    <div class="muted" style="margin-top:8px;">Registrado por: ${esc(S.user.nome)} (login atual)</div>
+    <button class="btn btn-primary btn-block" style="margin-top:10px;" ${S.loading?'disabled':''}>${S.loading?'Enviando…':'Registrar ocorrência'}</button>
+  </form>`;
+}
+async function salvarOcorrenciaFrota(form){
+  const fd = new FormData(form);
+  const files = window.pendingFiles['ocorrencia_frota_fotos']||[];
+  if(!files.length){ toast('Anexe ao menos uma foto.'); return; }
+  S.loading=true; render();
+  try{
+    const fotos=[];
+    for(const f of files){ fotos.push(await uploadArquivo(f, `${S.user.id}/${Date.now()}_${f.name}`, 'ocorrencias')); }
+    const respId = fd.get('responsavel_dano_id')||null;
+    await sb('ocorrencias_frota',{method:'POST',body:{
+      veiculo_id:fd.get('veiculo_id'), fotos, descricao_ocorrencia:fd.get('descricao_ocorrencia'),
+      responsavel_dano_id:respId, responsavel_dano_nome:respId?usuMap()[respId]?.nome:null,
+      valor_previsto:fd.get('valor_previsto')?parseFloat(fd.get('valor_previsto')):null, observacoes:fd.get('observacoes')||null,
+      usuario_registro_id:S.user.id}});
+    clearPending('ocorrencia_frota_fotos'); toast('Ocorrência registrada. Segue para análise dos gestores.'); form.reset();
+    carregarOcorrenciasFrotaTab('lista');
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+function renderOcorrenciasFrotaLista(){
+  const podeDecidir = ['administrador','departamento_pessoal','supervisor','coordenador'].includes(S.user.perfil);
+  return (S.ocorrenciasFrotaLista||[]).map(o=>`<div class="mcard"><div class="mc-top"><span>${esc(veiculoMap()[o.veiculo_id]?.placa||veiculoMap()[o.veiculo_id]?.codigo_ativo||'—')}</span>${badge(o.status==='aprovada'?'ok':o.status==='reprovada'?'critico':'pendente',o.status)}</div>
+    <div class="mc-meta">${esc(o.descricao_ocorrencia)}</div>
+    <div class="mc-meta">Registrado por: ${esc(usuMap()[o.usuario_registro_id]?.nome||'—')} · ${fmtDate(o.criado_em)}</div>
+    ${o.responsavel_dano_nome?`<div class="mc-meta">Responsável: ${esc(o.responsavel_dano_nome)}</div>`:''}
+    ${o.valor_previsto?`<div class="mc-meta">Valor previsto: ${fmtMoney(o.valor_previsto)}</div>`:''}
+    ${o.observacoes?`<div class="muted">${esc(o.observacoes)}</div>`:''}
+    ${(o.fotos||[]).length?`<div class="flex-row" style="gap:6px;flex-wrap:wrap;margin-top:6px;">${o.fotos.map(url=>`<a href="${url}" target="_blank"><img src="${url}" style="width:56px;height:56px;object-fit:cover;border-radius:6px;"></a>`).join('')}</div>`:''}
+    ${o.consequencia?`<div class="muted" style="margin-top:6px;">Consequência: ${esc(o.consequencia)}</div>`:''}
+    ${podeDecidir&&o.status==='aberta'?`<div class="mc-actions">
+      <button class="btn-icon" onclick="decidirOcorrenciaFrota('${o.id}','aprovada')">✅ Aprovar</button>
+      <button class="btn-icon danger" onclick="decidirOcorrenciaFrota('${o.id}','reprovada')">❌ Reprovar</button>
+    </div>`:''}
+  </div>`).join('') || '<div class="empty-state">Nenhuma ocorrência registrada.</div>';
+}
+async function decidirOcorrenciaFrota(id, status){
+  const consequencia = prompt('Consequência / decisão sobre a ocorrência:');
+  if(!consequencia) return;
+  try{
+    await sb(`ocorrencias_frota?id=eq.${id}`,{method:'PATCH',body:{status, consequencia, decidido_por:S.user.id, decidido_em:new Date().toISOString()}});
+    toast('Ocorrência atualizada.'); carregarOcorrenciasFrotaTab('lista');
+  }catch(e){ toast('Erro: '+e.message); }
+}
+
+/* ==========================================================
+   RH — OCORRÊNCIAS (registro disciplinar/incidente, aprovação RH)
+   ========================================================== */
+function carregarOcorrenciasRHTab(tab){
+  S.view='rh'; S.rhTab='ocorrencias'; S.ocorrenciaRHTab=tab; S.loading=true; render();
+  const done=()=>{ S.loading=false; render(); };
+  if(tab==='lista'){ sb('ocorrencias_rh?select=*&order=criado_em.desc&limit=200').then(rows=>{ S.ocorrenciasRHLista=rows; done(); }).catch(e=>{toast('Erro: '+e.message);done();}); }
+  else done();
+}
+function renderOcorrenciasRH(){
+  const tabs=[['nova','+ Nova Ocorrência'],['lista','Lista / Aprovação']];
+  return `<div class="flex-row" style="margin-bottom:12px;gap:6px;">${tabs.map(([k,l])=>`<button class="btn ${(S.ocorrenciaRHTab||'nova')===k?'btn-primary':'btn-secondary'} btn-sm" onclick="carregarOcorrenciasRHTab('${k}')">${l}</button>`).join('')}</div>
+  ${(S.ocorrenciaRHTab||'nova')==='nova'?renderOcorrenciaRHNova():''}
+  ${S.ocorrenciaRHTab==='lista'?renderOcorrenciasRHLista():''}`;
+}
+function renderOcorrenciaRHNova(){
+  return `<form class="card" onsubmit="event.preventDefault();salvarOcorrenciaRH(this);">
+    <div class="form-grid">
+      <div class="field field-span2"><label>Colaborador</label><select name="colaborador_usuario_id" required>${opt(S.usuarios.map(u=>[u.id,u.nome]),'')}</select></div>
+      <div class="field"><label>Data</label><input type="date" name="data_ocorrencia" value="${new Date().toISOString().slice(0,10)}" required></div>
+      <div class="field"><label>Hora</label><input type="time" name="hora_ocorrencia"></div>
+      <div class="field"><label>Local</label><input name="local"></div>
+      <div class="field"><label>Tipo de ocorrência</label><input name="tipo_ocorrencia" placeholder="Ex: atraso, indisciplina, segurança…"></div>
+      <div class="field field-span2"><label>Gravidade</label>${chipGroup('gravidade',[['leve','Leve'],['media','Média'],['grave','Grave']],'leve')}</div>
+    </div>
+    <div class="field"><label>Relato da ocorrência</label><textarea name="relato" required rows="3" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;font:inherit;"></textarea></div>
+    <div class="field"><label>Envolvidos</label><input name="envolvidos" placeholder="Nomes dos envolvidos"></div>
+    <div class="field"><label>Testemunhas</label><input name="testemunhas" placeholder="Nomes das testemunhas"></div>
+    <div class="muted" style="margin-top:8px;">Registrado por: ${esc(S.user.nome)} (login atual)</div>
+    <button class="btn btn-primary btn-block" style="margin-top:10px;" ${S.loading?'disabled':''}>${S.loading?'Enviando…':'Registrar ocorrência'}</button>
+  </form>`;
+}
+async function salvarOcorrenciaRH(form){
+  const fd = new FormData(form);
+  S.loading=true; render();
+  try{
+    const colabId = fd.get('colaborador_usuario_id');
+    await sb('ocorrencias_rh',{method:'POST',body:{
+      colaborador_usuario_id:colabId, colaborador_nome:usuMap()[colabId]?.nome||null, registrado_por:S.user.id,
+      data_ocorrencia:fd.get('data_ocorrencia'), hora_ocorrencia:fd.get('hora_ocorrencia')||null, local:fd.get('local')||null,
+      tipo_ocorrencia:fd.get('tipo_ocorrencia')||null, gravidade:fd.get('gravidade'), relato:fd.get('relato'),
+      envolvidos:fd.get('envolvidos')||null, testemunhas:fd.get('testemunhas')||null}});
+    toast('Ocorrência registrada. Segue para aprovação do RH.'); form.reset();
+    carregarOcorrenciasRHTab('lista');
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+function renderOcorrenciasRHLista(){
+  const podeDecidir = ['administrador','departamento_pessoal'].includes(S.user.perfil);
+  return (S.ocorrenciasRHLista||[]).map(o=>`<div class="mcard"><div class="mc-top"><span>${esc(o.colaborador_nome||'—')}</span>${badge(o.gravidade==='grave'?'critico':o.gravidade==='media'?'pendente':'ok',o.gravidade)}</div>
+    <div class="mc-meta">${fmtDateOnly(o.data_ocorrencia)} ${o.hora_ocorrencia||''} · ${esc(o.local||'—')} · ${esc(o.tipo_ocorrencia||'—')}</div>
+    <div class="muted">${esc(o.relato)}</div>
+    ${o.envolvidos?`<div class="mc-meta">Envolvidos: ${esc(o.envolvidos)}</div>`:''}
+    ${o.testemunhas?`<div class="mc-meta">Testemunhas: ${esc(o.testemunhas)}</div>`:''}
+    <div class="mc-meta">Registrado por: ${esc(usuMap()[o.registrado_por]?.nome||'—')}</div>
+    <div class="mc-meta">${badge(o.status==='aprovada'?'ok':o.status==='reprovada'?'critico':'pendente',o.status)}</div>
+    ${o.consequencia?`<div class="muted">Consequência: ${esc(o.consequencia)}</div>`:''}
+    ${podeDecidir&&o.status==='aberta'?`<div class="mc-actions">
+      <button class="btn-icon" onclick="decidirOcorrenciaRH('${o.id}','aprovada')">✅ Aprovar</button>
+      <button class="btn-icon danger" onclick="decidirOcorrenciaRH('${o.id}','reprovada')">❌ Reprovar</button>
+    </div>`:''}
+  </div>`).join('') || '<div class="empty-state">Nenhuma ocorrência registrada.</div>';
+}
+async function decidirOcorrenciaRH(id, status){
+  const consequencia = prompt('Consequência / decisão do RH:');
+  if(!consequencia) return;
+  try{
+    await sb(`ocorrencias_rh?id=eq.${id}`,{method:'PATCH',body:{status, consequencia, aprovado_por:S.user.id, aprovado_em:new Date().toISOString()}});
+    toast('Ocorrência atualizada.'); carregarOcorrenciasRHTab('lista');
+  }catch(e){ toast('Erro: '+e.message); }
 }
 
 function render(){

@@ -469,6 +469,7 @@ const MODULES=[['dashboard','Dashboard'],['os_lista','Ordens de Serviço'],['os_
   ['cadastros_obras','Cadastro de Obras'],['cadastros_equipes','Cadastro de Equipes'],['cadastros_usuarios','Cadastro de Usuários'],
   ['cadastros_veiculos','Cadastro de Veículos'],['cadastros_equipamentos','Cadastro de Equipamentos'],
   ['checklists','Checklists de Segurança'],['checkin_veiculo','Check-in/Check-out de Veículo'],
+  ['seguranca_epi','Segurança — Entrega de EPI'],['suprimentos','Suprimentos'],['dre_sinalizacao','DRE Sinalização Horizontal'],['mobilizacao','Mobilização'],
   ['financeiro','Financeiro — Notas Fiscais'],['financeiro_geral','Painel Financeiro Geral'],['permissoes','Permissões de Acesso']];
 
 function defaultPermissoes(perfil){
@@ -482,9 +483,9 @@ function defaultPermissoes(perfil){
   if(perfil==='engenharia') return {...all,dashboard:true,os_nova:true,cadastros_obras:true,cadastros_equipes:true,checkin_veiculo:true,dre_sinalizacao:true};
   if(perfil==='financeiro') return {...all,dashboard:true,financeiro_geral:true};
   if(perfil==='suprimentos') return {...all,cadastros_veiculos:true,cadastros_equipamentos:true,suprimentos:true};
-  if(perfil==='supervisor') return {...all,dashboard:true,checkin_veiculo:true,seguranca_epi:true};
-  if(perfil==='coordenador') return {...all,dashboard:true,seguranca_epi:true};
-  return {...all, checkin_veiculo:true, seguranca_epi:true}; // encarregado (campo)
+  if(perfil==='supervisor') return {...all,dashboard:true,checkin_veiculo:true};
+  if(perfil==='coordenador') return {...all,dashboard:true};
+  return {...all, checkin_veiculo:true}; // encarregado (campo)
 }
 function canAccess(mod){
   if(!S.user) return false;
@@ -4771,9 +4772,9 @@ async function salvarInformeProducao(form){
     body.mensagem_gerada = texto; body.mensagem_enviada = true; body.enviado_em = new Date().toISOString();
     await sb('informes_producao',{method:'POST',body});
     toast('Informe salvo.');
-    window.open('https://wa.me/?text='+encodeURIComponent(texto), '_blank');
     __informeObraSel=null; __informeBlocos=[]; __informeMateriais=[]; form.reset();
     carregarInformeTab('historico');
+    setTimeout(()=>{ window.open('https://wa.me/?text='+encodeURIComponent(texto), '_blank'); }, 300);
   }catch(e){ toast('Erro: '+e.message); }
   S.loading=false; render();
 }
@@ -4907,9 +4908,9 @@ async function salvarProgramacao(form){
     body.mensagem_gerada = texto; body.mensagem_enviada = true; body.enviado_em = new Date().toISOString();
     await sb('programacoes_cco',{method:'POST',body});
     toast('Programação salva.');
-    window.open('https://wa.me/?text='+encodeURIComponent(texto), '_blank');
     __progObraSel=null; __progBlocos=[]; form.reset();
     carregarProgramacaoTab('historico');
+    setTimeout(()=>{ window.open('https://wa.me/?text='+encodeURIComponent(texto), '_blank'); }, 300);
   }catch(e){ toast('Erro: '+e.message); }
   S.loading=false; render();
 }
