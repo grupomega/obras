@@ -679,7 +679,7 @@ const S = {
   obraSubView:'hub', informeView:'novo', informeLista:[], servicosObraLista:[], obraServicosSelecionada:null,
   obraRodoviasSelecionada:null, rodoviasObraLista:[], obraFiscaisSelecionada:null, fiscaisObraLista:[],
   programacaoView:'novo', programacaoLista:[],
-  dashGeral:null, buscaUsuarios:'', dashFiltro:{}
+  dashGeral:null, buscaUsuarios:'', dashFiltro:{}, ocorrenciaFrotaTab:'nova', ocorrenciasFrotaLista:[]
 };
 
 function usuMap(){ const m={}; S.usuarios.forEach(u=>m[u.id]=u); return m; }
@@ -1469,53 +1469,60 @@ function navGoto(k){
   else if(k==='dds'){ S.view='dds'; S.ddsScreen='hub'; render(); }
   else if(k==='mobilizacao'){ carregarMobTab('nova'); }
   else if(k==='obra'){ S.view='obra'; S.obraSubView='hub'; render(); }
+  else if(k==='cadastros_obras_ir'){ S.view='cadastros'; S.cadastroTab='obras'; render(); }
+  else if(k==='cadastros_equipamentos_ir'){ S.view='cadastros'; S.cadastroTab='equipamentos'; render(); }
+  else if(k==='cadastros_usuarios_ir'){ S.view='cadastros'; S.cadastroTab='usuarios'; render(); }
+  else if(k==='cadastros_equipes_ir'){ S.view='cadastros'; S.cadastroTab='equipes'; render(); }
+  else if(k==='obra_programacao'){ S.view='obra'; S.obraSubView='programacao'; carregarProgramacaoTab('novo'); }
+  else if(k==='obra_informe'){ S.view='obra'; S.obraSubView='informe'; carregarInformeTab('novo'); }
+  else if(k==='ocorrencias_ir'){ S.view='veiculo_checkin'; carregarOcorrenciasFrotaTab('lista'); }
   else { S.view=k; render(); }
 }
 function renderHeader(){
-  const grupos = [
-    ['PRINCIPAL', [['obra','📍','Obra'], canAccess('dashboard')?['dashboard','📊','Dashboard']:null].filter(Boolean)],
-    ['OPERAÇÃO', [
-      canAccess('os_lista')?['lista','📋','Ordens de Serviço']:null,
-      canAccess('os_nova')?['nova','➕','Nova OS']:null,
-      canAccess('checklists')?['checklists','✅','Checklists']:null,
-      canAccess('checkin_veiculo')?['veiculo_checkin','🚚','Frota']:null,
-      ['rdo','📝','RDO — Diário de Obra'],
-    ].filter(Boolean)],
-    ['GESTÃO', [
-      (canAccess('cadastros_obras')||canAccess('cadastros_equipes')||canAccess('cadastros_usuarios')||canAccess('cadastros_veiculos')||canAccess('cadastros_equipamentos'))?['cadastros','🗂️','Cadastros']:null,
-      canAccess('financeiro')?['financeiro','💰','Financeiro']:null,
-      canAccess('suprimentos')?['suprimentos','📦','Suprimentos']:null,
-      canAccess('dre_sinalizacao')?['dre_sinalizacao','🎨','DRE Sinalização']:null,
-    ].filter(Boolean)],
-    ['PESSOAS & SEGURANÇA', [
-      ['rh','👥','Pessoas / RH'],
-      ['dds','🦺','Segurança'],
-      ['mensagens','💬','Mensagens'],
-    ].filter(Boolean)],
-    ['ADMINISTRAÇÃO', [
-      canAccess('permissoes')?['permissoes','🔐','Permissões']:null,
-      S.user.perfil==='administrador'?['historico','🕘','Histórico']:null,
-    ].filter(Boolean)],
-  ].filter(([,items])=>items.length);
+  const principal = [
+    ['dashboard','🏠','Início'],
+    (canAccess('cadastros_obras')?['cadastros_obras_ir','🏗️','Obras']:null),
+    ['obra_programacao','🗓️','Planejamento'],
+    ['rdo','📝','RDO'],
+    ['ocorrencias_ir','🔔','Ocorrências'],
+    ['obra_informe','📍','Produção'],
+    canAccess('suprimentos')?['suprimentos','📦','Suprimentos']:null,
+    canAccess('checkin_veiculo')?['veiculo_checkin','🚚','Frota']:null,
+    (canAccess('cadastros_equipamentos')?['cadastros_equipamentos_ir','🛠️','Equipamentos']:null),
+    ['cadastros_usuarios_ir','👥','Colaboradores'],
+    canAccess('mobilizacao')?['mobilizacao','💵','Mobilizações']:null,
+    canAccess('financeiro')?['financeiro','💰','Financeiro']:null,
+    S.user.perfil==='administrador'?['historico','📊','Relatórios']:null,
+    canAccess('permissoes')?['permissoes','⚙️','Configurações']:null,
+  ].filter(Boolean);
+  const outros = [
+    canAccess('os_lista')?['lista','📋','Ordens de Serviço']:null,
+    canAccess('os_nova')?['nova','➕','Nova OS']:null,
+    canAccess('checklists')?['checklists','✅','Checklists']:null,
+    (canAccess('cadastros_equipes')?['cadastros_equipes_ir','👷','Equipes']:null),
+    ['rh','👤','Pessoas / RH'],
+    ['dds','🦺','Segurança'],
+    canAccess('seguranca_epi')?['epi','⛑️','EPI']:null,
+    canAccess('dre_sinalizacao')?['dre_sinalizacao','🎨','DRE Sinalização']:null,
+    ['mensagens','💬','Mensagens'],
+  ].filter(Boolean);
 
-  const totalAlertas = S.alertasResumo.mensagens+S.alertasResumo.documentos+S.alertasResumo.osNovas;
   const iniciais = (S.user.nome||'?').split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
   return `
   <div class="sidebar">
     <div class="sidebar-brand"><img src="${MEGA_LOGO_URL}" alt="Grupo MEGA"></div>
-    <div class="sidebar-scroll">
-      ${grupos.map(([titulo,items])=>`
-        <div class="sidebar-section">${titulo}</div>
-        ${items.map(([k,ic,l])=>`<div class="sidebar-item ${S.view===k?'active':''}" onclick="navGoto('${k}')"><span class="ic">${ic}</span>${l}</div>`).join('')}
-      `).join('')}
-    </div>
-    <div class="sidebar-user">
-      <div class="avatar">${S.user.foto?`<img src="${S.user.foto}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">`:iniciais}</div>
-      <div style="flex:1;min-width:0;">
-        <div style="font-size:13px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(S.user.nome)}</div>
+    <div class="sidebar-user" style="border-top:none;border-bottom:1px solid #333;flex-direction:column;align-items:center;text-align:center;padding:16px;gap:8px;">
+      <div class="avatar" style="width:56px;height:56px;border-radius:50%;font-size:18px;">${S.user.foto?`<img src="${S.user.foto}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:iniciais}</div>
+      <div>
+        <div style="font-size:13.5px;font-weight:700;color:#fff;">${esc(S.user.nome)}</div>
         <div style="font-size:11px;color:#999;">${esc(PERFIL_LABELS[S.user.perfil]||S.user.perfil)}</div>
       </div>
-      <button class="btn-logout" onclick="doLogout()" title="Sair">⏻</button>
+    </div>
+    <div class="sidebar-scroll">
+      ${principal.map(([k,ic,l])=>`<div class="sidebar-item ${S.view===k?'active':''}" onclick="navGoto('${k}')"><span class="ic">${ic}</span>${l}</div>`).join('')}
+      <div class="sidebar-section">MAIS</div>
+      ${outros.map(([k,ic,l])=>`<div class="sidebar-item ${S.view===k?'active':''}" onclick="navGoto('${k}')"><span class="ic">${ic}</span>${l}</div>`).join('')}
+      <div class="sidebar-item" onclick="doLogout()"><span class="ic">🚪</span>Sair</div>
     </div>
   </div>`;
 }
@@ -2561,17 +2568,19 @@ function renderChecklistDetalheView(){
    ========================================================== */
 function renderCheckinVeiculo(){
   return `<div class="wrap">
-    <div class="section-header">Check-in / Check-out de Veículo
+    <div class="section-header">Frota
       <div class="flex-row">
         <button class="btn ${S.veiculoUsoView==='novo'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.veiculoUsoView='novo';render()">+ Novo Check-in</button>
         <button class="btn ${S.veiculoUsoView==='pendentes'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.veiculoUsoView='pendentes';loadVeiculoUsos().then(render);">Check-outs Pendentes</button>
         <button class="btn ${S.veiculoUsoView==='historico'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.veiculoUsoView='historico';loadVeiculoUsos().then(render);">Histórico</button>
+        <button class="btn ${S.veiculoUsoView==='ocorrencias'?'btn-primary':'btn-secondary'} btn-sm" onclick="carregarOcorrenciasFrotaTab('lista');">⚠️ Ocorrências</button>
       </div>
     </div>
     ${S.veiculoUsoView==='novo'?renderCheckinNovo():''}
     ${S.veiculoUsoView==='pendentes'?renderCheckinPendentes():''}
     ${S.veiculoUsoView==='historico'?renderCheckinHistorico():''}
     ${S.veiculoUsoView==='checkout'?renderCheckoutForm():''}
+    ${S.veiculoUsoView==='ocorrencias'?renderOcorrenciasFrota():''}
   </div>`;
 }
 function renderCheckinNovo(){
@@ -4939,6 +4948,78 @@ function renderProgramacaoHistorico(){
       <td style="font-size:12.5px;">${(r.blocos||[]).map(b=>`${b.equipe_nome}: ${(b.servicos||[]).map(s=>s.servico).join(', ')}`).join(' | ')}</td>
       <td><button class="btn btn-secondary btn-sm" onclick='compartilharTextoProgramacao(${JSON.stringify(r).replace(/'/g,"&apos;")})'>📤 Compartilhar</button></td></tr>`).join('') || `<tr><td colspan="5" class="empty-state">Nenhuma programação registrada ainda.</td></tr>`}
     </tbody></table></div>`;
+}
+
+/* ==========================================================
+   FROTA — OCORRÊNCIAS (avarias/danos, aprovação de gestores)
+   ========================================================== */
+function carregarOcorrenciasFrotaTab(tab){
+  S.view='veiculo_checkin'; S.veiculoUsoView='ocorrencias'; S.ocorrenciaFrotaTab=tab; S.loading=true; render();
+  const done=()=>{ S.loading=false; render(); };
+  if(tab==='lista'){ sb('ocorrencias_frota?select=*&order=criado_em.desc&limit=200').then(rows=>{ S.ocorrenciasFrotaLista=rows; done(); }).catch(e=>{toast('Erro: '+e.message);done();}); }
+  else done();
+}
+function renderOcorrenciasFrota(){
+  const tabs=[['nova','+ Nova Ocorrência'],['lista','Lista / Aprovação']];
+  return `<div class="flex-row" style="margin:12px 0;gap:6px;">${tabs.map(([k,l])=>`<button class="btn ${(S.ocorrenciaFrotaTab||'nova')===k?'btn-primary':'btn-secondary'} btn-sm" onclick="carregarOcorrenciasFrotaTab('${k}')">${l}</button>`).join('')}</div>
+  ${(S.ocorrenciaFrotaTab||'nova')==='nova'?renderOcorrenciaFrotaNova():''}
+  ${S.ocorrenciaFrotaTab==='lista'?renderOcorrenciasFrotaLista():''}`;
+}
+function renderOcorrenciaFrotaNova(){
+  return `<form class="card" onsubmit="event.preventDefault();salvarOcorrenciaFrota(this);">
+    <div class="form-grid">
+      <div class="field field-span2"><label>Veículo</label><select name="veiculo_id" required>${opt(S.veiculos.map(v=>[v.id,(v.placa||v.codigo_ativo||'—')+' — '+(v.tipo||'')]),'')}</select></div>
+      <div class="field field-span2"><label>Descrição da ocorrência</label><input name="descricao_ocorrencia" required placeholder="O que aconteceu"></div>
+      <div class="field"><label>Responsável pelo dano</label><select name="responsavel_dano_id">${opt(S.usuarios.map(u=>[u.id,u.nome]),'',true)}</select></div>
+      <div class="field"><label>Valor previsto (R$)</label><input type="number" step="0.01" name="valor_previsto"></div>
+    </div>
+    <div class="field" style="margin:10px 0;"><label>Fotos</label>${photoWidget('ocorrencia_frota_fotos')}</div>
+    <div class="field"><label>Observações gerais / relato</label><textarea name="observacoes" rows="3" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;font:inherit;"></textarea></div>
+    <div class="muted" style="margin-top:8px;">Registrado por: ${esc(S.user.nome)} (login atual)</div>
+    <button class="btn btn-primary" style="margin-top:10px;" ${S.loading?'disabled':''}>${S.loading?'Enviando…':'Registrar ocorrência'}</button>
+  </form>`;
+}
+async function salvarOcorrenciaFrota(form){
+  const fd = new FormData(form);
+  const files = window.pendingFiles['ocorrencia_frota_fotos']||[];
+  if(!files.length){ toast('Anexe ao menos uma foto.'); return; }
+  S.loading=true; render();
+  try{
+    const fotos=[];
+    for(const f of files){ fotos.push(await uploadArquivo(f, `${S.user.id}/${Date.now()}_${f.name}`, 'ocorrencias')); }
+    const respId = fd.get('responsavel_dano_id')||null;
+    await sb('ocorrencias_frota',{method:'POST',body:{
+      veiculo_id:fd.get('veiculo_id'), fotos, descricao_ocorrencia:fd.get('descricao_ocorrencia'),
+      responsavel_dano_id:respId, responsavel_dano_nome:respId?usuMap()[respId]?.nome:null,
+      valor_previsto:fd.get('valor_previsto')?parseFloat(fd.get('valor_previsto')):null, observacoes:fd.get('observacoes')||null,
+      usuario_registro_id:S.user.id}});
+    clearPending('ocorrencia_frota_fotos'); toast('Ocorrência registrada. Segue para análise dos gestores.'); form.reset();
+    carregarOcorrenciasFrotaTab('lista');
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+function renderOcorrenciasFrotaLista(){
+  const podeDecidir = ['administrador','departamento_pessoal','supervisor','coordenador'].includes(S.user.perfil);
+  return `<div class="table-scroll"><table class="mega-table">
+    <thead><tr><th>Veículo</th><th>Descrição</th><th>Responsável</th><th>Valor previsto</th><th>Registrado por</th><th>Status</th><th>Fotos</th>${podeDecidir?'<th></th>':''}</tr></thead>
+    <tbody>${(S.ocorrenciasFrotaLista||[]).map(o=>`<tr><td>${esc(veiculoMap()[o.veiculo_id]?.placa||veiculoMap()[o.veiculo_id]?.codigo_ativo||'—')}</td>
+      <td>${esc(o.descricao_ocorrencia)}${o.observacoes?`<div class="muted">${esc(o.observacoes)}</div>`:''}${o.consequencia?`<div class="muted">Consequência: ${esc(o.consequencia)}</div>`:''}</td>
+      <td>${esc(o.responsavel_dano_nome||'—')}</td><td class="mono">${o.valor_previsto?fmtMoney(o.valor_previsto):'—'}</td>
+      <td>${esc(usuMap()[o.usuario_registro_id]?.nome||'—')}</td>
+      <td>${badge(o.status==='aprovada'?'ok':o.status==='reprovada'?'critico':'pendente',o.status)}</td>
+      <td>${(o.fotos||[]).map(url=>`<a href="${url}" target="_blank"><img src="${url}" style="width:32px;height:32px;object-fit:cover;border-radius:4px;margin-right:2px;"></a>`).join('')||'—'}</td>
+      ${podeDecidir?`<td>${o.status==='aberta'?`<button class="btn btn-verde btn-sm" onclick="decidirOcorrenciaFrota('${o.id}','aprovada')">Aprovar</button>
+        <button class="btn btn-vermelho btn-sm" onclick="decidirOcorrenciaFrota('${o.id}','reprovada')">Reprovar</button>`:''}</td>`:''}
+      </tr>`).join('') || `<tr><td colspan="${podeDecidir?8:7}" class="empty-state">Nenhuma ocorrência registrada.</td></tr>`}
+    </tbody></table></div>`;
+}
+async function decidirOcorrenciaFrota(id, status){
+  const consequencia = prompt('Consequência / decisão sobre a ocorrência:');
+  if(!consequencia) return;
+  try{
+    await sb(`ocorrencias_frota?id=eq.${id}`,{method:'PATCH',body:{status, consequencia, decidido_por:S.user.id, decidido_em:new Date().toISOString()}});
+    toast('Ocorrência atualizada.'); carregarOcorrenciasFrotaTab('lista');
+  }catch(e){ toast('Erro: '+e.message); }
 }
 
 function render(){
