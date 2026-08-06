@@ -1460,9 +1460,11 @@ function renderTopBar(){
     <span class="brand" style="cursor:pointer;" onclick="S.view='obra';S.obraSubView='hub';render();">GRUPO MEGA</span>
     <div class="right">
       <span onclick="toggleDashOculto()">${S.dashOculto?'🙈':'👁️'}</span>
+      <span style="position:relative;" onclick="S.showNotif=!S.showNotif;render()">🔔${(S.alertasResumo.mensagens+S.alertasResumo.documentos+S.alertasResumo.osNovas)>0?`<span class="notif-dot"></span>`:''}</span>
       <button class="btn-logout" onclick="doLogout()" style="border-color:rgba(255,255,255,.5);color:#fff;">Sair</button>
     </div>
-  </div>`;
+  </div>
+  ${S.showNotif?renderNotifSheet():''}`;
 }
 function toggleDashOculto(){ S.dashOculto=!S.dashOculto; render(); }
 async function carregarAlertasResumo(){
@@ -1495,19 +1497,19 @@ function renderNotifSheet(){
 }
 function renderBottomNav(){
   const totalAlertas = (S.alertasResumo?.mensagens||0)+(S.alertasResumo?.documentos||0)+(S.alertasResumo?.osNovas||0);
-  const items=[
-    ['obra','🏠','Início',"S.view='obra';S.obraSubView='hub';render();"],
-    ['cadastro_obras','🏗️','Obras',"S.view='cadastros';S.cadastroTab='obras';render();"],
-    ['rdo','📝','RDO',"S.view='rdo';S.rdoView='hub';render();"],
-    ['notif','🔔','Notificações',"S.showNotif=true;render();"],
-    ['mais','☰','Mais',"S.showMais=true;render();"],
-  ];
+  const items=[];
+  items.push(['obra','🏠','Início',"S.view='obra';S.obraSubView='hub';render();"]);
+  if(canAccess('cadastros_obras')) items.push(['cadastro_obras','🏗️','Obras',"S.view='cadastros';S.cadastroTab='obras';render();"]);
+  if(canAccess('os_lista')) items.push(['lista','📋','OS',"S.view='lista';loadOSList().then(render);"]);
+  if(canAccess('financeiro')) items.push(['financeiro','💰','Financeiro',"S.view='financeiro';S.financeiroView='hub';render();"]);
+  items.push(['rh','👥','RH',"carregarRHTab('hub');"]);
+  items.push(['seguranca_hub','🦺','Segurança',"S.view='seguranca_hub';render();"]);
+  items.push(['mais','☰','Mais',"S.showMais=true;render();"]);
   return `<div class="bottom-nav">
-    ${items.map(([k,ic,l,oc])=>`<button class="${S.view===k?'active':''}" onclick="${oc}" style="position:relative;">
-      <span class="ic" style="position:relative;">${ic}${k==='notif'&&totalAlertas>0?`<span class="notif-dot" style="position:absolute;top:-2px;right:-6px;"></span>`:''}</span>${l}</button>`).join('')}
+    ${items.map(([k,ic,l,oc])=>`<button class="${['seguranca_hub','epi','dds','checklists'].includes(S.view)&&k==='seguranca_hub'?'active':S.view===k?'active':''}" onclick="${oc}" style="position:relative;">
+      <span class="ic" style="position:relative;">${ic}${k==='obra'&&totalAlertas>0?`<span class="notif-dot" style="position:absolute;top:-2px;right:-6px;"></span>`:''}</span>${l}</button>`).join('')}
   </div>
-  ${S.showMais?renderMaisSheet():''}
-  ${S.showNotif?renderNotifSheet():''}`;
+  ${S.showMais?renderMaisSheet():''}`;
 }
 function renderMaisSheet(){
   const items=[];
