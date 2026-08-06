@@ -18,6 +18,8 @@
   --font-display:'Barlow Condensed',sans-serif; --font-body:'DM Sans',sans-serif; --font-mono:'JetBrains Mono',monospace;
   --radius-sm:4px; --radius-md:8px; --radius-lg:16px;
   --shadow-card:0 2px 8px rgba(0,0,0,.10); --shadow-deep:0 8px 32px rgba(0,0,0,.22);
+  --app-red:#B8111F; --app-red-dark:#6E0A11; --app-red-light:#E8465A; --app-red-bg:#FDECEC;
+  --app-black:#160404; --app-black2:#280808;
 }
 *{box-sizing:border-box;}
 body{margin:0;font-family:var(--font-body);background:var(--mega-cinza-bg);color:var(--mega-cinza-esc);}
@@ -48,18 +50,18 @@ a.applink{color:#aaa;font-size:12px;text-decoration:underline;}
 /* ===== NOVO LAYOUT: SIDEBAR ESQUERDA + TOPBAR ===== */
 body{background:#f4f5f6;}
 .shell{display:flex;min-height:100vh;}
-.sidebar{width:250px;background:var(--mega-cinza-esc);color:#eee;flex-shrink:0;display:flex;flex-direction:column;
+.sidebar{width:250px;background:linear-gradient(180deg,var(--app-black2),var(--app-black) 45%,var(--app-red-dark));color:#eee;flex-shrink:0;display:flex;flex-direction:column;
   position:fixed;top:0;left:0;bottom:0;overflow-y:auto;z-index:60;}
-.sidebar-brand{display:flex;align-items:center;gap:10px;padding:20px 18px;border-bottom:1px solid #333;}
+.sidebar-brand{display:flex;align-items:center;gap:10px;padding:20px 18px;border-bottom:1px solid rgba(255,255,255,.12);}
 .sidebar-brand img{height:30px;}
-.sidebar-scroll{flex:1;padding:10px 0 16px;}
-.sidebar-section{font-family:var(--font-display);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#888;padding:16px 20px 6px;}
-.sidebar-item{display:flex;align-items:center;gap:10px;padding:9px 20px;color:#ccc;cursor:pointer;font-size:13.5px;
-  border-left:3px solid transparent;transition:background .1s;}
+.sidebar-scroll{flex:1;padding:10px 10px 16px;}
+.sidebar-section{font-family:var(--font-display);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#aaa;padding:16px 10px 6px;}
+.sidebar-item{display:flex;align-items:center;gap:10px;padding:10px 12px;color:#ddd;cursor:pointer;font-size:13.5px;
+  border-radius:var(--radius-md);margin-bottom:2px;transition:background .1s;}
 .sidebar-item .ic{font-size:15px;width:18px;text-align:center;}
-.sidebar-item:hover{background:#2a2a2a;color:#fff;}
-.sidebar-item.active{background:rgba(232,82,10,.16);color:#fff;border-left-color:var(--mega-laranja);font-weight:700;}
-.sidebar-user{display:flex;align-items:center;gap:10px;padding:14px 18px;border-top:1px solid #333;}
+.sidebar-item:hover{background:rgba(255,255,255,.08);color:#fff;}
+.sidebar-item.active{background:linear-gradient(135deg,var(--app-red),var(--app-red-dark));color:#fff;font-weight:700;box-shadow:0 2px 10px rgba(184,17,31,.5);}
+.sidebar-user{display:flex;align-items:center;gap:10px;padding:14px 18px;border-top:1px solid rgba(255,255,255,.12);}
 .sidebar-user .avatar{width:34px;height:34px;border-radius:8px;background:var(--mega-laranja);color:#fff;
   display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;}
 .main-area{margin-left:250px;flex:1;display:flex;flex-direction:column;min-height:100vh;width:calc(100% - 250px);}
@@ -680,7 +682,8 @@ const S = {
   obraRodoviasSelecionada:null, rodoviasObraLista:[], obraFiscaisSelecionada:null, fiscaisObraLista:[],
   programacaoView:'novo', programacaoLista:[],
   dashGeral:null, buscaUsuarios:'', dashFiltro:{}, ocorrenciaFrotaTab:'nova', ocorrenciasFrotaLista:[],
-  estoqueObraSel:null, estoqueObraLista:[]
+  estoqueObraSel:null, estoqueObraLista:[], gpFiltro:null, gpLista:[], gpLista4d:[],
+  apontamentosFaltaHoje:[], ocorrenciaRHTab:'nova', ocorrenciasRHLista:[]
 };
 
 function usuMap(){ const m={}; S.usuarios.forEach(u=>m[u.id]=u); return m; }
@@ -703,7 +706,7 @@ async function loadLoginList(){
 }
 async function loadBaseData(){
   const [usuarios,obras,equipes,veiculos,equipamentos,colaboradores] = await Promise.all([
-    sb('usuarios?select=id,codigo,matricula,foto,nome,cpf,cargo,email,telefone,perfil,equipe_id,obra_id,status,permissoes,plataforma_acesso,obras_acesso,criado_em,data_nascimento,estado_civil,naturalidade,rg,telefone_whatsapp,data_admissao&order=nome.asc'),
+    sb('usuarios?select=id,codigo,matricula,foto,nome,cpf,cargo,email,telefone,perfil,equipe_id,obra_id,status,permissoes,plataforma_acesso,obras_acesso,criado_em,data_nascimento,estado_civil,naturalidade,rg,telefone_whatsapp,data_admissao,banco,agencia,conta,tipo_conta,chave_pix&order=nome.asc'),
     sb('obras?select=*&order=nome.asc'),
     sb('equipes?select=*&order=nome.asc'),
     sb('veiculos?select=*&order=placa.asc'),
@@ -771,7 +774,9 @@ async function doLogin(){
     S.user.permissoes = (full && full.permissoes && Object.keys(full.permissoes).length) ? full.permissoes : defaultPermissoes(S.user.perfil);
     S.user.obras_acesso = full?.obras_acesso || [];
     if(full){ S.user.data_nascimento=full.data_nascimento; S.user.estado_civil=full.estado_civil; S.user.naturalidade=full.naturalidade;
-      S.user.rg=full.rg; S.user.telefone_whatsapp=full.telefone_whatsapp; S.user.data_admissao=full.data_admissao; S.user.cargo=full.cargo; }
+      S.user.rg=full.rg; S.user.telefone_whatsapp=full.telefone_whatsapp; S.user.data_admissao=full.data_admissao; S.user.cargo=full.cargo;
+      S.user.cpf=full.cpf; S.user.email=full.email; S.user.telefone=full.telefone; S.user.matricula=full.matricula;
+      S.user.banco=full.banco; S.user.agencia=full.agencia; S.user.conta=full.conta; S.user.tipo_conta=full.tipo_conta; S.user.chave_pix=full.chave_pix; }
     if(S.user.obras_acesso.length>0){
       const permitidas = new Set(S.user.obras_acesso);
       S.obras = S.obras.filter(o=>permitidas.has(o.id));
@@ -1459,7 +1464,7 @@ function trocarMatricula(){ S.loginUsuarioEncontrado=null; S.loginMatricula=''; 
 const VIEW_TITULOS = {dashboard:'Visão Geral', lista:'Ordens de Serviço', nova:'Nova Ordem de Serviço', cadastros:'Cadastros',
   checklists:'Checklists', veiculo_checkin:'Frota', financeiro:'Financeiro', permissoes:'Permissões de Acesso', rh:'Pessoas / RH',
   dds:'Segurança', suprimentos:'Suprimentos', dre_sinalizacao:'DRE Sinalização Horizontal', epi:'Segurança — EPI', mensagens:'Mensagens',
-  rdo:'RDO — Diário de Obra', mobilizacao:'Mobilização', historico:'Histórico', detalhe:'Detalhe da OS', obra:'Obra'};
+  rdo:'RDO — Diário de Obra', mobilizacao:'Mobilização', historico:'Histórico', detalhe:'Detalhe da OS', obra:'Obra', gestao_producao:'Gestão de Produção'};
 function navGoto(k){
   if(k==='lista'){ S.view='lista'; loadOSList().then(render); }
   else if(k==='veiculo_checkin'){ S.view='veiculo_checkin'; S.veiculoUsoView='pendentes'; loadVeiculoUsos().then(render); }
@@ -1476,6 +1481,7 @@ function navGoto(k){
   else if(k==='cadastros_equipes_ir'){ S.view='cadastros'; S.cadastroTab='equipes'; render(); }
   else if(k==='obra_programacao'){ S.view='obra'; S.obraSubView='programacao'; carregarProgramacaoTab('novo'); }
   else if(k==='obra_informe'){ S.view='obra'; S.obraSubView='informe'; carregarInformeTab('novo'); }
+  else if(k==='gestao_producao'){ carregarGestaoProducao(); }
   else if(k==='ocorrencias_ir'){ S.view='veiculo_checkin'; carregarOcorrenciasFrotaTab('lista'); }
   else { S.view=k; render(); }
 }
@@ -1487,6 +1493,7 @@ function renderHeader(){
     ['rdo','📝','RDO'],
     ['ocorrencias_ir','🔔','Ocorrências'],
     ['obra_informe','📍','Produção'],
+    ['gestao_producao','📈','Gestão de Produção'],
     canAccess('suprimentos')?['suprimentos','📦','Suprimentos']:null,
     canAccess('checkin_veiculo')?['veiculo_checkin','🚚','Frota']:null,
     (canAccess('cadastros_equipamentos')?['cadastros_equipamentos_ir','🛠️','Equipamentos']:null),
@@ -1511,7 +1518,7 @@ function renderHeader(){
   const iniciais = (S.user.nome||'?').split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
   return `
   <div class="sidebar">
-    <div class="sidebar-brand"><img src="${MEGA_LOGO_URL}" alt="Grupo MEGA"></div>
+    <div class="sidebar-brand" style="cursor:pointer;" onclick="S.view='dashboard';render();"><img src="${MEGA_LOGO_URL}" alt="Grupo MEGA"></div>
     <div class="sidebar-user" style="border-top:none;border-bottom:1px solid #333;flex-direction:column;align-items:center;text-align:center;padding:16px;gap:8px;">
       <div class="avatar" style="width:56px;height:56px;border-radius:50%;font-size:18px;">${S.user.foto?`<img src="${S.user.foto}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:iniciais}</div>
       <div>
@@ -2828,18 +2835,60 @@ function renderFinanceiroDetalhe(){
    ========================================================== */
 function isRHStaff(){ return S.user && (S.user.perfil==='administrador'||S.user.perfil==='departamento_pessoal'); }
 function renderRH(){
-  const tabs=[['pessoas','Meus Dados'],['atestados','Atestados'],['ponto','Ponto'],['documentos','Documentos'],['indicacoes','Indique um Amigo']];
+  const podeApontarFalta = ['administrador','departamento_pessoal','supervisor','coordenador','encarregado'].includes(S.user.perfil);
+  const tabs=[['pessoas','Meus Dados'],
+    podeApontarFalta?['apontamento_falta','Apontamento de Falta']:null,
+    ['atestados','Atestados'],['ponto','Ponto'],['documentos','Documentos'],['indicacoes','Indique um Amigo'],['ocorrencias','Ocorrências']].filter(Boolean);
   return `<div class="wrap">
     <div class="section-header">Pessoas / RH</div>
     <div class="flex-row" style="margin-bottom:14px;gap:6px;">
       ${tabs.map(([k,l])=>`<button class="btn ${S.rhTab===k?'btn-primary':'btn-secondary'} btn-sm" onclick="S.rhTab='${k}';carregarRHTab('${k}');">${l}</button>`).join('')}
     </div>
     ${S.rhTab==='pessoas'?renderPessoas():''}
+    ${S.rhTab==='apontamento_falta'?renderApontamentoFalta():''}
     ${S.rhTab==='atestados'?renderAtestados():''}
     ${S.rhTab==='ponto'?renderPonto():''}
     ${S.rhTab==='documentos'?renderDocumentos():''}
     ${S.rhTab==='indicacoes'?renderIndicacoes():''}
+    ${S.rhTab==='ocorrencias'?renderOcorrenciasRH():''}
   </div>`;
+}
+function renderApontamentoFalta(){
+  return `<div class="card">
+    <form onsubmit="event.preventDefault();salvarApontamentoFalta(this);">
+      <div class="form-grid">
+        <div class="field field-span2"><label>Colaborador</label><select name="colaborador_usuario_id" required>${opt(S.usuarios.map(u=>[u.id,u.nome]),'')}</select></div>
+        <div class="field"><label>Obra</label><select name="obra_id">${opt(S.obras.map(o=>[o.id,o.nome]),'',true)}</select></div>
+        <div class="field"><label>Data</label><input type="date" name="data_falta" value="${new Date().toISOString().slice(0,10)}" required></div>
+        <div class="field field-span2"><label>Tipo</label>${chipGroup('tipo',[['falta','Falta'],['atraso','Atraso'],['nao_retornou_almoco','Não retornou do almoço'],['saida_antecipada','Saída antecipada']],'falta')}</div>
+      </div>
+      <div class="field" style="margin-top:10px;"><label>Observação</label><input name="observacao" placeholder="Opcional"></div>
+      <div class="muted" style="margin-top:8px;">Apontado por: ${esc(S.user.nome)}</div>
+      <button class="btn btn-primary" style="margin-top:10px;" ${S.loading?'disabled':''}>${S.loading?'Salvando…':'Registrar'}</button>
+    </form>
+  </div>
+  <div class="table-scroll" style="margin-top:14px;"><table class="mega-table">
+    <thead><tr><th>Colaborador</th><th>Obra</th><th>Tipo</th><th>Apontado por</th><th>Observação</th></tr></thead>
+    <tbody>${(S.apontamentosFaltaHoje||[]).map(a=>`<tr><td>${esc(a.colaborador_nome)}</td><td>${esc(obraMap()[a.obra_id]?.nome||'—')}</td>
+      <td>${badge('critico',a.tipo.replace(/_/g,' '))}</td><td>${esc(usuMap()[a.apontado_por]?.nome||'—')}</td><td>${esc(a.observacao||'')}</td></tr>`).join('') || `<tr><td colspan="5" class="empty-state">Nenhum apontamento hoje.</td></tr>`}</tbody>
+  </table></div>`;
+}
+async function salvarApontamentoFalta(form){
+  const fd = new FormData(form);
+  const colabId = fd.get('colaborador_usuario_id');
+  S.loading=true; render();
+  try{
+    await sb('apontamentos_falta',{method:'POST',body:{
+      colaborador_usuario_id:colabId, colaborador_nome:usuMap()[colabId]?.nome||null, obra_id:fd.get('obra_id')||null,
+      data_falta:fd.get('data_falta'), tipo:fd.get('tipo'), observacao:fd.get('observacao')||null, apontado_por:S.user.id}});
+    toast('Apontamento registrado.'); form.reset(); await carregarApontamentosFaltaHoje();
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+async function carregarApontamentosFaltaHoje(){
+  const hojeStr = new Date().toISOString().slice(0,10);
+  try{ S.apontamentosFaltaHoje = await sb(`apontamentos_falta?select=*&data_falta=eq.${hojeStr}&order=criado_em.desc`); }catch(e){}
+  render();
 }
 function carregarRHTab(tab){
   S.view='rh'; S.rhTab=tab; S.loading=true; render();
@@ -2850,6 +2899,8 @@ function carregarRHTab(tab){
   else if(tab==='ponto'){ loadMeuPonto().then(done).catch(fail); }
   else if(tab==='documentos'){ Promise.all([loadDocumentos(), isRHStaff()?loadSolicitacoesDocumentosRH():loadMinhasSolicitacoesDocumentos()]).then(done).catch(fail); }
   else if(tab==='indicacoes'){ loadIndicacoes().then(done).catch(fail); }
+  else if(tab==='apontamento_falta'){ carregarApontamentosFaltaHoje().then(done).catch(fail); }
+  else if(tab==='ocorrencias'){ done(); }
   else done();
 }
 
@@ -2884,16 +2935,34 @@ function renderPessoas(){
   }
   const u = S.user;
   return `<form class="card" onsubmit="event.preventDefault();solicitarAtualizacaoCadastral(this);">
+    <div class="muted" style="font-weight:700;margin-bottom:8px;">Dados cadastrais</div>
     <div class="form-grid">
       <div class="field"><label>Nome</label><input value="${esc(u.nome)}" disabled></div>
+      <div class="field"><label>Matrícula</label><input value="${esc(u.matricula||'—')}" disabled></div>
       <div class="field"><label>Cargo</label><input value="${esc(u.cargo||'—')}" disabled></div>
+      <div class="field"><label>CPF</label><input value="${esc(u.cpf||'—')}" disabled></div>
+      <div class="field"><label>RG</label><input value="${esc(u.rg||'—')}" disabled></div>
+      <div class="field"><label>Data de nascimento</label><input value="${esc(u.data_nascimento||'—')}" disabled></div>
+      <div class="field"><label>Estado civil</label><input value="${esc(u.estado_civil||'—')}" disabled></div>
+      <div class="field"><label>Naturalidade</label><input value="${esc(u.naturalidade||'—')}" disabled></div>
       <div class="field"><label>Data de admissão</label><input value="${esc(u.data_admissao||'—')}" disabled></div>
-      <div class="field"><label>Telefone/WhatsApp</label><input value="${esc(u.telefone_whatsapp||u.telefone||'—')}" disabled></div>
+      <div class="field"><label>E-mail</label><input value="${esc(u.email||'—')}" disabled></div>
+      <div class="field"><label>Telefone</label><input value="${esc(u.telefone||'—')}" disabled></div>
+      <div class="field"><label>Telefone/WhatsApp</label><input value="${esc(u.telefone_whatsapp||'—')}" disabled></div>
+    </div>
+    <div class="divider"></div>
+    <div class="muted" style="font-weight:700;margin-bottom:8px;">Dados bancários / PIX</div>
+    <div class="form-grid">
+      <div class="field"><label>Banco</label><input value="${esc(u.banco||'—')}" disabled></div>
+      <div class="field"><label>Agência</label><input value="${esc(u.agencia||'—')}" disabled></div>
+      <div class="field"><label>Conta</label><input value="${esc(u.conta||'—')}" disabled></div>
+      <div class="field"><label>Tipo de conta</label><input value="${esc(u.tipo_conta||'—')}" disabled></div>
+      <div class="field field-span2"><label>Chave PIX</label><input value="${esc(u.chave_pix||'—')}" disabled></div>
     </div>
     <div class="muted" style="margin:10px 0;">Para alterar um dado, envie a solicitação abaixo — o RH analisa e aplica.</div>
     <div class="divider"></div>
     <div class="form-grid">
-      <div class="field"><label>Campo a alterar</label>${chipGroup('campo_alterado',[['telefone_whatsapp','Telefone/WhatsApp'],['estado_civil','Estado civil'],['naturalidade','Naturalidade'],['rg','RG'],['endereco','Endereço'],['dados_bancarios','Dados bancários'],['outro','Outro']],'telefone_whatsapp')}</div>
+      <div class="field"><label>Campo a alterar</label>${chipGroup('campo_alterado',[['telefone_whatsapp','Telefone/WhatsApp'],['estado_civil','Estado civil'],['naturalidade','Naturalidade'],['rg','RG'],['endereco','Endereço'],['banco','Banco'],['agencia','Agência'],['conta','Conta'],['chave_pix','Chave PIX'],['outro','Outro']],'telefone_whatsapp')}</div>
       <div class="field"><label>Novo valor</label><input name="valor_solicitado" required></div>
       <div class="field field-span2"><label>Justificativa</label><input name="justificativa"></div>
     </div>
@@ -4737,6 +4806,7 @@ function renderObraHub(){
   const cards=[
     ['📍','Informe de Produção','Registro diário de produção executada em campo',"carregarInformeTab('novo')"],
     ['📐','Abertura de CCO — Programação','Planejamento de frentes de serviço',"carregarProgramacaoTab('novo')"],
+    ['📈','Gestão de Produção','Produção por equipe nos últimos 4 dias, filtros e histórico',"carregarGestaoProducao()"],
   ];
   return `<div class="wrap">${cards.map(([ic,t,d,oc])=>`
     <div class="card clickable" style="display:flex;align-items:center;gap:14px;margin-bottom:10px;" onclick="${oc}">
@@ -5115,6 +5185,158 @@ async function decidirOcorrenciaFrota(id, status){
   }catch(e){ toast('Erro: '+e.message); }
 }
 
+/* ==========================================================
+   GESTÃO DE PRODUÇÃO — filtro obra/equipe/período + resumo 4 dias por equipe
+   ========================================================== */
+async function carregarGestaoProducao(){
+  S.view='gestao_producao';
+  if(!S.gpFiltro){
+    const hoje = new Date(); const de = new Date(); de.setDate(de.getDate()-15);
+    S.gpFiltro = {obra_id:'', equipe_id:'', data_de: de.toISOString().slice(0,10), data_ate: hoje.toISOString().slice(0,10)};
+  }
+  await buscarGestaoProducao();
+}
+async function buscarGestaoProducao(){
+  S.loading=true; render();
+  const f = S.gpFiltro;
+  let q = `informes_producao?select=*&data_producao=gte.${f.data_de}&data_producao=lte.${f.data_ate}&order=data_producao.desc`;
+  if(f.obra_id) q += `&obra_id=eq.${f.obra_id}`;
+  const hoje = new Date(); const quatroDiasAtras = new Date(); quatroDiasAtras.setDate(quatroDiasAtras.getDate()-3);
+  let q4 = `informes_producao?select=*&data_producao=gte.${quatroDiasAtras.toISOString().slice(0,10)}`;
+  if(f.obra_id) q4 += `&obra_id=eq.${f.obra_id}`;
+  try{
+    const [lista, lista4d] = await Promise.all([sb(q), sb(q4)]);
+    S.gpLista = lista; S.gpLista4d = lista4d;
+  }catch(e){ toast('Erro: '+e.message); S.gpLista=[]; S.gpLista4d=[]; }
+  S.loading=false; render();
+}
+function atualizarFiltroGP(campo,valor){ S.gpFiltro[campo]=valor; buscarGestaoProducao(); }
+function renderGestaoProducao(){
+  const f = S.gpFiltro||{};
+  // Resumo últimos 4 dias por equipe
+  const porEquipe4d = {};
+  (S.gpLista4d||[]).forEach(inf=>(inf.blocos||[]).forEach(b=>{
+    if(f.equipe_id && b.equipe_id!==f.equipe_id) return;
+    const nome = b.equipe_nome||'—';
+    let m2 = 0; (b.servicos||[]).forEach(s=>{ const un=(s.unidade||'').toLowerCase(); if(un==='m²'||un==='m2') m2 += parseFloat(s.quantidade)||0; });
+    porEquipe4d[nome] = (porEquipe4d[nome]||0) + m2;
+  }));
+  const equipes4d = Object.entries(porEquipe4d).sort((a,b)=>b[1]-a[1]);
+  const max4d = Math.max(...equipes4d.map(e=>e[1]),1);
+
+  // Lista flattened de serviços apontados no período
+  const linhas = [];
+  (S.gpLista||[]).forEach(inf=>{
+    const obra = obraMap()[inf.obra_id];
+    (inf.blocos||[]).forEach(b=>{
+      if(f.equipe_id && b.equipe_id!==f.equipe_id) return;
+      (b.servicos||[]).forEach(s=>{
+        linhas.push({data:inf.data_producao, obra:obra?.nome||'—', equipe:b.equipe_nome||'—', servico:s.servico, quantidade:s.quantidade, unidade:s.unidade});
+      });
+    });
+  });
+
+  return `<div class="wrap">
+    <div class="panel-card" style="margin-bottom:18px;">
+      <div class="panel-eyebrow">FILTROS</div>
+      <div class="form-grid" style="margin-top:10px;grid-template-columns:repeat(4,1fr);">
+        <div class="field"><label>Obra</label><select onchange="atualizarFiltroGP('obra_id',this.value)"><option value="">Todas</option>${opt(S.obras.map(o=>[o.id,o.nome]),f.obra_id)}</select></div>
+        <div class="field"><label>Equipe</label><select onchange="atualizarFiltroGP('equipe_id',this.value)"><option value="">Todas</option>${opt(S.equipes.map(e=>[e.id,e.nome]),f.equipe_id)}</select></div>
+        <div class="field"><label>Data de</label><input type="date" value="${f.data_de}" onchange="atualizarFiltroGP('data_de',this.value)"></div>
+        <div class="field"><label>Data até</label><input type="date" value="${f.data_ate}" onchange="atualizarFiltroGP('data_ate',this.value)"></div>
+      </div>
+    </div>
+
+    <div class="panel-card" style="margin-bottom:18px;">
+      <div class="panel-eyebrow">ÚLTIMOS 4 DIAS</div><div class="panel-title">Produção por equipe (m²)</div>
+      ${!equipes4d.length?'<div class="empty-state">Nenhuma produção lançada nos últimos 4 dias.</div>':`
+      <div style="margin-top:14px;">
+        ${equipes4d.map(([nome,val])=>`<div style="margin-bottom:10px;">
+          <div class="flex-row" style="justify-content:space-between;font-size:12.5px;"><b>${esc(nome)}</b><span>${val.toFixed(0)} m²</span></div>
+          <div style="background:var(--mega-cinza-bdr);border-radius:4px;height:8px;margin-top:4px;"><div style="background:var(--mega-laranja);height:8px;border-radius:4px;width:${(val/max4d*100)}%;"></div></div>
+        </div>`).join('')}
+      </div>`}
+    </div>
+
+    <div class="panel-card">
+      <div class="panel-eyebrow">PERÍODO SELECIONADO</div><div class="panel-title">Serviços apontados (${linhas.length})</div>
+      <div class="table-scroll" style="margin-top:10px;"><table class="mega-table">
+        <thead><tr><th>Data</th><th>Obra</th><th>Equipe</th><th>Serviço</th><th>Quantidade</th><th>Unidade</th></tr></thead>
+        <tbody>${linhas.map(l=>`<tr><td>${fmtDateOnly(l.data)}</td><td>${esc(l.obra)}</td><td>${esc(l.equipe)}</td><td>${esc(l.servico)}</td><td class="mono">${l.quantidade}</td><td>${esc(l.unidade||'')}</td></tr>`).join('') || `<tr><td colspan="6" class="empty-state">Nenhuma produção no período selecionado.</td></tr>`}</tbody>
+      </table></div>
+    </div>
+  </div>`;
+}
+
+/* ==========================================================
+   RH — OCORRÊNCIAS (registro disciplinar/incidente, aprovação RH)
+   ========================================================== */
+function carregarOcorrenciasRHTab(tab){
+  S.view='rh'; S.rhTab='ocorrencias'; S.ocorrenciaRHTab=tab; S.loading=true; render();
+  const done=()=>{ S.loading=false; render(); };
+  if(tab==='lista'){ sb('ocorrencias_rh?select=*&order=criado_em.desc&limit=200').then(rows=>{ S.ocorrenciasRHLista=rows; done(); }).catch(e=>{toast('Erro: '+e.message);done();}); }
+  else done();
+}
+function renderOcorrenciasRH(){
+  const tabs=[['nova','+ Nova Ocorrência'],['lista','Lista / Aprovação']];
+  return `<div class="flex-row" style="margin-bottom:12px;gap:6px;">${tabs.map(([k,l])=>`<button class="btn ${(S.ocorrenciaRHTab||'nova')===k?'btn-primary':'btn-secondary'} btn-sm" onclick="carregarOcorrenciasRHTab('${k}')">${l}</button>`).join('')}</div>
+  ${(S.ocorrenciaRHTab||'nova')==='nova'?renderOcorrenciaRHNova():''}
+  ${S.ocorrenciaRHTab==='lista'?renderOcorrenciasRHLista():''}`;
+}
+function renderOcorrenciaRHNova(){
+  return `<form class="card" onsubmit="event.preventDefault();salvarOcorrenciaRH(this);">
+    <div class="form-grid">
+      <div class="field field-span2"><label>Colaborador</label><select name="colaborador_usuario_id" required>${opt(S.usuarios.map(u=>[u.id,u.nome]),'')}</select></div>
+      <div class="field"><label>Data</label><input type="date" name="data_ocorrencia" value="${new Date().toISOString().slice(0,10)}" required></div>
+      <div class="field"><label>Hora</label><input type="time" name="hora_ocorrencia"></div>
+      <div class="field"><label>Local</label><input name="local"></div>
+      <div class="field"><label>Tipo de ocorrência</label><input name="tipo_ocorrencia" placeholder="Ex: atraso, indisciplina, segurança…"></div>
+      <div class="field field-span2"><label>Gravidade</label>${chipGroup('gravidade',[['leve','Leve'],['media','Média'],['grave','Grave']],'leve')}</div>
+    </div>
+    <div class="field"><label>Relato da ocorrência</label><textarea name="relato" required rows="3" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;font:inherit;"></textarea></div>
+    <div class="field"><label>Envolvidos</label><input name="envolvidos" placeholder="Nomes dos envolvidos"></div>
+    <div class="field"><label>Testemunhas</label><input name="testemunhas" placeholder="Nomes das testemunhas"></div>
+    <div class="muted" style="margin-top:8px;">Registrado por: ${esc(S.user.nome)} (login atual)</div>
+    <button class="btn btn-primary" style="margin-top:10px;" ${S.loading?'disabled':''}>${S.loading?'Enviando…':'Registrar ocorrência'}</button>
+  </form>`;
+}
+async function salvarOcorrenciaRH(form){
+  const fd = new FormData(form);
+  S.loading=true; render();
+  try{
+    const colabId = fd.get('colaborador_usuario_id');
+    await sb('ocorrencias_rh',{method:'POST',body:{
+      colaborador_usuario_id:colabId, colaborador_nome:usuMap()[colabId]?.nome||null, registrado_por:S.user.id,
+      data_ocorrencia:fd.get('data_ocorrencia'), hora_ocorrencia:fd.get('hora_ocorrencia')||null, local:fd.get('local')||null,
+      tipo_ocorrencia:fd.get('tipo_ocorrencia')||null, gravidade:fd.get('gravidade'), relato:fd.get('relato'),
+      envolvidos:fd.get('envolvidos')||null, testemunhas:fd.get('testemunhas')||null}});
+    toast('Ocorrência registrada. Segue para aprovação do RH.'); form.reset();
+    carregarOcorrenciasRHTab('lista');
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+function renderOcorrenciasRHLista(){
+  const podeDecidir = ['administrador','departamento_pessoal'].includes(S.user.perfil);
+  return `<div class="table-scroll"><table class="mega-table">
+    <thead><tr><th>Colaborador</th><th>Data</th><th>Local</th><th>Tipo</th><th>Gravidade</th><th>Relato</th><th>Status</th>${podeDecidir?'<th></th>':''}</tr></thead>
+    <tbody>${(S.ocorrenciasRHLista||[]).map(o=>`<tr><td>${esc(o.colaborador_nome||'—')}</td><td>${fmtDateOnly(o.data_ocorrencia)} ${o.hora_ocorrencia||''}</td><td>${esc(o.local||'—')}</td><td>${esc(o.tipo_ocorrencia||'—')}</td>
+      <td>${badge(o.gravidade==='grave'?'critico':o.gravidade==='media'?'pendente':'ok',o.gravidade)}</td>
+      <td>${esc(o.relato)}${o.envolvidos?`<div class="muted">Envolvidos: ${esc(o.envolvidos)}</div>`:''}${o.testemunhas?`<div class="muted">Testemunhas: ${esc(o.testemunhas)}</div>`:''}${o.consequencia?`<div class="muted">Consequência: ${esc(o.consequencia)}</div>`:''}</td>
+      <td>${badge(o.status==='aprovada'?'ok':o.status==='reprovada'?'critico':'pendente',o.status)}</td>
+      ${podeDecidir?`<td>${o.status==='aberta'?`<button class="btn btn-verde btn-sm" onclick="decidirOcorrenciaRH('${o.id}','aprovada')">Aprovar</button>
+        <button class="btn btn-vermelho btn-sm" onclick="decidirOcorrenciaRH('${o.id}','reprovada')">Reprovar</button>`:''}</td>`:''}
+      </tr>`).join('') || `<tr><td colspan="${podeDecidir?8:7}" class="empty-state">Nenhuma ocorrência registrada.</td></tr>`}
+    </tbody></table></div>`;
+}
+async function decidirOcorrenciaRH(id, status){
+  const consequencia = prompt('Consequência / decisão do RH:');
+  if(!consequencia) return;
+  try{
+    await sb(`ocorrencias_rh?id=eq.${id}`,{method:'PATCH',body:{status, consequencia, aprovado_por:S.user.id, aprovado_em:new Date().toISOString()}});
+    toast('Ocorrência atualizada.'); carregarOcorrenciasRHTab('lista');
+  }catch(e){ toast('Erro: '+e.message); }
+}
+
 function render(){
   const app = document.getElementById('app');
   if(!S.user){ app.innerHTML = renderLogin(); return; }
@@ -5125,6 +5347,7 @@ function render(){
   else if(S.view==='cadastros') body=renderCadastros();
   else if(S.view==='checklists') body=renderChecklists();
   else if(S.view==='veiculo_checkin') body=renderCheckinVeiculo();
+  else if(S.view==='gestao_producao') body=renderGestaoProducao();
   else if(S.view==='financeiro') body=renderFinanceiro();
   else if(S.view==='permissoes') body=renderPermissoes();
   else if(S.view==='rh') body=renderRH();

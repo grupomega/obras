@@ -45,6 +45,8 @@ a.applink{color:#aaa;font-size:12px;text-decoration:underline;}
 .notice-card{background:#fff;border-radius:var(--radius-md);padding:14px 16px;margin:-14px 14px 14px;box-shadow:var(--shadow-card);position:relative;z-index:2;}
 .notice-card .close-x{position:absolute;top:10px;right:12px;color:#999;cursor:pointer;font-size:14px;}
 .obra-selector{display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.12);border-radius:var(--radius-sm);padding:10px 14px;margin-top:14px;cursor:pointer;}
+.obra-select{appearance:none;-webkit-appearance:none;background:transparent url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6" viewBox="0 0 10 6"><path d="M0 0l5 6 5-6z" fill="white"/></svg>') no-repeat right 2px center;border:none;color:#fff;font-weight:700;font-size:14px;width:100%;padding-right:18px;cursor:pointer;}
+.obra-select option{color:#000;background:#fff;}
 .obra-selector .lbl2{font-size:10px;text-transform:uppercase;letter-spacing:.5px;opacity:.75;}
 .obra-selector .nome{font-weight:700;font-size:14px;margin-top:2px;}
 .resumo-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;}
@@ -686,7 +688,7 @@ const S = {
   programacaoView:'novo', programacaoLista:[],
   ocorrenciaFrotaTab:'nova', ocorrenciasFrotaLista:[], ocorrenciaRHTab:'nova', ocorrenciasRHLista:[],
   ncTab:'nova', ncLista:[], dashOculto:false, inicioStats:null, dashObraSel:null, buscaObras:'', obraStatusTab:'todas',
-  estoqueObraSel:null, estoqueObraLista:[],
+  estoqueObraSel:null, estoqueObraLista:[], apontamentosFaltaHoje:[], splashProgress:0,
   obraRodoviasSelecionada:null, rodoviasObraLista:[], obraFiscaisSelecionada:null, fiscaisObraLista:[]
 };
 
@@ -710,7 +712,7 @@ async function loadLoginList(){
 }
 async function loadBaseData(){
   const [usuarios,obras,equipes,veiculos,equipamentos,colaboradores] = await Promise.all([
-    sb('usuarios?select=id,matricula,foto,nome,cpf,cargo,email,telefone,perfil,equipe_id,obra_id,status,permissoes,plataforma_acesso,obras_acesso,criado_em,data_nascimento,estado_civil,naturalidade,rg,telefone_whatsapp,data_admissao&order=nome.asc'),
+    sb('usuarios?select=id,matricula,foto,nome,cpf,cargo,email,telefone,perfil,equipe_id,obra_id,status,permissoes,plataforma_acesso,obras_acesso,criado_em,data_nascimento,estado_civil,naturalidade,rg,telefone_whatsapp,data_admissao,banco,agencia,conta,tipo_conta,chave_pix&order=nome.asc'),
     sb('obras?select=*&order=nome.asc'),
     sb('equipes?select=*&order=nome.asc'),
     sb('veiculos?select=*&order=placa.asc'),
@@ -778,7 +780,9 @@ async function doLogin(){
     S.user.permissoes = (full && full.permissoes && Object.keys(full.permissoes).length) ? full.permissoes : defaultPermissoes(S.user.perfil);
     S.user.obras_acesso = full?.obras_acesso || [];
     if(full){ S.user.data_nascimento=full.data_nascimento; S.user.estado_civil=full.estado_civil; S.user.naturalidade=full.naturalidade;
-      S.user.rg=full.rg; S.user.telefone_whatsapp=full.telefone_whatsapp; S.user.data_admissao=full.data_admissao; S.user.cargo=full.cargo; }
+      S.user.rg=full.rg; S.user.telefone_whatsapp=full.telefone_whatsapp; S.user.data_admissao=full.data_admissao; S.user.cargo=full.cargo;
+      S.user.cpf=full.cpf; S.user.email=full.email; S.user.telefone=full.telefone; S.user.matricula=full.matricula;
+      S.user.banco=full.banco; S.user.agencia=full.agencia; S.user.conta=full.conta; S.user.tipo_conta=full.tipo_conta; S.user.chave_pix=full.chave_pix; }
     if(S.user.obras_acesso.length>0){
       const permitidas = new Set(S.user.obras_acesso);
       S.obras = S.obras.filter(o=>permitidas.has(o.id));
@@ -789,8 +793,11 @@ async function doLogin(){
     await loadNotificacoes();
     await carregarAlertasResumo();
     await loadOSList();
-    S.view = canAccess('dashboard') ? 'dashboard' : 'lista';
+    const destinoPosLogin = canAccess('dashboard') ? 'dashboard' : 'lista';
     S.pin=''; S.loginSel=null; S.loginUsuarioEncontrado=null; S.loginMatricula='';
+    S.loading=false;
+    iniciarSplashPosLogin(destinoPosLogin);
+    return;
   }catch(e){ S.error='Erro ao entrar: '+e.message; }
   S.loading=false; render();
 }
@@ -1409,6 +1416,33 @@ async function excluirNota(id){
 /* ==========================================================
    RENDER — LOGIN
    ========================================================== */
+function renderSplash(){
+  const pct = S.splashProgress||0;
+  const features = [['🛡️','Segurança','Sempre'],['📈','Gestão em','Tempo Real'],['👥','Equipes','Conectadas'],['📋','Controle','Total']];
+  return `<div style="min-height:100vh;background:linear-gradient(160deg,var(--app-black2),var(--app-red-dark) 55%,var(--app-red));display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px 24px;color:#fff;text-align:center;">
+    <img src="${MEGA_LOGO_URL}" style="height:70px;margin-bottom:36px;">
+    <div style="width:120px;height:120px;border-radius:26px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;font-size:52px;margin-bottom:28px;">🚧</div>
+    <div style="font-size:15px;line-height:1.5;margin-bottom:36px;">SINALIZAR É <b>PROTEGER</b>.<br>GERIR É <b>EVOLUIR</b>.</div>
+    <div class="spinner" style="border-color:rgba(255,255,255,.25);border-top-color:#fff;"></div>
+    <div style="font-size:13px;opacity:.85;margin:10px 0 40px;">Carregando o sistema…</div>
+    <div style="display:flex;justify-content:space-between;width:100%;max-width:340px;margin-bottom:26px;">
+      ${features.map(([ic,l1,l2])=>`<div style="flex:1;"><div style="font-size:20px;">${ic}</div><div style="font-size:9.5px;opacity:.85;margin-top:6px;line-height:1.3;">${l1}<br>${l2}</div></div>`).join('')}
+    </div>
+    <div style="width:100%;max-width:340px;background:rgba(255,255,255,.15);border-radius:20px;height:34px;position:relative;overflow:hidden;">
+      <div style="position:absolute;left:0;top:0;bottom:0;width:${pct}%;background:var(--mega-vermelho);border-radius:20px;transition:width .2s;"></div>
+      <div style="position:absolute;right:14px;top:0;bottom:0;display:flex;align-items:center;font-size:12px;font-weight:700;">${pct}%</div>
+    </div>
+  </div>`;
+}
+function iniciarSplashPosLogin(destino){
+  S.view='splash'; S.splashProgress=0; render();
+  const passos = 20, duracaoMs = 2000;
+  let i=0;
+  const timer = setInterval(()=>{
+    i++; S.splashProgress = Math.min(Math.round((i/passos)*100),100); render();
+    if(i>=passos){ clearInterval(timer); S.view=destino; S.splashProgress=0; render(); }
+  }, duracaoMs/passos);
+}
 function renderLogin(){
   const achado = S.loginUsuarioEncontrado;
   return `
@@ -1458,7 +1492,7 @@ function trocarMatricula(){ S.loginUsuarioEncontrado=null; S.loginMatricula=''; 
    ========================================================== */
 function renderTopBar(){
   return `<div class="top-bar">
-    <span class="brand" style="cursor:pointer;" onclick="S.view='obra';S.obraSubView='hub';render();">GRUPO MEGA</span>
+    <span class="brand" style="cursor:pointer;" onclick="S.view='dashboard';render();">GRUPO MEGA</span>
     <div class="right">
       <span onclick="toggleDashOculto()">${S.dashOculto?'🙈':'👁️'}</span>
       <span style="position:relative;" onclick="S.showNotif=!S.showNotif;render()">🔔${(S.alertasResumo.mensagens+S.alertasResumo.documentos+S.alertasResumo.osNovas)>0?`<span class="notif-dot"></span>`:''}</span>
@@ -1499,7 +1533,7 @@ function renderNotifSheet(){
 function renderBottomNav(){
   const totalAlertas = (S.alertasResumo?.mensagens||0)+(S.alertasResumo?.documentos||0)+(S.alertasResumo?.osNovas||0);
   const items=[];
-  items.push(['obra','🏠','Início',"S.view='obra';S.obraSubView='hub';render();"]);
+  items.push(['dashboard','🏠','Início',"S.view='dashboard';render();"]);
   if(canAccess('cadastros_obras')) items.push(['cadastro_obras','🏗️','Obras',"S.view='cadastros';S.cadastroTab='obras';render();"]);
   if(canAccess('os_lista')) items.push(['lista','📋','OS',"S.view='lista';loadOSList().then(render);"]);
   if(canAccess('financeiro')) items.push(['financeiro','💰','Financeiro',"S.view='financeiro';S.financeiroView='hub';render();"]);
@@ -1567,28 +1601,34 @@ function saudacaoHora(){
 async function carregarInicioStats(){
   try{
     const hojeStr = new Date().toISOString().slice(0,10);
-    const [informesHoje, veiculosAbertos, ocorFrota, ocorRH] = await Promise.all([
-      sb(`informes_producao?select=blocos&data_producao=eq.${hojeStr}`).catch(()=>[]),
-      sb('veiculo_usos?select=id,data_checkout').catch(()=>[]),
-      sb('ocorrencias_frota?select=id&status=eq.aberta').catch(()=>[]),
+    const obraF = S.dashObraSel ? `&obra_id=eq.${S.dashObraSel}` : '';
+    const [informesHoje, veiculosAbertos, ocorFrota, ocorRH, faltasHoje] = await Promise.all([
+      sb(`informes_producao?select=blocos&data_producao=eq.${hojeStr}${obraF}`).catch(()=>[]),
+      sb(`veiculo_usos?select=id,veiculo_id,data_checkout`).catch(()=>[]),
+      sb('ocorrencias_frota?select=id,veiculo_id&status=eq.aberta').catch(()=>[]),
       sb('ocorrencias_rh?select=id&status=eq.aberta').catch(()=>[]),
+      sb(`apontamentos_falta?select=id&data_falta=eq.${hojeStr}${obraF}`).catch(()=>[]),
     ]);
     let producaoHoje = 0;
     informesHoje.forEach(inf=>(inf.blocos||[]).forEach(b=>(b.servicos||[]).forEach(s=>{
       const un=(s.unidade||'').toLowerCase(); if(un==='m²'||un==='m2') producaoHoje += parseFloat(s.quantidade)||0;
     })));
+    const veiculosDaObra = S.dashObraSel ? new Set(S.veiculos.filter(v=>v.obra_id===S.dashObraSel).map(v=>v.id)) : null;
+    const veiculosCampo = veiculosAbertos.filter(v=>!v.data_checkout && (!veiculosDaObra || veiculosDaObra.has(v.veiculo_id))).length;
+    const ocorFrotaFiltradas = ocorFrota.filter(o=>!veiculosDaObra || veiculosDaObra.has(o.veiculo_id));
     S.inicioStats = {
       producaoHoje,
-      veiculosCampo: veiculosAbertos.filter(v=>!v.data_checkout).length,
-      ocorrenciasAbertas: ocorFrota.length + ocorRH.length,
+      veiculosCampo,
+      ocorrenciasAbertas: ocorFrotaFiltradas.length + (S.dashObraSel?0:ocorRH.length),
+      faltasHoje: faltasHoje.length,
     };
   }catch(e){ S.inicioStats = {producaoHoje:0, veiculosCampo:0, ocorrenciasAbertas:0}; }
   render();
 }
-function selecionarObraInicio(v){ S.dashObraSel = v||null; render(); }
+function selecionarObraInicio(v){ S.dashObraSel = v||null; carregarInicioStats(); }
 function renderDashboard(){
   if(!S.inicioStats){ carregarInicioStats(); }
-  const stats = S.inicioStats || {producaoHoje:0, veiculosCampo:0, ocorrenciasAbertas:0};
+  const stats = S.inicioStats || {producaoHoje:0, veiculosCampo:0, ocorrenciasAbertas:0, faltasHoje:0};
   const list = S.dashObraSel ? S.osList.filter(o=>o.obra_id===S.dashObraSel) : S.osList;
   const criticas = list.filter(o=>o.criticidade==='critica' && !['aprovada','cancelada'].includes(o.status)).length;
   const atrasadas = list.filter(o=>o.prazo_retorno && new Date(o.prazo_retorno)<new Date() && !['aprovada','cancelada'].includes(o.status)).length;
@@ -1615,7 +1655,7 @@ function renderDashboard(){
   return `
   <div class="hero-card" style="padding-bottom:34px;">
     <div class="hero-top-row">
-      <img class="hero-logo" src="${MEGA_LOGO_URL}" alt="Grupo MEGA" onclick="S.view='obra';S.obraSubView='hub';render();">
+      <img class="hero-logo" src="${MEGA_LOGO_URL}" alt="Grupo MEGA" onclick="S.view='dashboard';render();">
       <div class="hero-avatar-row">
         <span class="hero-bell" onclick="S.showNotif=true;render();">🔔${totalAlertasSino>0?`<span class="notif-dot" style="position:absolute;top:-2px;right:-6px;"></span>`:''}</span>
         ${S.user.foto?`<img class="hero-avatar" src="${S.user.foto}" onclick="carregarRHTab('pessoas');">`:`<div class="hero-avatar-fallback" onclick="carregarRHTab('pessoas');">${esc(iniciais)}</div>`}
@@ -1623,9 +1663,13 @@ function renderDashboard(){
     </div>
     <div class="lbl" style="font-size:14px;margin-top:14px;">${saudacaoHora()},</div>
     <div class="val" style="font-size:24px;">${esc(S.user.nome.split(' ')[0])} 👋</div>
-    <div class="obra-selector" onclick="S.view='cadastros';S.cadastroTab='obras';render();">
-      <div><div class="lbl2">Obra atual</div><div class="nome">${esc(obraAtual?.nome||'Todas as obras')}</div></div>
-      <span>▾</span>
+    <div class="obra-selector" style="padding:6px 8px;">
+      <div style="flex:1;"><div class="lbl2">Obra atual</div>
+        <select class="obra-select" onchange="selecionarObraInicio(this.value)">
+          <option value="" ${!S.dashObraSel?'selected':''}>Todas as obras</option>
+          ${S.obras.map(o=>`<option value="${o.id}" ${S.dashObraSel===o.id?'selected':''}>${esc(o.nome)}</option>`).join('')}
+        </select>
+      </div>
     </div>
   </div>
 
@@ -1633,7 +1677,7 @@ function renderDashboard(){
     <div class="head-row"><b>Resumo geral</b><span>Atualizado agora</span></div>
     <div class="resumo-grid" style="grid-template-columns:1fr 1fr;">
       <div class="resumo-item2"><div class="lbl4">Produção hoje</div><div class="val4">${stats.producaoHoje.toFixed(0)} m²</div></div>
-      <div class="resumo-item2"><div class="lbl4">Colaboradores</div><div class="val4">${ativosCount}</div></div>
+      <div class="resumo-item2"><div class="lbl4">Colaboradores</div><div class="val4">${ativosCount}</div>${stats.faltasHoje>0?`<div class="trend2 trend-warn">▲ ${stats.faltasHoje} falta(s) hoje</div>`:''}</div>
       <div class="resumo-item2"><div class="lbl4">Veículos em campo</div><div class="val4">${stats.veiculosCampo}</div></div>
       <div class="resumo-item2"><div class="lbl4">Ocorrências abertas</div><div class="val4">${stats.ocorrenciasAbertas}</div>${stats.ocorrenciasAbertas>0?`<div class="trend2 trend-warn">▲ atenção</div>`:''}</div>
     </div>
@@ -2592,12 +2636,14 @@ function renderFinanceiroDetalhe(){
    ========================================================== */
 function isRHStaff(){ return S.user && (S.user.perfil==='administrador'||S.user.perfil==='departamento_pessoal'); }
 function renderRH(){
+  const podeApontarFalta = ['administrador','departamento_pessoal','supervisor','coordenador','encarregado'].includes(S.user.perfil);
   const tabs=[['ponto','⏱️','Inserir Ponto','Bater ponto com selfie e localização'],
+    podeApontarFalta?['apontamento_falta','🚫','Apontamento de Falta','Registrar falta, atraso ou não retorno de colaborador']:null,
     ['pessoas','👤','Meus Dados','Dados cadastrais, dependentes e dados bancários'],
     ['atestados','🩺','Atestados','Enviar e acompanhar atestados médicos'],
     ['documentos','📄','Documentos','Documentos publicados e solicitados pelo RH'],
     ['indicacoes','🤝','Indique um Amigo','Indicar candidatos para vagas'],
-    ['ocorrencias','⚠️','Ocorrências','Registro de ocorrências disciplinares/incidentes']];
+    ['ocorrencias','⚠️','Ocorrências','Registro de ocorrências disciplinares/incidentes']].filter(Boolean);
   if(!S.rhTab || S.rhTab==='hub'){
     return `<div class="wrap">
       <div class="section-header">👥 Pessoas / RH</div>
@@ -2612,6 +2658,7 @@ function renderRH(){
     ${S.rhTab==='pessoas'?renderPessoas():''}
     ${S.rhTab==='atestados'?renderAtestados():''}
     ${S.rhTab==='ponto'?renderPonto():''}
+    ${S.rhTab==='apontamento_falta'?renderApontamentoFalta():''}
     ${S.rhTab==='documentos'?renderDocumentos():''}
     ${S.rhTab==='indicacoes'?renderIndicacoes():''}
     ${S.rhTab==='ocorrencias'?renderOcorrenciasRH():''}
@@ -2626,6 +2673,7 @@ function carregarRHTab(tab){
   else if(tab==='ponto'){ loadMeuPonto().then(done).catch(fail); }
   else if(tab==='documentos'){ Promise.all([loadDocumentos(), isRHStaff()?loadSolicitacoesDocumentosRH():loadMinhasSolicitacoesDocumentos()]).then(done).catch(fail); }
   else if(tab==='indicacoes'){ loadIndicacoes().then(done).catch(fail); }
+  else if(tab==='apontamento_falta'){ carregarApontamentosFaltaHoje().then(done).catch(fail); }
   else if(tab==='ocorrencias'){ done(); }
   else done();
 }
@@ -2661,16 +2709,34 @@ function renderPessoas(){
   }
   const u = S.user;
   return `<form class="card" onsubmit="event.preventDefault();solicitarAtualizacaoCadastral(this);">
+    <div class="muted" style="font-weight:700;margin-bottom:8px;">Dados cadastrais</div>
     <div class="form-grid">
       <div class="field"><label>Nome</label><input value="${esc(u.nome)}" disabled></div>
+      <div class="field"><label>Matrícula</label><input value="${esc(u.matricula||'—')}" disabled></div>
       <div class="field"><label>Cargo</label><input value="${esc(u.cargo||'—')}" disabled></div>
+      <div class="field"><label>CPF</label><input value="${esc(u.cpf||'—')}" disabled></div>
+      <div class="field"><label>RG</label><input value="${esc(u.rg||'—')}" disabled></div>
+      <div class="field"><label>Data de nascimento</label><input value="${esc(u.data_nascimento||'—')}" disabled></div>
+      <div class="field"><label>Estado civil</label><input value="${esc(u.estado_civil||'—')}" disabled></div>
+      <div class="field"><label>Naturalidade</label><input value="${esc(u.naturalidade||'—')}" disabled></div>
       <div class="field"><label>Data de admissão</label><input value="${esc(u.data_admissao||'—')}" disabled></div>
-      <div class="field"><label>Telefone/WhatsApp</label><input value="${esc(u.telefone_whatsapp||u.telefone||'—')}" disabled></div>
+      <div class="field"><label>E-mail</label><input value="${esc(u.email||'—')}" disabled></div>
+      <div class="field"><label>Telefone</label><input value="${esc(u.telefone||'—')}" disabled></div>
+      <div class="field"><label>Telefone/WhatsApp</label><input value="${esc(u.telefone_whatsapp||'—')}" disabled></div>
+    </div>
+    <div class="divider"></div>
+    <div class="muted" style="font-weight:700;margin-bottom:8px;">Dados bancários / PIX</div>
+    <div class="form-grid">
+      <div class="field"><label>Banco</label><input value="${esc(u.banco||'—')}" disabled></div>
+      <div class="field"><label>Agência</label><input value="${esc(u.agencia||'—')}" disabled></div>
+      <div class="field"><label>Conta</label><input value="${esc(u.conta||'—')}" disabled></div>
+      <div class="field"><label>Tipo de conta</label><input value="${esc(u.tipo_conta||'—')}" disabled></div>
+      <div class="field field-span2"><label>Chave PIX</label><input value="${esc(u.chave_pix||'—')}" disabled></div>
     </div>
     <div class="muted" style="margin:10px 0;">Para alterar um dado, envie a solicitação abaixo — o RH analisa e aplica.</div>
     <div class="divider"></div>
     <div class="form-grid">
-      <div class="field"><label>Campo a alterar</label>${chipGroup('campo_alterado',[['telefone_whatsapp','Telefone/WhatsApp'],['estado_civil','Estado civil'],['naturalidade','Naturalidade'],['rg','RG'],['endereco','Endereço'],['dados_bancarios','Dados bancários'],['outro','Outro']],'telefone_whatsapp')}</div>
+      <div class="field"><label>Campo a alterar</label>${chipGroup('campo_alterado',[['telefone_whatsapp','Telefone/WhatsApp'],['estado_civil','Estado civil'],['naturalidade','Naturalidade'],['rg','RG'],['endereco','Endereço'],['banco','Banco'],['agencia','Agência'],['conta','Conta'],['chave_pix','Chave PIX'],['outro','Outro']],'telefone_whatsapp')}</div>
       <div class="field"><label>Novo valor</label><input name="valor_solicitado" required></div>
       <div class="field field-span2"><label>Justificativa</label><input name="justificativa"></div>
     </div>
@@ -2770,6 +2836,41 @@ async function loadMeuPonto(){
   if(!isRHStaff()) q += `&usuario_id=eq.${S.user.id}`;
   S.pontos = await sb(q); S.pontosLoaded = true;
   if(isRHStaff()){ S.ajustesPonto = await sb('ajustes_ponto?select=*&status=eq.pendente&order=criado_em.desc'); }
+}
+function renderApontamentoFalta(){
+  return `<form class="card" onsubmit="event.preventDefault();salvarApontamentoFalta(this);">
+    <div class="form-grid">
+      <div class="field field-span2"><label>Colaborador</label><select name="colaborador_usuario_id" required>${opt(S.usuarios.map(u=>[u.id,u.nome]),'')}</select></div>
+      <div class="field"><label>Obra</label><select name="obra_id">${opt(S.obras.map(o=>[o.id,o.nome]),'',true)}</select></div>
+      <div class="field"><label>Data</label><input type="date" name="data_falta" value="${new Date().toISOString().slice(0,10)}" required></div>
+      <div class="field field-span2"><label>Tipo</label>${chipGroup('tipo',[['falta','Falta'],['atraso','Atraso'],['nao_retornou_almoco','Não retornou do almoço'],['saida_antecipada','Saída antecipada']],'falta')}</div>
+    </div>
+    <div class="field"><label>Observação</label><input name="observacao" placeholder="Opcional"></div>
+    <div class="muted" style="margin-top:8px;">Apontado por: ${esc(S.user.nome)}</div>
+    <button class="btn btn-primary btn-block" style="margin-top:10px;" ${S.loading?'disabled':''}>${S.loading?'Salvando…':'Registrar'}</button>
+  </form>
+  <div class="section-header" style="margin-top:14px;">Apontamentos de hoje</div>
+  ${(S.apontamentosFaltaHoje||[]).map(a=>`<div class="mcard"><div class="mc-top"><span>${esc(a.colaborador_nome)}</span>${badge('critico',a.tipo.replace(/_/g,' '))}</div>
+    <div class="mc-meta">${esc(obraMap()[a.obra_id]?.nome||'—')} · Apontado por: ${esc(usuMap()[a.apontado_por]?.nome||'—')}</div>
+    ${a.observacao?`<div class="muted">${esc(a.observacao)}</div>`:''}
+  </div>`).join('') || '<div class="empty-state">Nenhum apontamento hoje.</div>'}`;
+}
+async function salvarApontamentoFalta(form){
+  const fd = new FormData(form);
+  const colabId = fd.get('colaborador_usuario_id');
+  S.loading=true; render();
+  try{
+    await sb('apontamentos_falta',{method:'POST',body:{
+      colaborador_usuario_id:colabId, colaborador_nome:usuMap()[colabId]?.nome||null, obra_id:fd.get('obra_id')||null,
+      data_falta:fd.get('data_falta'), tipo:fd.get('tipo'), observacao:fd.get('observacao')||null, apontado_por:S.user.id}});
+    toast('Apontamento registrado.'); form.reset(); await carregarApontamentosFaltaHoje();
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+async function carregarApontamentosFaltaHoje(){
+  const hojeStr = new Date().toISOString().slice(0,10);
+  try{ S.apontamentosFaltaHoje = await sb(`apontamentos_falta?select=*&data_falta=eq.${hojeStr}&order=criado_em.desc`); }catch(e){}
+  render();
 }
 function renderPonto(){
   return `${!isRHStaff()?`
@@ -5009,6 +5110,7 @@ async function resolverNC(id){
 function render(){
   const app = document.getElementById('app');
   if(!S.user){ app.innerHTML = renderLogin(); return; }
+  if(S.view==='splash'){ app.innerHTML = renderSplash(); return; }
   let body='';
   if(S.view==='dashboard') body=renderDashboard();
   else if(S.view==='lista') body=renderLista();
