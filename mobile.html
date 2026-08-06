@@ -71,6 +71,31 @@ a.applink{color:#aaa;font-size:12px;text-decoration:underline;}
 .obra-card .metrics-row{display:flex;gap:20px;margin-top:12px;}
 .obra-card .metric-lbl{font-size:10px;color:var(--mega-cinza-sub);text-transform:uppercase;}
 .obra-card .metric-val{font-weight:700;font-size:14px;margin-top:2px;}
+.resumo-card{background:#fff;border-radius:var(--radius-md);margin:-16px 14px 14px;padding:16px;box-shadow:var(--shadow-card);position:relative;z-index:2;}
+.resumo-card .head-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;}
+.resumo-card .head-row b{font-size:15px;}
+.resumo-card .head-row span{font-size:10.5px;color:#999;}
+.resumo-item2{background:var(--mega-cinza-bg);border-radius:var(--radius-sm);padding:12px 14px;}
+.resumo-item2 .lbl4{font-size:11px;color:var(--mega-cinza-sub);}
+.resumo-item2 .val4{font-family:var(--font-display);font-size:22px;font-weight:800;margin-top:2px;color:var(--mega-cinza-esc);}
+.resumo-item2 .trend2{font-size:11px;margin-top:3px;font-weight:600;}
+.trend-up{color:var(--mega-verde);}
+.trend-warn{color:var(--app-red);}
+.acoes-card{background:#fff;border-radius:var(--radius-md);margin:0 14px 14px;padding:16px;box-shadow:var(--shadow-card);}
+.acoes-card .head-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+.acoes-card .head-row b{font-size:15px;}
+.acoes-card .head-row a{font-size:11.5px;color:var(--app-red);font-weight:600;cursor:pointer;}
+.alerta-row{display:flex;align-items:center;gap:12px;padding:10px 0;cursor:pointer;}
+.alerta-row .icon-box{width:38px;height:38px;border-radius:10px;background:var(--app-red-bg);color:var(--app-red);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
+.alerta-row .txt{flex:1;}
+.alerta-row .txt .t1{font-size:13px;font-weight:700;}
+.alerta-row .txt .t2{font-size:11.5px;color:var(--mega-cinza-sub);}
+.hero-top-row{display:flex;justify-content:space-between;align-items:flex-start;}
+.hero-logo{height:26px;cursor:pointer;}
+.hero-avatar-row{display:flex;align-items:center;gap:12px;}
+.hero-bell{position:relative;font-size:19px;cursor:pointer;}
+.hero-avatar{width:38px;height:38px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.5);cursor:pointer;}
+.hero-avatar-fallback{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;border:2px solid rgba(255,255,255,.5);cursor:pointer;}
 .btn-logout{background:transparent;border:1px solid rgba(255,255,255,.5);color:#fff;padding:6px 10px;border-radius:var(--radius-sm);font-size:11px;}
 
 .wrap{max-width:600px;margin:0 auto;padding:14px;}
@@ -1432,7 +1457,7 @@ function trocarMatricula(){ S.loginUsuarioEncontrado=null; S.loginMatricula=''; 
    ========================================================== */
 function renderTopBar(){
   return `<div class="top-bar">
-    <span class="brand">GRUPO MEGA</span>
+    <span class="brand" style="cursor:pointer;" onclick="S.view='obra';S.obraSubView='hub';render();">GRUPO MEGA</span>
     <div class="right">
       <span onclick="toggleDashOculto()">${S.dashOculto?'🙈':'👁️'}</span>
       <button class="btn-logout" onclick="doLogout()" style="border-color:rgba(255,255,255,.5);color:#fff;">Sair</button>
@@ -1566,6 +1591,8 @@ function renderDashboard(){
   const atrasadas = list.filter(o=>o.prazo_retorno && new Date(o.prazo_retorno)<new Date() && !['aprovada','cancelada'].includes(o.status)).length;
   const ativosCount = S.usuarios.filter(u=>u.status==='ativo').length;
   const obraAtual = S.dashObraSel ? S.obras.find(o=>o.id===S.dashObraSel) : null;
+  const totalAlertasSino = (S.alertasResumo?.mensagens||0)+(S.alertasResumo?.documentos||0)+(S.alertasResumo?.osNovas||0);
+  const iniciais = (S.user.nome||'?').split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
 
   const acoes = [
     ['📋','Nova OS',"S.view='nova';render();"],
@@ -1578,33 +1605,53 @@ function renderDashboard(){
     ['📸','Não Conformidade',"carregarNaoConformidadeTab('nova');"],
   ];
   const alertas = [];
-  if(criticas>0) alertas.push([`${criticas} OS crítica(s)`, "S.view='lista';loadOSList().then(render);"]);
-  if(atrasadas>0) alertas.push([`${atrasadas} OS atrasada(s)`, "S.view='lista';loadOSList().then(render);"]);
-  if((S.alertasResumo?.documentos||0)>0) alertas.push([`${S.alertasResumo.documentos} documento(s) pendente(s)`, "carregarRHTab('documentos');"]);
+  if(criticas>0) alertas.push(['⚠️',`${criticas} OS crítica(s)`, 'pendentes ou em execução', "S.view='lista';loadOSList().then(render);"]);
+  if(atrasadas>0) alertas.push(['⏱️',`${atrasadas} OS atrasada(s)`, 'prazo de retorno vencido', "S.view='lista';loadOSList().then(render);"]);
+  if((S.alertasResumo?.documentos||0)>0) alertas.push(['📄',`${S.alertasResumo.documentos} documento(s) pendente(s)`, 'aguardando envio', "carregarRHTab('documentos');"]);
 
   return `
-  <div class="hero-card">
-    <div class="lbl" style="font-size:14px;">${saudacaoHora()},</div>
+  <div class="hero-card" style="padding-bottom:34px;">
+    <div class="hero-top-row">
+      <img class="hero-logo" src="${MEGA_LOGO_URL}" alt="Grupo MEGA" onclick="S.view='obra';S.obraSubView='hub';render();">
+      <div class="hero-avatar-row">
+        <span class="hero-bell" onclick="S.showNotif=true;render();">🔔${totalAlertasSino>0?`<span class="notif-dot" style="position:absolute;top:-2px;right:-6px;"></span>`:''}</span>
+        ${S.user.foto?`<img class="hero-avatar" src="${S.user.foto}" onclick="carregarRHTab('pessoas');">`:`<div class="hero-avatar-fallback" onclick="carregarRHTab('pessoas');">${esc(iniciais)}</div>`}
+      </div>
+    </div>
+    <div class="lbl" style="font-size:14px;margin-top:14px;">${saudacaoHora()},</div>
     <div class="val" style="font-size:24px;">${esc(S.user.nome.split(' ')[0])} 👋</div>
     <div class="obra-selector" onclick="S.view='cadastros';S.cadastroTab='obras';render();">
       <div><div class="lbl2">Obra atual</div><div class="nome">${esc(obraAtual?.nome||'Todas as obras')}</div></div>
       <span>▾</span>
     </div>
-    <div class="resumo-grid">
-      <div class="resumo-item"><div class="lbl3">Produção hoje</div><div class="val3">${stats.producaoHoje.toFixed(0)} m²</div></div>
-      <div class="resumo-item"><div class="lbl3">Colaboradores</div><div class="val3">${ativosCount}</div></div>
-      <div class="resumo-item"><div class="lbl3">Veículos em campo</div><div class="val3">${stats.veiculosCampo}</div></div>
-      <div class="resumo-item"><div class="lbl3">Ocorrências abertas</div><div class="val3">${stats.ocorrenciasAbertas}</div></div>
+  </div>
+
+  <div class="resumo-card">
+    <div class="head-row"><b>Resumo geral</b><span>Atualizado agora</span></div>
+    <div class="resumo-grid" style="grid-template-columns:1fr 1fr;">
+      <div class="resumo-item2"><div class="lbl4">Produção hoje</div><div class="val4">${stats.producaoHoje.toFixed(0)} m²</div></div>
+      <div class="resumo-item2"><div class="lbl4">Colaboradores</div><div class="val4">${ativosCount}</div></div>
+      <div class="resumo-item2"><div class="lbl4">Veículos em campo</div><div class="val4">${stats.veiculosCampo}</div></div>
+      <div class="resumo-item2"><div class="lbl4">Ocorrências abertas</div><div class="val4">${stats.ocorrenciasAbertas}</div>${stats.ocorrenciasAbertas>0?`<div class="trend2 trend-warn">▲ atenção</div>`:''}</div>
     </div>
-    <div class="lbl2" style="margin-top:18px;">Ações rápidas</div>
+  </div>
+
+  <div class="acoes-card">
+    <div class="head-row"><b>Ações rápidas</b><a onclick="S.showMais=true;render();">Ver todas</a></div>
     <div class="acoes-grid">
       ${acoes.map(([ic,lbl,oc])=>`<button class="acao-btn" onclick="${oc}"><div class="circle2">${ic}</div><span>${lbl}</span></button>`).join('')}
     </div>
   </div>
-  ${alertas.length?`<div class="notice-card">
-    <div style="font-weight:700;color:var(--app-red);margin-bottom:6px;">⚠️ Alertas importantes</div>
-    ${alertas.map(([txt,oc])=>`<div class="muted" style="font-size:13px;padding:4px 0;cursor:pointer;" onclick="${oc}">${txt} →</div>`).join('')}
+
+  ${alertas.length?`<div class="acoes-card">
+    <div class="head-row"><b>Alertas importantes</b></div>
+    ${alertas.map(([ic,titulo,sub,oc])=>`<div class="alerta-row" onclick="${oc}">
+      <div class="icon-box">${ic}</div>
+      <div class="txt"><div class="t1">${titulo}</div><div class="t2">${sub}</div></div>
+      <span style="color:#ccc;">›</span>
+    </div>`).join('')}
   </div>`:''}
+
   <div class="wrap" style="padding-top:0;">
     <div class="section-header">OS recentes</div>
     ${list.slice(0,5).map(o=>`<div class="mcard" onclick="abrirOS('${o.id}')" style="cursor:pointer;"><div class="mc-top"><span>${o.numero_os}</span>${statusBadge(o.status)}</div>
