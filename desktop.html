@@ -483,7 +483,7 @@ function defaultPermissoes(perfil){
     financeiro:true,financeiro_geral:true};
   if(perfil==='departamento_pessoal') return {...all,dashboard:true,os_nova:true,cadastros_usuarios:true,cadastros_veiculos:true,cadastros_equipamentos:true,checkin_veiculo:true,financeiro_geral:true};
   if(perfil==='engenharia') return {...all,dashboard:true,os_nova:true,cadastros_obras:true,cadastros_equipes:true,checkin_veiculo:true,dre_sinalizacao:true};
-  if(perfil==='financeiro') return {...all,dashboard:true,financeiro_geral:true};
+  if(perfil==='financeiro') return {...all,dashboard:true,financeiro_geral:true,financeiro:true,mobilizacao:true,cadastros_usuarios:true};
   if(perfil==='suprimentos') return {...all,cadastros_veiculos:true,cadastros_equipamentos:true,suprimentos:true};
   if(perfil==='supervisor') return {...all,dashboard:true,checkin_veiculo:true};
   if(perfil==='coordenador') return {...all,dashboard:true};
@@ -682,7 +682,7 @@ const S = {
   obraRodoviasSelecionada:null, rodoviasObraLista:[], obraFiscaisSelecionada:null, fiscaisObraLista:[],
   programacaoView:'novo', programacaoLista:[],
   dashGeral:null, buscaUsuarios:'', dashFiltro:{}, ocorrenciaFrotaTab:'nova', ocorrenciasFrotaLista:[],
-  estoqueObraSel:null, estoqueObraLista:[], gpFiltro:null, gpLista:[], gpLista4d:[],
+  estoqueObraSel:null, estoqueObraLista:[], gpFiltro:null, gpLista:[], gpLista4d:[], finDashNotas:null, finDashCaixaMovs:[],
   apontamentosFaltaHoje:[], ocorrenciaRHTab:'nova', ocorrenciasRHLista:[]
 };
 
@@ -775,7 +775,7 @@ async function doLogin(){
     S.user.obras_acesso = full?.obras_acesso || [];
     if(full){ S.user.data_nascimento=full.data_nascimento; S.user.estado_civil=full.estado_civil; S.user.naturalidade=full.naturalidade;
       S.user.rg=full.rg; S.user.telefone_whatsapp=full.telefone_whatsapp; S.user.data_admissao=full.data_admissao; S.user.cargo=full.cargo;
-      S.user.cpf=full.cpf; S.user.email=full.email; S.user.telefone=full.telefone; S.user.matricula=full.matricula;
+      S.user.cpf=full.cpf; S.user.email=full.email; S.user.telefone=full.telefone; S.user.matricula=full.matricula; S.user.foto=full.foto;
       S.user.banco=full.banco; S.user.agencia=full.agencia; S.user.conta=full.conta; S.user.tipo_conta=full.tipo_conta; S.user.chave_pix=full.chave_pix; }
     if(S.user.obras_acesso.length>0){
       const permitidas = new Set(S.user.obras_acesso);
@@ -787,7 +787,7 @@ async function doLogin(){
     await loadNotificacoes();
     await carregarAlertasResumo();
     await loadOSList();
-    S.view = canAccess('dashboard') ? 'dashboard' : 'lista';
+    S.view = S.user.perfil==='financeiro' ? 'financeiro' : canAccess('dashboard') ? 'dashboard' : 'lista';
     S.pin=''; S.loginSel=null; S.loginUsuarioEncontrado=null; S.loginMatricula='';
   }catch(e){ S.error='Erro ao entrar: '+e.message; }
   S.loading=false; render();
@@ -1520,7 +1520,7 @@ function renderHeader(){
   <div class="sidebar">
     <div class="sidebar-brand" style="cursor:pointer;" onclick="S.view='dashboard';render();"><img src="${MEGA_LOGO_URL}" alt="Grupo MEGA"></div>
     <div class="sidebar-user" style="border-top:none;border-bottom:1px solid #333;flex-direction:column;align-items:center;text-align:center;padding:16px;gap:8px;">
-      <div class="avatar" style="width:56px;height:56px;border-radius:50%;font-size:18px;">${S.user.foto?`<img src="${S.user.foto}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:iniciais}</div>
+      <div class="avatar" style="width:56px;height:56px;border-radius:50%;font-size:18px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--mega-laranja);color:#fff;font-weight:700;flex-shrink:0;">${S.user.foto?`<img src="${S.user.foto}" style="width:100%;height:100%;object-fit:cover;">`:iniciais}</div>
       <div>
         <div style="font-size:13.5px;font-weight:700;color:#fff;">${esc(S.user.nome)}</div>
         <div style="font-size:11px;color:#999;">${esc(PERFIL_LABELS[S.user.perfil]||S.user.perfil)}</div>
@@ -1545,7 +1545,7 @@ function renderTopbar(){
     </div>
     <div class="topbar-right">
       <div class="icon-btn" style="position:relative;" onclick="S.showNotif=!S.showNotif;render()">🔔${totalAlertas>0?`<span class="notif-dot"></span>`:''}</div>
-      <div class="avatar" style="border-radius:10px;">${S.user.foto?`<img src="${S.user.foto}" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">`:iniciais}</div>
+      <div class="avatar" style="width:34px;height:34px;border-radius:50%;font-size:12px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--mega-laranja);color:#fff;font-weight:700;flex-shrink:0;">${S.user.foto?`<img src="${S.user.foto}" style="width:100%;height:100%;object-fit:cover;">`:iniciais}</div>
     </div>
   </div>
   ${S.showNotif?renderNotifDropdown():''}`;
@@ -2679,16 +2679,19 @@ function renderCheckinHistorico(){
    RENDER — FINANCEIRO / NOTAS FISCAIS
    ========================================================== */
 function renderFinanceiro(){
+  if(!S.financeiroView) S.financeiroView = canAccess('financeiro_geral') ? 'dashboard' : 'meu_painel';
   return `<div class="wrap">
-    <div class="section-header">Financeiro — Notas Fiscais
+    <div class="section-header">Financeiro
       <div class="flex-row">
+        ${canAccess('financeiro_geral')?`<button class="btn ${S.financeiroView==='dashboard'?'btn-primary':'btn-secondary'} btn-sm" onclick="carregarFinanceiroDashboard();">📊 Dashboard</button>`:''}
         <button class="btn ${S.financeiroView==='enviar'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.financeiroView='enviar';render()">+ Enviar Nota</button>
         <button class="btn ${S.financeiroView==='meu_painel'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.financeiroView='meu_painel';loadMinhasNotas().then(render);">Meu Painel</button>
         <button class="btn ${S.financeiroView==='reprovadas'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.financeiroView='reprovadas';loadMinhasNotas().then(render);">Reprovadas</button>
-        ${canAccess('financeiro_geral')?`<button class="btn ${S.financeiroView==='geral'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.financeiroView='geral';loadTodasNotas().then(render);">Painel Geral</button>`:''}
+        ${canAccess('financeiro_geral')?`<button class="btn ${S.financeiroView==='geral'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.financeiroView='geral';loadTodasNotas().then(render);">Lista Geral</button>`:''}
         ${canAccess('mobilizacao')?`<button class="btn btn-secondary btn-sm" onclick="S.view='mobilizacao';carregarMobTab('nova');">📐 Mobilização</button>`:''}
       </div>
     </div>
+    ${S.financeiroView==='dashboard'?renderFinanceiroDashboard():''}
     ${S.financeiroView==='enviar'?renderFinanceiroEnviar():''}
     ${S.financeiroView==='meu_painel'?renderFinanceiroMeuPainel():''}
     ${S.financeiroView==='reprovadas'?renderFinanceiroReprovadas():''}
@@ -2696,9 +2699,91 @@ function renderFinanceiro(){
     ${S.financeiroView==='detalhe'?renderFinanceiroDetalhe():''}
   </div>`;
 }
+async function carregarFinanceiroDashboard(){
+  S.view='financeiro'; S.financeiroView='dashboard'; S.loading=true; render();
+  try{
+    const [notas, caixaMovs] = await Promise.all([
+      sb('notas_fiscais?select=status,valor,tipo_despesa,data_despesa,criado_em'),
+      sb('caixa_movimentos?select=tipo,valor')
+    ]);
+    S.finDashNotas = notas; S.finDashCaixaMovs = caixaMovs;
+  }catch(e){ toast('Erro: '+e.message); S.finDashNotas=[]; S.finDashCaixaMovs=[]; }
+  S.loading=false; render();
+}
+function renderFinanceiroDashboard(){
+  if(!S.finDashNotas){ carregarFinanceiroDashboard(); return '<div class="empty-state">Carregando dashboard…</div>'; }
+  const notas = S.finDashNotas;
+  const hoje = new Date(); const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  const pendentes = notas.filter(n=>['enviado','atencao'].includes(n.status));
+  const aprovadas = notas.filter(n=>n.status==='aprovado');
+  const reprovadas = notas.filter(n=>n.status==='reprovado');
+  const aprovadasMes = aprovadas.filter(n=>new Date(n.criado_em)>=inicioMes);
+  const valorPendente = pendentes.reduce((s,n)=>s+parseFloat(n.valor||0),0);
+  const valorAprovadoMes = aprovadasMes.reduce((s,n)=>s+parseFloat(n.valor||0),0);
+  const valorReprovado = reprovadas.reduce((s,n)=>s+parseFloat(n.valor||0),0);
+  const saldoCaixaTotal = (S.finDashCaixaMovs||[]).reduce((s,m)=>s+(m.tipo==='aporte'?parseFloat(m.valor):-parseFloat(m.valor)),0);
+
+  // Donut: distribuição por status
+  const total = notas.length||1;
+  const statusData = [['Aprovadas',aprovadas.length,'var(--mega-verde)'],['Pendentes',pendentes.length,'var(--mega-amarelo)'],['Reprovadas',reprovadas.length,'var(--mega-vermelho)']];
+  let acc=0; const fatias = statusData.map(([,v,cor])=>{ const pct=v/total*100; const s=acc; acc+=pct; return `${cor} ${s}% ${acc}%`; }).join(', ');
+
+  // Barras: despesas por mês (últimos 6 meses)
+  const meses=[]; for(let i=5;i>=0;i--){ const d=new Date(hoje.getFullYear(),hoje.getMonth()-i,1); meses.push(d); }
+  const porMes = meses.map(m=>{
+    const proxMes = new Date(m.getFullYear(), m.getMonth()+1, 1);
+    return notas.filter(n=>n.status==='aprovado' && new Date(n.criado_em)>=m && new Date(n.criado_em)<proxMes).reduce((s,n)=>s+parseFloat(n.valor||0),0);
+  });
+  const maxMes = Math.max(...porMes,1);
+
+  // Despesas por tipo
+  const porTipo = {};
+  notas.forEach(n=>{ const t=n.tipo_despesa||'Outro'; porTipo[t]=(porTipo[t]||0)+parseFloat(n.valor||0); });
+  const tiposOrdenados = Object.entries(porTipo).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const maxTipo = Math.max(...tiposOrdenados.map(t=>t[1]),1);
+
+  return `
+  <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:18px;">
+    <div class="kpi-card" style="border-left-color:var(--mega-amarelo);"><div class="kpi-label">Pendente</div><div class="kpi-value">${fmtMoney(valorPendente)}</div></div>
+    <div class="kpi-card" style="border-left-color:var(--mega-verde);"><div class="kpi-label">Aprovado no mês</div><div class="kpi-value">${fmtMoney(valorAprovadoMes)}</div></div>
+    <div class="kpi-card" style="border-left-color:var(--mega-vermelho);"><div class="kpi-label">Reprovado (total)</div><div class="kpi-value">${fmtMoney(valorReprovado)}</div></div>
+    <div class="kpi-card" style="border-left-color:${saldoCaixaTotal<0?'var(--mega-amarelo)':'var(--mega-verde)'};"><div class="kpi-label">Saldo de caixa (todos)</div><div class="kpi-value">${fmtMoney(saldoCaixaTotal)}</div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px;">
+    <div class="panel-card">
+      <div class="panel-eyebrow">DISTRIBUIÇÃO</div><div class="panel-title">Notas por status</div>
+      <div style="display:flex;align-items:center;gap:20px;margin-top:16px;">
+        <div style="position:relative;width:130px;height:130px;flex-shrink:0;">
+          <div style="width:130px;height:130px;border-radius:50%;background:conic-gradient(${fatias||'#ddd 0% 100%'});"></div>
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:76px;height:76px;border-radius:50%;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+            <div style="font-family:var(--font-display);font-size:20px;font-weight:800;">${notas.length}</div><div style="font-size:9px;color:#999;">notas</div>
+          </div>
+        </div>
+        <div style="flex:1;">${statusData.map(([label,val,cor])=>`<div class="donut-legend-row"><span class="donut-legend-dot" style="background:${cor};"></span>${label} <span style="margin-left:auto;font-weight:700;">${val}</span></div>`).join('')}</div>
+      </div>
+    </div>
+    <div class="panel-card">
+      <div class="panel-eyebrow">TENDÊNCIA</div><div class="panel-title">Aprovado por mês (6 meses)</div>
+      <div style="display:flex;align-items:flex-end;gap:8px;height:120px;margin-top:16px;">
+        ${porMes.map((v,i)=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;">
+          <div title="${fmtMoney(v)}" style="width:100%;background:var(--mega-laranja);border-radius:3px 3px 0 0;height:${Math.max(v/maxMes*90,2)}px;"></div>
+          <div class="muted" style="font-size:10px;margin-top:4px;">${meses[i].toLocaleDateString('pt-BR',{month:'short'})}</div>
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>
+  <div class="panel-card">
+    <div class="panel-eyebrow">POR TIPO DE DESPESA</div><div class="panel-title">Total gasto por categoria</div>
+    <div style="margin-top:14px;">
+      ${tiposOrdenados.map(([tipo,val])=>`<div style="margin-bottom:10px;">
+        <div class="flex-row" style="justify-content:space-between;font-size:12.5px;"><b>${esc(tipo)}</b><span>${fmtMoney(val)}</span></div>
+        <div style="background:var(--mega-cinza-bdr);border-radius:4px;height:8px;margin-top:4px;"><div style="background:var(--mega-azul);height:8px;border-radius:4px;width:${(val/maxTipo*100)}%;"></div></div>
+      </div>`).join('') || '<div class="empty-state">Nenhuma despesa registrada ainda.</div>'}
+    </div>
+  </div>`;
+}
 function renderFinanceiroEnviar(){
-  return `<form class="card" onsubmit="event.preventDefault();criarNota(this);">
-    <div class="form-grid">
+  return `<form class="card" onsubmit="event.preventDefault();criarNota(this);">    <div class="form-grid">
       <div class="field field-span2"><label>Foto(s) da Nota *</label>${photoWidget('nota_foto')}</div>
       <div class="field field-span2"><label>Tipo de Despesa</label>${chipGroup('tipo_despesa', TIPO_DESPESA_OPTS.map(t=>[t,t]), '')}</div>
       <div class="field"><label>Data</label><input type="date" name="data_despesa" value="${new Date().toISOString().slice(0,10)}"></div>

@@ -96,7 +96,7 @@ a.applink{color:#aaa;font-size:12px;text-decoration:underline;}
 .hero-logo{height:26px;cursor:pointer;}
 .hero-avatar-row{display:flex;align-items:center;gap:12px;}
 .hero-bell{position:relative;font-size:19px;cursor:pointer;}
-.hero-avatar{width:38px;height:38px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.5);cursor:pointer;}
+.hero-avatar{width:38px;height:38px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.5);cursor:pointer;flex-shrink:0;display:block;}
 .hero-avatar-fallback{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;border:2px solid rgba(255,255,255,.5);cursor:pointer;}
 .btn-logout{background:transparent;border:1px solid rgba(255,255,255,.5);color:#fff;padding:6px 10px;border-radius:var(--radius-sm);font-size:11px;}
 
@@ -484,7 +484,7 @@ function defaultPermissoes(perfil){
     financeiro:true,financeiro_geral:true};
   if(perfil==='departamento_pessoal') return {...all,dashboard:true,os_nova:true,cadastros_usuarios:true,cadastros_veiculos:true,cadastros_equipamentos:true,checkin_veiculo:true,financeiro_geral:true};
   if(perfil==='engenharia') return {...all,dashboard:true,os_nova:true,cadastros_obras:true,cadastros_equipes:true,checkin_veiculo:true,dre_sinalizacao:true};
-  if(perfil==='financeiro') return {...all,dashboard:true,financeiro_geral:true};
+  if(perfil==='financeiro') return {...all,dashboard:true,financeiro_geral:true,financeiro:true,mobilizacao:true,cadastros_usuarios:true};
   if(perfil==='suprimentos') return {...all,cadastros_veiculos:true,cadastros_equipamentos:true,suprimentos:true};
   if(perfil==='supervisor') return {...all,dashboard:true,checkin_veiculo:true};
   if(perfil==='coordenador') return {...all,dashboard:true};
@@ -689,6 +689,8 @@ const S = {
   ocorrenciaFrotaTab:'nova', ocorrenciasFrotaLista:[], ocorrenciaRHTab:'nova', ocorrenciasRHLista:[],
   ncTab:'nova', ncLista:[], dashOculto:false, inicioStats:null, dashObraSel:null, buscaObras:'', obraStatusTab:'todas',
   estoqueObraSel:null, estoqueObraLista:[], apontamentosFaltaHoje:[], splashProgress:0,
+  caixaSaldo:0, caixaUsuarioSel:null, caixaExtratoPeriodo:'7', caixaExtratoLista:[], caixaListaSaldos:[], caixaResumoNotas:null,
+  centrosCusto:[], tiposDespesa:[], formasPagamento:[], currentNotaAuditoria:[],
   obraRodoviasSelecionada:null, rodoviasObraLista:[], obraFiscaisSelecionada:null, fiscaisObraLista:[]
 };
 
@@ -711,15 +713,19 @@ async function loadLoginList(){
   S.usuariosLoginLoaded = true;
 }
 async function loadBaseData(){
-  const [usuarios,obras,equipes,veiculos,equipamentos,colaboradores] = await Promise.all([
+  const [usuarios,obras,equipes,veiculos,equipamentos,colaboradores,centrosCusto,tiposDespesa,formasPagamento] = await Promise.all([
     sb('usuarios?select=id,matricula,foto,nome,cpf,cargo,email,telefone,perfil,equipe_id,obra_id,status,permissoes,plataforma_acesso,obras_acesso,criado_em,data_nascimento,estado_civil,naturalidade,rg,telefone_whatsapp,data_admissao,banco,agencia,conta,tipo_conta,chave_pix&order=nome.asc'),
     sb('obras?select=*&order=nome.asc'),
     sb('equipes?select=*&order=nome.asc'),
     sb('veiculos?select=*&order=placa.asc'),
     sb('equipamentos?select=*&order=nome.asc'),
-    sb('colaboradores?select=*&order=nome.asc&limit=500')
+    sb('colaboradores?select=*&order=nome.asc&limit=500'),
+    sb('centros_custo?select=*&order=nome.asc'),
+    sb('tipos_despesa?select=*&order=nome.asc'),
+    sb('formas_pagamento?select=*&order=nome.asc')
   ]);
   S.usuarios=usuarios; S.obras=obras; S.equipes=equipes; S.veiculos=veiculos; S.equipamentos=equipamentos; S.colaboradores=colaboradores;
+  S.centrosCusto=centrosCusto; S.tiposDespesa=tiposDespesa; S.formasPagamento=formasPagamento;
 }
 async function loadNotificacoes(){
   if(!S.user) return;
@@ -781,7 +787,7 @@ async function doLogin(){
     S.user.obras_acesso = full?.obras_acesso || [];
     if(full){ S.user.data_nascimento=full.data_nascimento; S.user.estado_civil=full.estado_civil; S.user.naturalidade=full.naturalidade;
       S.user.rg=full.rg; S.user.telefone_whatsapp=full.telefone_whatsapp; S.user.data_admissao=full.data_admissao; S.user.cargo=full.cargo;
-      S.user.cpf=full.cpf; S.user.email=full.email; S.user.telefone=full.telefone; S.user.matricula=full.matricula;
+      S.user.cpf=full.cpf; S.user.email=full.email; S.user.telefone=full.telefone; S.user.matricula=full.matricula; S.user.foto=full.foto;
       S.user.banco=full.banco; S.user.agencia=full.agencia; S.user.conta=full.conta; S.user.tipo_conta=full.tipo_conta; S.user.chave_pix=full.chave_pix; }
     if(S.user.obras_acesso.length>0){
       const permitidas = new Set(S.user.obras_acesso);
@@ -790,6 +796,7 @@ async function doLogin(){
       S.veiculos = S.veiculos.filter(v=>!v.obra_id || permitidas.has(v.obra_id));
       S.equipamentos = S.equipamentos.filter(e=>!e.obra_id || permitidas.has(e.obra_id));
     }
+    if(S.user.perfil!=='administrador' && S.obras.length){ S.dashObraSel = S.obras[0].id; }
     await loadNotificacoes();
     await carregarAlertasResumo();
     await loadOSList();
@@ -1334,8 +1341,12 @@ async function loadTodasNotas(){
   S.todasNotasLoaded = true;
 }
 async function loadNotaDetail(id){
-  const r = await sb(`notas_fiscais?id=eq.${id}&select=*`);
+  const [r, auditoria] = await Promise.all([
+    sb(`notas_fiscais?id=eq.${id}&select=*`),
+    sb(`notas_fiscais_auditoria?select=*&nota_id=eq.${id}&order=criado_em.desc`).catch(()=>[])
+  ]);
   S.currentNota = r[0];
+  S.currentNotaAuditoria = auditoria;
 }
 async function criarNota(form){
   const fd = new FormData(form);
@@ -1370,10 +1381,17 @@ async function abrirNota(id, origem){
   S.loading=false; render();
 }
 async function aprovarNota(id){
-  if(!confirm('Aprovar esta nota fiscal?')) return;
+  const statusAnterior = S.currentNota?.status;
+  const ehReversao = statusAnterior==='reprovado';
+  let motivo = null;
+  if(ehReversao){
+    motivo = prompt('Essa nota estava REPROVADA. Explique o motivo de agora aprovar (fica registrado no histórico):');
+    if(!motivo) return;
+  } else if(!confirm('Aprovar esta nota fiscal?')) return;
   S.loading=true; render();
   try{
     await sb(`notas_fiscais?id=eq.${id}`,{method:'PATCH',body:{status:'aprovado', usuario_revisor_id:S.user.id, revisado_em:new Date().toISOString()}});
+    await sb('notas_fiscais_auditoria',{method:'POST',body:{nota_id:id, status_anterior:statusAnterior||null, status_novo:'aprovado', motivo, alterado_por:S.user.id}});
     toast('Nota aprovada.'); await loadNotaDetail(id); await loadTodasNotas();
   }catch(e){ toast('Erro: '+e.message); }
   S.loading=false; render();
@@ -1491,11 +1509,13 @@ function trocarMatricula(){ S.loginUsuarioEncontrado=null; S.loginMatricula=''; 
    TOP BAR + BOTTOM NAV
    ========================================================== */
 function renderTopBar(){
+  const iniciais = (S.user.nome||'?').split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
   return `<div class="top-bar">
     <span class="brand" style="cursor:pointer;" onclick="S.view='dashboard';render();">GRUPO MEGA</span>
     <div class="right">
       <span onclick="toggleDashOculto()">${S.dashOculto?'🙈':'👁️'}</span>
       <span style="position:relative;" onclick="S.showNotif=!S.showNotif;render()">🔔${(S.alertasResumo.mensagens+S.alertasResumo.documentos+S.alertasResumo.osNovas)>0?`<span class="notif-dot"></span>`:''}</span>
+      <div style="width:30px;height:30px;border-radius:50%;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.2);border:1.5px solid rgba(255,255,255,.5);font-size:11px;font-weight:700;color:#fff;cursor:pointer;" onclick="carregarRHTab('pessoas');">${S.user.foto?`<img src="${S.user.foto}" style="width:100%;height:100%;object-fit:cover;">`:iniciais}</div>
       <button class="btn-logout" onclick="doLogout()" style="border-color:rgba(255,255,255,.5);color:#fff;">Sair</button>
     </div>
   </div>
@@ -1602,12 +1622,13 @@ async function carregarInicioStats(){
   try{
     const hojeStr = new Date().toISOString().slice(0,10);
     const obraF = S.dashObraSel ? `&obra_id=eq.${S.dashObraSel}` : '';
-    const [informesHoje, veiculosAbertos, ocorFrota, ocorRH, faltasHoje] = await Promise.all([
+    const [informesHoje, veiculosAbertos, ocorFrota, ocorRH, faltasHoje, meuSaldo] = await Promise.all([
       sb(`informes_producao?select=blocos&data_producao=eq.${hojeStr}${obraF}`).catch(()=>[]),
       sb(`veiculo_usos?select=id,veiculo_id,data_checkout`).catch(()=>[]),
       sb('ocorrencias_frota?select=id,veiculo_id&status=eq.aberta').catch(()=>[]),
       sb('ocorrencias_rh?select=id&status=eq.aberta').catch(()=>[]),
       sb(`apontamentos_falta?select=id&data_falta=eq.${hojeStr}${obraF}`).catch(()=>[]),
+      calcularSaldoUsuario(S.user.id).catch(()=>0),
     ]);
     let producaoHoje = 0;
     informesHoje.forEach(inf=>(inf.blocos||[]).forEach(b=>(b.servicos||[]).forEach(s=>{
@@ -1621,8 +1642,9 @@ async function carregarInicioStats(){
       veiculosCampo,
       ocorrenciasAbertas: ocorFrotaFiltradas.length + (S.dashObraSel?0:ocorRH.length),
       faltasHoje: faltasHoje.length,
+      saldoCaixa: meuSaldo,
     };
-  }catch(e){ S.inicioStats = {producaoHoje:0, veiculosCampo:0, ocorrenciasAbertas:0}; }
+  }catch(e){ S.inicioStats = {producaoHoje:0, veiculosCampo:0, ocorrenciasAbertas:0, saldoCaixa:0}; }
   render();
 }
 function selecionarObraInicio(v){ S.dashObraSel = v||null; carregarInicioStats(); }
@@ -1666,7 +1688,7 @@ function renderDashboard(){
     <div class="obra-selector" style="padding:6px 8px;">
       <div style="flex:1;"><div class="lbl2">Obra atual</div>
         <select class="obra-select" onchange="selecionarObraInicio(this.value)">
-          <option value="" ${!S.dashObraSel?'selected':''}>Todas as obras</option>
+          ${S.user.perfil==='administrador'?`<option value="" ${!S.dashObraSel?'selected':''}>Todas as obras</option>`:''}
           ${S.obras.map(o=>`<option value="${o.id}" ${S.dashObraSel===o.id?'selected':''}>${esc(o.nome)}</option>`).join('')}
         </select>
       </div>
@@ -1683,8 +1705,12 @@ function renderDashboard(){
     </div>
   </div>
 
-  <div class="acoes-card">
-    <div class="head-row"><b>Ações rápidas</b><a onclick="S.showMais=true;render();">Ver todas</a></div>
+  <div class="resumo-card" style="margin-top:-14px;">
+    <div class="head-row"><b>💵 ${(stats.saldoCaixa||0)<0?'Reembolso devido':'Meu Caixa'}</b><a onclick="carregarExtratoCaixa(S.user.id,'7')">Extrato →</a></div>
+    <div style="font-family:var(--font-display);font-size:26px;font-weight:800;color:${(stats.saldoCaixa||0)<0?'var(--mega-amarelo)':(stats.saldoCaixa||0)>0?'var(--mega-verde)':'inherit'};">${fmtMoney(Math.abs(stats.saldoCaixa||0))}</div>
+  </div>
+
+  <div class="acoes-card">    <div class="head-row"><b>Ações rápidas</b><a onclick="S.showMais=true;render();">Ver todas</a></div>
     <div class="acoes-grid">
       ${acoes.map(([ic,lbl,oc])=>`<button class="acao-btn" onclick="${oc}"><div class="circle2">${ic}</div><span>${lbl}</span></button>`).join('')}
     </div>
@@ -2489,9 +2515,11 @@ function renderFinanceiro(){
   const tabs=[['enviar','💵','Inserir Despesa','Enviar nota fiscal ou comprovante de despesa'],
     ['meu_painel','📊','Meu Painel','Suas despesas enviadas e status de aprovação'],
     ['reprovadas','🚫','Reprovadas','Despesas reprovadas com o motivo'],
+    ['caixa','💵','Meu Caixa','Saldo, extrato e aportes'],
   ];
   if(canAccess('financeiro_geral')) tabs.push(['geral','🗂️','Geral','Visão consolidada de todas as despesas']);
   if(canAccess('mobilizacao')) tabs.push(['mobilizacao','📐','Mobilização','Planejar, solicitar e prestar contas de recursos de mobilização']);
+  if(canAccess('financeiro_geral')) tabs.push(['cadastros_fin','⚙️','Cadastros Financeiros','Centro de custo, tipo de despesa e forma de pagamento']);
   if(!S.financeiroView || S.financeiroView==='hub'){
     return `<div class="wrap">
       <div class="section-header">💰 Financeiro</div>
@@ -2501,19 +2529,24 @@ function renderFinanceiro(){
   const atual = tabs.find(t=>t[0]===S.financeiroView);
   return `<div class="wrap">
     <div class="section-header">💰 Financeiro</div>
-    ${S.financeiroView!=='detalhe'?`<button class="btn btn-secondary btn-block" style="margin-bottom:12px;" onclick="S.financeiroView='hub';render();">← Voltar ao menu</button>`:''}
+    ${!['detalhe','caixa_extrato','caixa_lista'].includes(S.financeiroView)?`<button class="btn btn-secondary btn-block" style="margin-bottom:12px;" onclick="S.financeiroView='hub';render();">← Voltar ao menu</button>`:''}
     ${atual?`<div class="muted" style="font-weight:700;margin-bottom:8px;">${atual[2]}</div>`:''}
     ${S.financeiroView==='enviar'?renderFinanceiroEnviar():''}
     ${S.financeiroView==='meu_painel'?renderFinanceiroMeuPainel():''}
     ${S.financeiroView==='reprovadas'?renderFinanceiroReprovadas():''}
     ${S.financeiroView==='geral'?renderFinanceiroGeral():''}
     ${S.financeiroView==='detalhe'?renderFinanceiroDetalhe():''}
+    ${S.financeiroView==='caixa'?renderCaixa():''}
+    ${S.financeiroView==='caixa_extrato'?renderCaixaExtrato():''}
+    ${S.financeiroView==='caixa_lista'?renderCaixaLista():''}
+    ${S.financeiroView==='cadastros_fin'?renderCadastrosFinanceiros():''}
   </div>`;
 }
 function irFinanceiroTab(tab){
   S.financeiroView=tab;
   if(tab==='meu_painel'||tab==='reprovadas'){ loadMinhasNotas().then(render); }
   else if(tab==='geral'){ loadTodasNotas().then(render); }
+  else if(tab==='caixa'){ carregarSaldoCaixa(S.user.id).then(render); }
   else render();
 }
 function renderFinanceiroReprovadas(){
@@ -2523,15 +2556,166 @@ function renderFinanceiroReprovadas(){
     ${n.comentario_financeiro?`<div class="muted">Motivo: ${esc(n.comentario_financeiro)}</div>`:''}
   </div>`).join('') || '<div class="empty-state">Nenhuma despesa reprovada.</div>';
 }
+/* ==========================================================
+   CAIXA DE OBRA — saldo individual, aportes e baixas automáticas por nota aprovada
+   ========================================================== */
+async function calcularSaldoUsuario(usuarioId){
+  const movs = await sb(`caixa_movimentos?select=tipo,valor&usuario_id=eq.${usuarioId}`);
+  return movs.reduce((s,m)=>s+(m.tipo==='aporte'?parseFloat(m.valor):-parseFloat(m.valor)),0);
+}
+async function carregarSaldoCaixa(usuarioId){
+  S.loading=true; render();
+  try{
+    const [saldo, notas] = await Promise.all([
+      calcularSaldoUsuario(usuarioId),
+      sb(`notas_fiscais?select=status,valor&usuario_id=eq.${usuarioId}`)
+    ]);
+    S.caixaSaldo = saldo; S.caixaUsuarioSel = usuarioId;
+    S.caixaResumoNotas = {
+      aprovadas: notas.filter(n=>n.status==='aprovado').length,
+      valorAprovadas: notas.filter(n=>n.status==='aprovado').reduce((s,n)=>s+parseFloat(n.valor||0),0),
+      reprovadas: notas.filter(n=>n.status==='reprovado').length,
+      valorReprovadas: notas.filter(n=>n.status==='reprovado').reduce((s,n)=>s+parseFloat(n.valor||0),0),
+    };
+  }
+  catch(e){ toast('Erro: '+e.message); S.caixaSaldo=0; S.caixaResumoNotas={aprovadas:0,valorAprovadas:0,reprovadas:0,valorReprovadas:0}; }
+  S.loading=false;
+}
+function renderCaixa(){
+  const podeVerTodos = canAccess('financeiro_geral');
+  const saldo = S.caixaSaldo||0;
+  const resumo = S.caixaResumoNotas || {aprovadas:0,valorAprovadas:0,reprovadas:0,valorReprovadas:0};
+  return `<div class="hero-card" style="border-radius:var(--radius-md);${saldo<0?'background:linear-gradient(160deg,var(--app-black2),var(--mega-amarelo) 140%);':''}">
+    <div class="lbl">${saldo<0?'⚠️ Reembolso devido ao colaborador':'Saldo de caixa'}${S.caixaUsuarioSel&&S.caixaUsuarioSel!==S.user.id?' — '+esc(usuMap()[S.caixaUsuarioSel]?.nome||''):''}</div>
+    <div class="val" style="font-size:30px;${saldo>0?'color:#7CFFA0;':''}">${fmtMoney(Math.abs(saldo))}</div>
+    ${saldo<0?`<div class="sub">A empresa deve reembolsar essa pessoa — ela gastou mais do que recebeu de aporte.</div>`:''}
+  </div>
+  <div class="resumo-grid" style="grid-template-columns:1fr 1fr;margin-bottom:12px;">
+    <div class="resumo-item2" style="background:var(--mega-verde-cl);"><div class="lbl4">Notas aprovadas</div><div class="val4" style="color:var(--mega-verde);">${resumo.aprovadas}</div><div class="trend2" style="color:var(--mega-verde);">${fmtMoney(resumo.valorAprovadas)}</div></div>
+    <div class="resumo-item2" style="background:var(--mega-vermelho-cl);"><div class="lbl4">Notas reprovadas</div><div class="val4" style="color:var(--mega-vermelho);">${resumo.reprovadas}</div><div class="trend2" style="color:var(--mega-vermelho);">${fmtMoney(resumo.valorReprovadas)}</div></div>
+  </div>
+  <div class="flex-row" style="margin:12px 0;gap:8px;">
+    <button class="btn btn-secondary btn-sm" onclick="carregarExtratoCaixa(S.caixaUsuarioSel||S.user.id,'7')">📄 Extrato</button>
+    <button class="btn btn-secondary btn-sm" onclick="S.view='mobilizacao';S.mobView='hub';render();">🚚 Solicitação de Mobilização</button>
+    ${podeVerTodos?`<button class="btn btn-secondary btn-sm" onclick="carregarListaCaixas()">👥 Todos os usuários</button>`:''}
+  </div>
+  ${podeVerTodos?`<div class="card">
+    <div class="muted" style="font-weight:700;margin-bottom:8px;">+ Novo aporte de caixa</div>
+    <form onsubmit="event.preventDefault();salvarAporteCaixa(this);">
+      <div class="form-grid">
+        <div class="field field-span2"><label>Usuário</label><select name="usuario_id" required>${opt(S.usuarios.map(u=>[u.id,u.nome]),S.caixaUsuarioSel||S.user.id)}</select></div>
+        <div class="field"><label>Valor (R$)</label><input type="number" step="0.01" name="valor" required></div>
+        <div class="field"><label>Obra</label><select name="obra_id" required><option value="">Selecione…</option>${opt(S.obras.map(o=>[o.id,o.nome]),'')}</select></div>
+        <div class="field field-span2"><label>Descrição</label><input name="descricao" placeholder="Opcional"></div>
+      </div>
+      <button class="btn btn-primary btn-block" style="margin-top:10px;" ${S.loading?'disabled':''}>${S.loading?'Salvando…':'Registrar aporte'}</button>
+    </form>
+  </div>`:''}`;
+}
+async function salvarAporteCaixa(form){
+  const fd = new FormData(form);
+  S.loading=true; render();
+  try{
+    await sb('caixa_movimentos',{method:'POST',body:{usuario_id:fd.get('usuario_id'), tipo:'aporte', valor:parseFloat(fd.get('valor')),
+      obra_id:fd.get('obra_id')||null, descricao:fd.get('descricao')||null, criado_por:S.user.id}});
+    toast('Aporte registrado.'); form.reset();
+    await carregarSaldoCaixa(fd.get('usuario_id'));
+  }catch(e){ toast('Erro: '+e.message); }
+  S.loading=false; render();
+}
+function periodoParaDatas(periodo){
+  const hoje = new Date(); const fim = new Date(hoje); fim.setHours(23,59,59,999);
+  let inicio = new Date(hoje);
+  if(periodo==='hoje'){ inicio.setHours(0,0,0,0); }
+  else if(periodo==='ontem'){ inicio.setDate(inicio.getDate()-1); inicio.setHours(0,0,0,0); const fimOntem=new Date(inicio); fimOntem.setHours(23,59,59,999); return [inicio,fimOntem]; }
+  else { inicio.setDate(inicio.getDate()-parseInt(periodo)); inicio.setHours(0,0,0,0); }
+  return [inicio, fim];
+}
+async function carregarExtratoCaixa(usuarioId, periodo){
+  S.view='financeiro'; S.financeiroView='caixa_extrato'; S.caixaExtratoPeriodo=periodo; S.loading=true; render();
+  const [de,ate] = periodoParaDatas(periodo);
+  try{
+    S.caixaExtratoLista = await sb(`caixa_movimentos?select=*&usuario_id=eq.${usuarioId}&criado_em=gte.${de.toISOString()}&criado_em=lte.${ate.toISOString()}&order=criado_em.desc`);
+    S.caixaUsuarioSel = usuarioId;
+  }catch(e){ toast('Erro: '+e.message); S.caixaExtratoLista=[]; }
+  S.loading=false; render();
+}
+function renderCaixaExtrato(){
+  const periodos = [['hoje','Hoje'],['ontem','Ontem'],['7','7 dias'],['15','15 dias'],['30','30 dias']];
+  const total = (S.caixaExtratoLista||[]).reduce((s,m)=>s+(m.tipo==='aporte'?parseFloat(m.valor):-parseFloat(m.valor)),0);
+  return `<button class="btn btn-secondary btn-block" style="margin-bottom:12px;" onclick="S.financeiroView='caixa';render();">← Voltar ao Caixa</button>
+  <div class="section-header">Extrato — ${esc(usuMap()[S.caixaUsuarioSel]?.nome||S.user.nome)}</div>
+  <div class="chip-scroll">${periodos.map(([k,l])=>`<button class="chip ${S.caixaExtratoPeriodo===k?'sel':''}" onclick="carregarExtratoCaixa(S.caixaUsuarioSel,'${k}')">${l}</button>`).join('')}</div>
+  <div class="muted" style="margin:8px 0;font-weight:700;">Movimentado no período: ${fmtMoney(total)}</div>
+  ${(S.caixaExtratoLista||[]).map(m=>`<div class="mcard" ${m.nota_id?`onclick="abrirNota('${m.nota_id}')" style="cursor:pointer;"`:''}>
+    <div class="mc-top"><span>${m.tipo==='aporte'?'➕ Aporte':'➖ Baixa'}</span><span style="font-weight:700;color:${m.tipo==='aporte'?'var(--mega-verde)':'var(--app-red)'};">${m.tipo==='aporte'?'+':'-'}${fmtMoney(m.valor)}</span></div>
+    <div class="mc-meta">${fmtDate(m.criado_em)}</div>
+    <div class="mc-meta">🏗️ Obra: ${esc(obraMap()[m.obra_id]?.nome||'—')}</div>
+    ${m.descricao?`<div class="muted">${esc(m.descricao)}</div>`:''}
+    ${m.nota_id?`<div class="muted">Toque para ver a nota</div>`:''}
+  </div>`).join('') || '<div class="empty-state">Nenhuma movimentação no período.</div>'}`;
+}
+async function carregarListaCaixas(){
+  S.financeiroView='caixa_lista'; S.loading=true; render();
+  try{
+    const movs = await sb('caixa_movimentos?select=usuario_id,tipo,valor');
+    const saldos = {};
+    movs.forEach(m=>{ saldos[m.usuario_id] = (saldos[m.usuario_id]||0) + (m.tipo==='aporte'?parseFloat(m.valor):-parseFloat(m.valor)); });
+    S.caixaListaSaldos = Object.entries(saldos).map(([uid,saldo])=>({usuario_id:uid, saldo})).sort((a,b)=>b.saldo-a.saldo);
+  }catch(e){ toast('Erro: '+e.message); S.caixaListaSaldos=[]; }
+  S.loading=false; render();
+}
+function renderCadastrosFinanceiros(){
+  const secoes = [
+    ['centros_custo','Centro de Custo', S.centrosCusto],
+    ['tipos_despesa','Tipo de Despesa', S.tiposDespesa],
+    ['formas_pagamento','Forma de Pagamento', S.formasPagamento],
+  ];
+  return secoes.map(([tabela,titulo,lista])=>`<div class="card">
+    <div class="muted" style="font-weight:700;margin-bottom:8px;">${titulo}</div>
+    <form onsubmit="event.preventDefault();criarItemCadastroFin(this,'${tabela}');" class="flex-row" style="margin-bottom:10px;">
+      <input name="nome" placeholder="Novo item" style="flex:1;padding:10px;border:1px solid var(--mega-cinza-bdr);border-radius:8px;" required>
+      <button class="btn btn-primary btn-sm">+ Adicionar</button>
+    </form>
+    ${lista.map(item=>`<div class="mcard" style="padding:10px 14px;"><div class="mc-top"><span>${esc(item.nome)}</span>
+      <button class="btn-icon" onclick="toggleStatusCadastroFin('${tabela}','${item.id}','${item.status==='ativo'?'inativo':'ativo'}')">${badge(item.status==='ativo'?'ok':'critico',item.status)}</button>
+    </div></div>`).join('') || '<div class="empty-state">Nenhum item cadastrado.</div>'}
+  </div>`).join('');
+}
+async function criarItemCadastroFin(form, tabela){
+  const fd = new FormData(form);
+  try{
+    await sb(tabela,{method:'POST',body:{nome:fd.get('nome'), criado_por:S.user.id}});
+    toast('Item adicionado.'); form.reset();
+    const map = {centros_custo:'centrosCusto', tipos_despesa:'tiposDespesa', formas_pagamento:'formasPagamento'};
+    S[map[tabela]] = await sb(`${tabela}?select=*&order=nome.asc`);
+  }catch(e){ toast('Erro: '+e.message); }
+  render();
+}
+async function toggleStatusCadastroFin(tabela, id, novoStatus){
+  try{
+    await sb(`${tabela}?id=eq.${id}`,{method:'PATCH',body:{status:novoStatus}});
+    const map = {centros_custo:'centrosCusto', tipos_despesa:'tiposDespesa', formas_pagamento:'formasPagamento'};
+    S[map[tabela]] = await sb(`${tabela}?select=*&order=nome.asc`);
+  }catch(e){ toast('Erro: '+e.message); }
+  render();
+}
+function renderCaixaLista(){
+  return `<button class="btn btn-secondary btn-block" style="margin-bottom:12px;" onclick="S.financeiroView='caixa';render();">← Voltar ao Caixa</button>
+  <div class="section-header">Caixa por usuário</div>
+  ${(S.caixaListaSaldos||[]).map(c=>`<div class="mcard" style="cursor:pointer;" onclick="carregarSaldoCaixa('${c.usuario_id}').then(()=>{S.financeiroView='caixa';render();});">
+    <div class="mc-top"><span>${esc(usuMap()[c.usuario_id]?.nome||'—')}</span><span style="font-weight:700;">${fmtMoney(c.saldo)}</span></div>
+  </div>`).join('') || '<div class="empty-state">Nenhum caixa com movimentação ainda.</div>'}`;
+}
 function renderFinanceiroEnviar(){
   return `<form class="card" onsubmit="event.preventDefault();criarNota(this);">
     <div class="form-grid">
       <div class="field"><label>Foto(s) da Nota *</label>${photoWidget('nota_foto')}</div>
-      <div class="field"><label>Tipo de Despesa</label>${chipGroup('tipo_despesa', TIPO_DESPESA_OPTS.map(t=>[t,t]), '')}</div>
+      <div class="field"><label>Tipo de Despesa</label>${chipGroup('tipo_despesa', S.tiposDespesa.filter(t=>t.status==='ativo').map(t=>[t.nome,t.nome]), '')}</div>
       <div class="field"><label>Data</label><input type="date" name="data_despesa" value="${new Date().toISOString().slice(0,10)}"></div>
       <div class="field"><label>Valor (R$)</label><input type="number" step="0.01" name="valor" placeholder="0,00"></div>
-      <div class="field"><label>Forma de Pagamento</label>${chipGroup('forma_pagamento', FORMA_PAGAMENTO_OPTS.map(f=>[f,f]), '')}</div>
-      <div class="field"><label>Obra (opcional)</label><select name="obra_id">${opt(S.obras.map(o=>[o.id,o.nome]),'',true)}</select></div>
+      <div class="field"><label>Forma de Pagamento</label>${chipGroup('forma_pagamento', S.formasPagamento.filter(f=>f.status==='ativo').map(f=>[f.nome,f.nome]), '')}</div>
+      <div class="field"><label>Obra</label><select name="obra_id" required><option value="">Selecione…</option>${opt(S.obras.map(o=>[o.id,o.nome]),'')}</select></div>
       <div class="field"><label>Observação (opcional)</label><textarea name="observacao"></textarea></div>
     </div>
     <div class="divider"></div>
@@ -2624,6 +2808,9 @@ function renderFinanceiroDetalhe(){
         <button class="btn btn-secondary btn-block" style="margin-top:8px;">Marcar Atenção</button>
       </form>`:''}
     ${podeRevisar?`<div class="divider"></div><button class="btn btn-vermelho btn-sm btn-block" onclick="excluirNota('${n.id}')">🗑 Excluir nota</button>`:''}
+    ${(S.currentNotaAuditoria||[]).length?`<div class="divider"></div><div class="muted" style="font-weight:700;margin-bottom:6px;">Histórico de alterações</div>
+      ${S.currentNotaAuditoria.map(a=>`<div class="muted" style="font-size:12px;padding:4px 0;border-bottom:1px solid #eee;">${fmtDate(a.criado_em)} — ${esc(usuMap()[a.alterado_por]?.nome||'—')} mudou de <b>${esc(a.status_anterior||'—')}</b> para <b>${esc(a.status_novo)}</b>${a.motivo?': '+esc(a.motivo):''}</div>`).join('')}
+    </div>`:''}
   </div>
   ${S.lightboxUrl?`<div class="modal-overlay" style="align-items:center;justify-content:center;" onclick="S.lightboxUrl=null;render()"><img src="${S.lightboxUrl}" style="max-width:92%;max-height:80vh;border-radius:8px;"></div>`:''}`;
 }
@@ -4303,7 +4490,7 @@ function renderMobNovaSolicitacao(){
     <div class="form-grid">
       <div class="field"><label>Obra (opcional)</label><select onchange="selecionarObraSolicitacao(this.value)"><option value="">Sem obra vinculada</option>${opt(S.obras.map(o=>[o.id,o.nome]),__mobObraSel)}</select></div>
       <div class="field"><label>Equipe (opcional)</label><select onchange="selecionarEquipeSolicitacao(this.value)"><option value="">Sem equipe vinculada</option>${opt(S.equipes.map(e=>[e.id,e.nome]),__mobEquipeSel)}</select></div>
-      <div class="field"><label>Centro de custo</label><input name="centro_custo"></div>
+      <div class="field"><label>Centro de custo</label><select name="centro_custo">${opt(S.centrosCusto.filter(c=>c.status==='ativo').map(c=>[c.nome,c.nome]),'',true)}</select></div>
       <div class="field"><label>Tipo de solicitação</label>${chipGroup('tipo_solicitacao',Object.entries(MOB_TIPO_LABELS),'alimentacao','selecionarTipoSolicitacaoMob')}</div>
       <div class="field"><label>Valor solicitado (R$)</label><input type="number" step="0.01" name="valor_solicitado" required oninput="atualizarAlertaOrcamentoMob(this.value)"></div>
       <div class="field"><label>Urgência</label>${chipGroup('urgencia',[['normal','Normal'],['urgente','Urgente']],'normal')}</div>
