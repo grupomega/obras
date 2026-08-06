@@ -686,6 +686,7 @@ const S = {
   programacaoView:'novo', programacaoLista:[],
   ocorrenciaFrotaTab:'nova', ocorrenciasFrotaLista:[], ocorrenciaRHTab:'nova', ocorrenciasRHLista:[],
   ncTab:'nova', ncLista:[], dashOculto:false, inicioStats:null, dashObraSel:null, buscaObras:'', obraStatusTab:'todas',
+  estoqueObraSel:null, estoqueObraLista:[],
   obraRodoviasSelecionada:null, rodoviasObraLista:[], obraFiscaisSelecionada:null, fiscaisObraLista:[]
 };
 
@@ -3140,8 +3141,82 @@ function renderDDSHistorico(){
       <div class="mc-top"><span>${esc(d.tema_nome)}</span></div>
       <div class="mc-meta">${fmtDate(d.data_hora)} · Líder: ${esc(usuMap()[d.lider_id]?.nome||'')} · ${(d.colaboradores||[]).length} participante(s)</div>
       ${(d.fotos||[]).length?`<div class="flex-row" style="gap:6px;margin-top:6px;flex-wrap:wrap;">${d.fotos.map(url=>`<a href="${url}" target="_blank"><img src="${url}" style="width:56px;height:56px;object-fit:cover;border-radius:6px;"></a>`).join('')}</div>`:''}
+      <div class="mc-actions"><button class="btn-icon" onclick='exportarPdfDDS(${JSON.stringify(d).replace(/'/g,"&apos;")})'>📄 Exportar PDF</button></div>
     </div>`).join('') || '<div class="empty-state">Nenhum DDS registrado.</div>'}
   </div>`;
+}
+function gerarHtmlDDS(r){
+  const obra = obraMap()[r.obra_id];
+  const lider = usuMap()[r.lider_id];
+  const temaIdx = TEMAS_DDS.findIndex(t=>t.nome===r.tema_nome);
+  const dataObj = new Date(r.data_hora);
+  const dataStr = dataObj.toISOString().slice(0,10);
+  const horaStr = dataObj.toTimeString().slice(0,5);
+  const colaboradores = r.colaboradores||[];
+  const linhasFixas = Math.max(5-colaboradores.length,0);
+  const cargoDe = p => p.tipo==='usuario' ? (usuMap()[p.id]?.cargo||'') : ((S.colaboradores||[]).find(c=>c.id===p.id)?.cargo||'');
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>DDS - ${esc(r.tema_nome)}</title>
+  <style>
+    @page{size:A4;margin:14mm;}
+    body{font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;margin:0;}
+    .doc{max-width:800px;margin:0 auto;}
+    .head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #C0392B;padding-bottom:10px;margin-bottom:14px;}
+    .head img{height:46px;}
+    .head .tit{text-align:center;flex:1;}
+    .head .tit h1{font-size:16px;margin:0;letter-spacing:.5px;}
+    .head .tit .sub{font-size:10px;color:#777;margin-top:2px;}
+    .tema-box{border:2px solid #C0392B;border-radius:4px;padding:6px 12px;text-align:center;min-width:150px;}
+    .tema-box .n{color:#C0392B;font-weight:800;font-size:13px;}
+    .tema-box .d{font-size:10px;margin-top:3px;}
+    .bar-black{background:#1a1a1a;color:#fff;font-size:10.5px;font-weight:700;letter-spacing:1px;padding:5px 10px;}
+    .titulo-tema{font-size:19px;font-weight:800;padding:8px 2px 14px;}
+    table.info{width:100%;border-collapse:collapse;margin-bottom:14px;font-size:10px;}
+    table.info th{background:#eee;text-align:left;padding:5px 8px;font-size:9px;text-transform:uppercase;color:#555;border:1px solid #ddd;}
+    table.info td{padding:6px 8px;border:1px solid #ddd;}
+    .bar-topicos{background:#333;color:#fff;font-size:10.5px;font-weight:700;letter-spacing:1px;padding:5px 10px;margin-top:6px;}
+    .topico-txt{padding:10px 2px;font-size:11.5px;line-height:1.6;white-space:pre-wrap;}
+    .quote{background:#FFF3EE;border:1px solid #E8520A;color:#C0392B;font-weight:700;font-size:11px;padding:8px 12px;margin:14px 0;}
+    table.colab{width:100%;border-collapse:collapse;margin-bottom:14px;font-size:10.5px;}
+    table.colab th{background:#E8520A;color:#fff;text-align:left;padding:6px 8px;font-size:9.5px;}
+    table.colab td{padding:8px 8px;border-bottom:1px solid #ddd;height:20px;}
+    .fotos{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 14px;}
+    .fotos img{width:120px;height:90px;object-fit:cover;border-radius:4px;border:1px solid #ddd;}
+    .assinatura-box{border:1px solid #ddd;padding:14px;display:flex;justify-content:space-between;align-items:center;margin-top:10px;}
+    .assinatura-box .assin{font-family:'Brush Script MT',cursive;font-size:26px;}
+    .footer{text-align:center;font-size:8.5px;color:#888;margin-top:24px;border-top:1px solid #ddd;padding-top:8px;}
+    .no-print{margin:14px 0;text-align:center;}
+    @media print{.no-print{display:none;}}
+  </style></head><body>
+  <div class="doc">
+    <div class="no-print"><button onclick="window.print()" style="padding:10px 20px;font-weight:700;">🖨️ Imprimir / Salvar PDF</button></div>
+    <div class="head">
+      <img src="${MEGA_LOGO_URL}">
+      <div class="tit"><h1>DIÁLOGO DIÁRIO DE SEGURANÇA - DDS</h1><div class="sub">Registro Oficial | Doc: DDS-MEGA-001</div></div>
+      <div class="tema-box"><div class="n">TEMA ${temaIdx>=0?temaIdx+1:'—'}</div><div class="d">DATA: ${dataStr}<br>HORA: ${horaStr}</div></div>
+    </div>
+    <div class="bar-black">${esc((r.tema_categoria||'PROCEDIMENTOS').toUpperCase())}</div>
+    <div class="titulo-tema">${esc(r.tema_nome)}</div>
+    <table class="info"><tr><th>Obra / Contrato</th><th>Local / Km</th><th>Horário início</th><th>Responsável</th></tr>
+      <tr><td>${esc(obra?.nome||'-')}</td><td>-</td><td>${horaStr}</td><td>${esc(lider?.nome||'-')}</td></tr></table>
+    <div class="bar-topicos">TÓPICOS ABORDADOS</div>
+    <div class="topico-txt">${esc(r.topicos_obs||'—')}</div>
+    <div class="quote">Segurança é responsabilidade de todos — cuide-se e cuide do seu colega!</div>
+    <table class="colab"><tr><th>Nome completo</th><th>Função / Cargo</th><th>Assinatura</th></tr>
+      ${colaboradores.map(p=>`<tr><td>${esc(p.nome)}</td><td>${esc(cargoDe(p))}</td><td></td></tr>`).join('')}
+      ${Array.from({length:linhasFixas}).map(()=>`<tr><td>&nbsp;</td><td></td><td></td></tr>`).join('')}
+    </table>
+    ${(r.fotos||[]).length?`<div class="bar-topicos">EVIDÊNCIAS FOTOGRÁFICAS</div><div class="fotos">${r.fotos.map(url=>`<img src="${url}">`).join('')}</div>`:''}
+    <div class="bar-topicos">ASSINATURA DO RESPONSÁVEL</div>
+    <div class="assinatura-box"><div class="assin">${esc(r.assinatura_lider||'')}</div><div style="font-size:10px;color:#777;">Data/hora encerramento:<br><b>${dataStr} às ${horaStr}</b></div></div>
+    <div class="footer">MEGA Comércio e Sinalização de Obras Viárias LTDA | www.megasinalizacao.com.br | Doc: DDS-MEGA-001</div>
+  </div>
+  </body></html>`;
+}
+function exportarPdfDDS(r){
+  const w = window.open('', '_blank');
+  if(!w){ toast('Habilite pop-ups pra exportar o PDF.'); return; }
+  w.document.write(gerarHtmlDDS(r));
+  w.document.close();
 }
 
 /* ==========================================================
@@ -3166,6 +3241,7 @@ function matMap(){ const m={}; (S.materiais||[]).forEach(x=>m[x.id]=x); return m
 function renderSuprimentos(){
   const tabs=[['materiais','📋','Cadastro de Materiais','Item, descrição, unidade e estoque'],
     ['movimentar','🔄','Movimentar Estoque','Entrada, saída e retirada de materiais'],
+    ['estoque_obra','🏗️','Estoque por Obra','Saldo de materiais em cada obra'],
     ['historico','🕘','Histórico','Todas as movimentações registradas']];
   if(!S.suprimentosTab || S.suprimentosTab==='hub'){
     return `<div class="wrap">
@@ -3180,8 +3256,23 @@ function renderSuprimentos(){
     <div class="muted" style="font-weight:700;margin-bottom:8px;">${atual?atual[2]:''}</div>
     ${S.suprimentosTab==='materiais'?renderMateriais():''}
     ${S.suprimentosTab==='movimentar'?renderMovimentarEstoque():''}
+    ${S.suprimentosTab==='estoque_obra'?renderEstoqueObra():''}
     ${S.suprimentosTab==='historico'?renderHistoricoMateriais():''}
   </div>`;
+}
+function selecionarObraEstoque(v){
+  S.estoqueObraSel = v||null;
+  if(v){ S.loading=true; render();
+    sb(`estoque_materiais_obra?select=*&obra_id=eq.${v}&order=saldo.desc`).then(rows=>{ S.estoqueObraLista=rows; S.loading=false; render(); }).catch(e=>{ toast('Erro: '+e.message); S.loading=false; render(); });
+  } else render();
+}
+function renderEstoqueObra(){
+  return `
+  <div class="field" style="margin-bottom:12px;"><label>Obra</label><select onchange="selecionarObraEstoque(this.value)"><option value="">Selecione…</option>${opt(S.obras.map(o=>[o.id,o.nome]),S.estoqueObraSel)}</select></div>
+  ${!S.estoqueObraSel?'<div class="empty-state">Selecione uma obra pra ver o estoque.</div>':
+    (S.estoqueObraLista||[]).map(e=>{ const mat=matMap()[e.material_id];
+      return `<div class="mcard"><div class="mc-top"><span>${esc(mat?.item||'—')}</span>${badge(mat?.estoque_minimo!=null&&e.saldo<mat.estoque_minimo?'critico':'ok',e.saldo+' '+esc(mat?.unidade||''))}</div></div>`;
+    }).join('') || '<div class="empty-state">Nenhuma movimentação registrada nessa obra.</div>'}`;
 }
 function renderMateriais(){
   return `
