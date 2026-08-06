@@ -465,6 +465,7 @@ const FORMA_PAGAMENTO_OPTS=['Cartão Corporativo','Cartão Pessoal (reembolso)',
 const FIN_STATUS_LABELS={enviado:'Aguardando Aprovação',aprovado:'Aprovado',reprovado:'Reprovado',atencao:'Atenção — Retorno Necessário'};
 const FIN_STATUS_CLASS={enviado:'andamento',aprovado:'ok',reprovado:'critico',atencao:'pendente'};
 function finStatusBadge(s){ return badge(FIN_STATUS_CLASS[s]||'andamento', FIN_STATUS_LABELS[s]||s); }
+function origemPagamentoBadge(n){ return n.origem_pagamento==='pago_direto_empresa' ? `<span class="badge badge-andamento" title="Não desconta do caixa do colaborador">🏢 Empresa pagou direto</span>` : ''; }
 function fmtMoney(v){ return 'R$ '+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 
 const MODULES=[['dashboard','Dashboard'],['os_lista','Ordens de Serviço'],['os_nova','Nova OS'],
@@ -685,6 +686,7 @@ const S = {
   estoqueObraSel:null, estoqueObraLista:[], gpFiltro:null, gpLista:[], gpLista4d:[], finDashNotas:null, finDashCaixaMovs:[], finDashFiltro:null,
   centrosCusto:[], tiposDespesa:[], formasPagamento:[],
   caixaSaldo:0, caixaUsuarioSel:null, caixaExtratoPeriodo:'7', caixaExtratoLista:[], caixaListaSaldos:[], caixaResumoNotas:null,
+  todasSolicitacoesMob:null, mobDashFiltro:'todas', mobDashPeriodo:'todas', mobDashDataDe:'', mobDashDataAte:'',
   apontamentosFaltaHoje:[], ocorrenciaRHTab:'nova', ocorrenciasRHLista:[]
 };
 
@@ -1358,7 +1360,8 @@ async function criarNota(form){
       usuario_id:S.user.id, fotos_urls:urls, tipo_despesa:fd.get('tipo_despesa')||null,
       data_despesa:fd.get('data_despesa')||new Date().toISOString().slice(0,10),
       forma_pagamento:fd.get('forma_pagamento')||null, valor:fd.get('valor')||null,
-      obra_id:fd.get('obra_id')||null, centro_custo:fd.get('centro_custo')||null, observacao:fd.get('observacao')||null, status:'enviado'
+      obra_id:fd.get('obra_id')||null, centro_custo:fd.get('centro_custo')||null, observacao:fd.get('observacao')||null,
+      origem_pagamento:fd.get('origem_pagamento')||'caixa_colaborador', status:'enviado'
     };
     await sb('notas_fiscais',{method:'POST',body:payload});
     clearPending(key);
@@ -1483,6 +1486,7 @@ function navGoto(k){
   else if(k==='obra'){ S.view='obra'; S.obraSubView='hub'; render(); }
   else if(k==='cadastros_obras_ir'){ S.view='cadastros'; S.cadastroTab='obras'; render(); }
   else if(k==='cadastros_equipamentos_ir'){ S.view='cadastros'; S.cadastroTab='equipamentos'; render(); }
+  else if(k==='cadastros_veiculos_ir'){ S.view='cadastros'; S.cadastroTab='veiculos'; render(); }
   else if(k==='cadastros_usuarios_ir'){ S.view='cadastros'; S.cadastroTab='usuarios'; render(); }
   else if(k==='cadastros_equipes_ir'){ S.view='cadastros'; S.cadastroTab='equipes'; render(); }
   else if(k==='obra_programacao'){ S.view='obra'; S.obraSubView='programacao'; carregarProgramacaoTab('novo'); }
@@ -1494,6 +1498,7 @@ function navGoto(k){
 function renderHeader(){
   const principal = [
     ['dashboard','🏠','Início'],
+    (canAccess('cadastros_obras')||canAccess('cadastros_equipes')||canAccess('cadastros_usuarios')||canAccess('cadastros_veiculos')||canAccess('cadastros_equipamentos'))?['cadastros','🗂️','Cadastros']:null,
     (canAccess('cadastros_obras')?['cadastros_obras_ir','🏗️','Obras']:null),
     ['obra_programacao','🗓️','Planejamento'],
     ['rdo','📝','RDO'],
@@ -1502,6 +1507,7 @@ function renderHeader(){
     ['gestao_producao','📈','Gestão de Produção'],
     canAccess('suprimentos')?['suprimentos','📦','Suprimentos']:null,
     canAccess('checkin_veiculo')?['veiculo_checkin','🚚','Frota']:null,
+    (canAccess('cadastros_veiculos')?['cadastros_veiculos_ir','🚙','Veículos']:null),
     (canAccess('cadastros_equipamentos')?['cadastros_equipamentos_ir','🛠️','Equipamentos']:null),
     ['cadastros_usuarios_ir','👥','Colaboradores'],
     canAccess('mobilizacao')?['mobilizacao','💵','Mobilizações']:null,
@@ -1546,7 +1552,7 @@ function renderTopbar(){
   return `
   <div class="topbar">
     <div>
-      <div class="topbar-crumb">SISTEMA MEGA / ${(VIEW_TITULOS[S.view]||'').toUpperCase()}</div>
+      <div class="topbar-crumb"><span style="cursor:pointer;" onclick="navGoto('dashboard')">SISTEMA MEGA</span> / ${(VIEW_TITULOS[S.view]||'').toUpperCase()}</div>
       <div class="topbar-title">${VIEW_TITULOS[S.view]||''}</div>
     </div>
     <div class="topbar-right">
@@ -1647,6 +1653,7 @@ function renderDashboard(){
   if(D.atestados.length>0) alertas.push([`${D.atestados.length} atestado(s)`, 'aguardando análise do RH', "carregarRHTab('atestados');"]);
 
   // ---------- Gauges: Produção e Financeiro ----------
+  const kpi = (label,val,color,onclick)=>`<div class="kpi-card${onclick?' clickable':''}"${color?` style="border-left-color:${color};"`:''}${onclick?` onclick="${onclick}"`:''}><div class="kpi-label">${label}</div><div class="kpi-value">${val}</div></div>`;
   const pctAprovadas = list.length ? Math.round((list.filter(o=>o.status==='aprovada').length/list.length)*100) : 0;
   const totalFin = valorPendente+valorAprovadoMes;
   const pctFinAprovado = totalFin>0 ? Math.round((valorAprovadoMes/totalFin)*100) : 100;
@@ -2687,17 +2694,25 @@ function renderCheckinHistorico(){
 function renderFinanceiro(){
   if(!S.financeiroView) S.financeiroView = canAccess('financeiro_geral') ? 'dashboard' : 'meu_painel';
   return `<div class="wrap">
-    <div class="section-header">Financeiro
+    <div class="section-header">Financeiro</div>
+    <div class="panel-card" style="margin-bottom:14px;padding:12px 16px;">
+      <div class="muted" style="font-weight:700;font-size:11px;letter-spacing:.5px;margin-bottom:8px;">MEU — PESSOAL</div>
       <div class="flex-row">
-        ${canAccess('financeiro_geral')?`<button class="btn ${S.financeiroView==='dashboard'?'btn-primary':'btn-secondary'} btn-sm" onclick="carregarFinanceiroDashboard();">📊 Dashboard</button>`:''}
         <button class="btn ${S.financeiroView==='enviar'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.financeiroView='enviar';render()">+ Enviar Nota</button>
-        <button class="btn ${S.financeiroView==='meu_painel'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.financeiroView='meu_painel';loadMinhasNotas().then(render);">Meu Painel</button>
+        <button class="btn ${S.financeiroView==='meu_painel'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.financeiroView='meu_painel';loadMinhasNotas().then(render);">Minhas Despesas</button>
         <button class="btn ${S.financeiroView==='reprovadas'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.financeiroView='reprovadas';loadMinhasNotas().then(render);">Reprovadas</button>
-        ${canAccess('financeiro_geral')?`<button class="btn ${S.financeiroView==='geral'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.financeiroView='geral';loadTodasNotas().then(render);">Lista Geral</button>`:''}
-        <button class="btn ${['caixa','caixa_extrato','caixa_lista'].includes(S.financeiroView)?'btn-primary':'btn-secondary'} btn-sm" onclick="carregarSaldoCaixa(S.user.id).then(()=>{S.financeiroView='caixa';render();});">💵 Meu Caixa</button>
-        ${canAccess('mobilizacao')?`<button class="btn btn-secondary btn-sm" onclick="S.view='mobilizacao';carregarMobTab('nova');">📐 Mobilização</button>`:''}
+        <button class="btn ${['caixa','caixa_extrato','caixa_lista'].includes(S.financeiroView)?'btn-primary':'btn-secondary'} btn-sm" onclick="carregarSaldoCaixa(S.user.id).then(()=>{S.financeiroView='caixa';render();});">👛 Meu Caixa</button>
       </div>
     </div>
+    ${canAccess('financeiro_geral')?`<div class="panel-card" style="margin-bottom:14px;padding:12px 16px;border-left:3px solid var(--app-red);">
+      <div class="muted" style="font-weight:700;font-size:11px;letter-spacing:.5px;margin-bottom:8px;">GESTÃO FINANCEIRA</div>
+      <div class="flex-row">
+        <button class="btn ${S.financeiroView==='dashboard'?'btn-primary':'btn-secondary'} btn-sm" onclick="carregarFinanceiroDashboard();">📊 Dashboard</button>
+        <button class="btn ${S.financeiroView==='geral'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.financeiroView='geral';loadTodasNotas().then(render);">🗂️ Todas as Despesas</button>
+        <button class="btn ${S.financeiroView==='cadastros_fin'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.financeiroView='cadastros_fin';render();">⚙️ Cadastros Financeiros</button>
+        ${canAccess('mobilizacao')?`<button class="btn btn-secondary btn-sm" onclick="S.view='mobilizacao';carregarMobTab('nova');">📐 Mobilização</button>`:''}
+      </div>
+    </div>`:''}
     ${S.financeiroView==='dashboard'?renderFinanceiroDashboard():''}
     ${S.financeiroView==='enviar'?renderFinanceiroEnviar():''}
     ${S.financeiroView==='meu_painel'?renderFinanceiroMeuPainel():''}
@@ -2707,6 +2722,7 @@ function renderFinanceiro(){
     ${S.financeiroView==='caixa'?renderCaixa():''}
     ${S.financeiroView==='caixa_extrato'?renderCaixaExtrato():''}
     ${S.financeiroView==='caixa_lista'?renderCaixaLista():''}
+    ${S.financeiroView==='cadastros_fin'?renderCadastrosFinanceiros():''}
   </div>`;
 }
 function periodoParaDatasFin(periodo, dataDe, dataAte){
@@ -2776,6 +2792,24 @@ function renderFinanceiroDashboard(){
   const tiposOrdenados = Object.entries(porTipo).sort((a,b)=>b[1]-a[1]).slice(0,8);
   const maxTipo = Math.max(...tiposOrdenados.map(t=>t[1]),1);
 
+  // Ranking de obras que mais gastam
+  const porObra = {};
+  notas.forEach(n=>{ const k=n.obra_id||'__sem_obra'; porObra[k]=(porObra[k]||0)+parseFloat(n.valor||0); });
+  const obrasOrdenadas = Object.entries(porObra).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const maxObra = Math.max(...obrasOrdenadas.map(o=>o[1]),1);
+  const totalObras = obrasOrdenadas.reduce((s,o)=>s+o[1],0)||1;
+  const coresObra = ['var(--mega-laranja)','var(--mega-azul)','var(--mega-amarelo)','var(--mega-verde)','var(--mega-vermelho)','#8B5CF6','#EC4899','#14B8A6'];
+  let accObra=0; const fatiasObra = obrasOrdenadas.map(([,v],i)=>{ const pct=v/totalObras*100; const s=accObra; accObra+=pct; return `${coresObra[i%coresObra.length]} ${s}% ${accObra}%`; }).join(', ');
+
+  // Top 5 usuários que mais gastam
+  const porUsuario = {};
+  notas.forEach(n=>{ porUsuario[n.usuario_id]=(porUsuario[n.usuario_id]||0)+parseFloat(n.valor||0); });
+  const top5Usuarios = Object.entries(porUsuario).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const maxUsuario = Math.max(...top5Usuarios.map(u=>u[1]),1);
+
+  // Últimas 20 despesas aguardando aprovação
+  const ultimasPendentes = [...pendentes].sort((a,b)=>new Date(b.criado_em)-new Date(a.criado_em)).slice(0,20);
+
   return `
   <div class="panel-card" style="margin-bottom:18px;">
     <div class="panel-eyebrow">FILTROS</div>
@@ -2830,6 +2864,44 @@ function renderFinanceiroDashboard(){
         <div class="flex-row" style="justify-content:space-between;font-size:12.5px;"><b>${esc(tipo)}</b><span>${fmtMoney(val)}</span></div>
         <div style="background:var(--mega-cinza-bdr);border-radius:4px;height:8px;margin-top:4px;"><div style="background:var(--mega-azul);height:8px;border-radius:4px;width:${(val/maxTipo*100)}%;"></div></div>
       </div>`).join('') || '<div class="empty-state">Nenhuma despesa registrada ainda.</div>'}
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:18px;margin:18px 0;align-items:start;">
+    <div class="panel-card">
+      <div class="panel-eyebrow">RANKING</div><div class="panel-title">Obras que mais gastam</div>
+      <div style="margin-top:14px;">
+        ${obrasOrdenadas.map(([obraId,val],i)=>`<div style="margin-bottom:10px;">
+          <div class="flex-row" style="justify-content:space-between;font-size:12.5px;"><b>${i+1}. ${esc(obraId==='__sem_obra'?'Sem obra':obraMap()[obraId]?.nome||'—')}</b><span>${fmtMoney(val)}</span></div>
+          <div style="background:var(--mega-cinza-bdr);border-radius:4px;height:8px;margin-top:4px;"><div style="background:${coresObra[i%coresObra.length]};height:8px;border-radius:4px;width:${(val/maxObra*100)}%;"></div></div>
+        </div>`).join('') || '<div class="empty-state">Nenhuma despesa registrada ainda.</div>'}
+      </div>
+    </div>
+    <div class="panel-card">
+      <div class="panel-eyebrow">DISTRIBUIÇÃO</div><div class="panel-title">Gasto por obra</div>
+      <div style="display:flex;align-items:center;justify-content:center;margin-top:16px;">
+        <div style="width:140px;height:140px;border-radius:50%;background:conic-gradient(${fatiasObra||'#ddd 0% 100%'});"></div>
+      </div>
+      <div style="margin-top:14px;">${obrasOrdenadas.slice(0,5).map(([obraId],i)=>`<div class="donut-legend-row"><span class="donut-legend-dot" style="background:${coresObra[i%coresObra.length]};"></span>${esc(obraId==='__sem_obra'?'Sem obra':obraMap()[obraId]?.nome||'—')}</div>`).join('')}</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+    <div class="panel-card">
+      <div class="panel-eyebrow">AGUARDANDO AÇÃO</div><div class="panel-title">Últimas 20 despesas para aprovação</div>
+      <div class="table-scroll" style="margin-top:10px;max-height:420px;"><table class="mega-table">
+        <thead><tr><th>Usuário</th><th>Tipo</th><th>Valor</th><th>Data</th></tr></thead>
+        <tbody>${ultimasPendentes.map(n=>`<tr class="clickable" onclick="abrirNota('${n.id}','geral')"><td>${esc(usuMap()[n.usuario_id]?.nome||'—')}</td><td>${esc(n.tipo_despesa||'—')}</td><td class="mono">${fmtMoney(n.valor)}</td><td>${fmtDateOnly(n.data_despesa)}</td></tr>`).join('') || `<tr><td colspan="4" class="empty-state">Nada pendente.</td></tr>`}</tbody>
+      </table></div>
+    </div>
+    <div class="panel-card">
+      <div class="panel-eyebrow">RANKING</div><div class="panel-title">Top 5 usuários que mais gastam</div>
+      <div style="margin-top:14px;">
+        ${top5Usuarios.map(([uid,val],i)=>`<div style="margin-bottom:10px;">
+          <div class="flex-row" style="justify-content:space-between;font-size:12.5px;"><b style="cursor:pointer;text-decoration:underline;" onclick="carregarSaldoCaixa('${uid}').then(()=>{S.financeiroView='caixa';render();});">${i+1}. ${esc(usuMap()[uid]?.nome||'—')}</b><span>${fmtMoney(val)}</span></div>
+          <div style="background:var(--mega-cinza-bdr);border-radius:4px;height:8px;margin-top:4px;"><div style="background:var(--app-red);height:8px;border-radius:4px;width:${(val/maxUsuario*100)}%;"></div></div>
+        </div>`).join('') || '<div class="empty-state">Nenhuma despesa registrada ainda.</div>'}
+      </div>
     </div>
   </div>`;
 }
@@ -2954,6 +3026,44 @@ function renderCaixaLista(){
   </div>`;
 }
 
+function renderCadastrosFinanceiros(){
+  const secoes = [
+    ['centros_custo','Centro de Custo', S.centrosCusto],
+    ['tipos_despesa','Tipo de Despesa', S.tiposDespesa],
+    ['formas_pagamento','Forma de Pagamento', S.formasPagamento],
+  ];
+  return `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
+    ${secoes.map(([tabela,titulo,lista])=>`<div class="panel-card">
+      <div class="panel-eyebrow">${titulo.toUpperCase()}</div>
+      <form onsubmit="event.preventDefault();criarItemCadastroFin(this,'${tabela}');" class="flex-row" style="margin:10px 0;">
+        <input name="nome" placeholder="Novo item" style="flex:1;padding:8px;border:1px solid var(--mega-cinza-bdr);border-radius:6px;" required>
+        <button class="btn btn-primary btn-sm">+</button>
+      </form>
+      <div class="table-scroll"><table class="mega-table">
+        <thead><tr><th>Nome</th><th>Status</th></tr></thead>
+        <tbody>${lista.map(item=>`<tr><td>${esc(item.nome)}</td><td><button class="btn-icon" onclick="toggleStatusCadastroFin('${tabela}','${item.id}','${item.status==='ativo'?'inativo':'ativo'}')">${badge(item.status==='ativo'?'ok':'critico',item.status)}</button></td></tr>`).join('') || `<tr><td colspan="2" class="empty-state">Nenhum item.</td></tr>`}</tbody>
+      </table></div>
+    </div>`).join('')}
+  </div>`;
+}
+async function criarItemCadastroFin(form, tabela){
+  const fd = new FormData(form);
+  try{
+    await sb(tabela,{method:'POST',body:{nome:fd.get('nome'), criado_por:S.user.id}});
+    toast('Item adicionado.'); form.reset();
+    const map = {centros_custo:'centrosCusto', tipos_despesa:'tiposDespesa', formas_pagamento:'formasPagamento'};
+    S[map[tabela]] = await sb(`${tabela}?select=*&order=nome.asc`);
+  }catch(e){ toast('Erro: '+e.message); }
+  render();
+}
+async function toggleStatusCadastroFin(tabela, id, novoStatus){
+  try{
+    await sb(`${tabela}?id=eq.${id}`,{method:'PATCH',body:{status:novoStatus}});
+    const map = {centros_custo:'centrosCusto', tipos_despesa:'tiposDespesa', formas_pagamento:'formasPagamento'};
+    S[map[tabela]] = await sb(`${tabela}?select=*&order=nome.asc`);
+  }catch(e){ toast('Erro: '+e.message); }
+  render();
+}
 function renderFinanceiroEnviar(){
   return `<form class="card" onsubmit="event.preventDefault();criarNota(this);">    <div class="form-grid">
       <div class="field field-span2"><label>Foto(s) da Nota *</label>${photoWidget('nota_foto')}</div>
@@ -2963,6 +3073,8 @@ function renderFinanceiroEnviar(){
       <div class="field field-span2"><label>Forma de Pagamento</label>${chipGroup('forma_pagamento', S.formasPagamento.filter(f=>f.status==='ativo').map(f=>[f.nome,f.nome]), '')}</div>
       <div class="field"><label>Obra</label><select name="obra_id" required><option value="">Selecione…</option>${opt(S.obras.map(o=>[o.id,o.nome]),'')}</select></div>
       <div class="field"><label>Centro de Custo</label><select name="centro_custo">${opt(S.centrosCusto.filter(c=>c.status==='ativo').map(c=>[c.nome,c.nome]),'',true)}</select></div>
+      <div class="field field-span3"><label>Origem do pagamento</label>${chipGroup('origem_pagamento',[['caixa_colaborador','Saiu do caixa do colaborador'],['pago_direto_empresa','Empresa pagou direto (não passou pelo colaborador)']],'caixa_colaborador')}
+        <div class="muted" style="margin-top:4px;">Ex: empresa faz PIX direto pro posto de combustível — a despesa entra na prestação de contas, mas não desconta do caixa do colaborador.</div></div>
       <div class="field field-span3"><label>Observação (opcional)</label><textarea name="observacao"></textarea></div>
     </div>
     <div class="divider"></div>
@@ -2995,7 +3107,7 @@ function renderFinanceiroMeuPainel(){
     <thead><tr><th>Data</th><th>Tipo</th><th>Valor</th><th>Forma Pagto</th><th>Status</th></tr></thead>
     <tbody>${list.map(n=>`<tr class="clickable" onclick="abrirNota('${n.id}','meu_painel')">
       <td>${fmtDateOnly(n.data_despesa)}</td><td>${esc(n.tipo_despesa||'—')}</td><td class="mono">${fmtMoney(n.valor)}</td>
-      <td>${esc(n.forma_pagamento||'—')}</td><td>${finStatusBadge(n.status)}</td></tr>`).join('') || `<tr><td colspan="5" class="empty-state">Nenhuma nota enviada ainda.</td></tr>`}
+      <td>${esc(n.forma_pagamento||'—')}</td><td>${finStatusBadge(n.status)} ${origemPagamentoBadge(n)}</td></tr>`).join('') || `<tr><td colspan="5" class="empty-state">Nenhuma nota enviada ainda.</td></tr>`}
     </tbody></table></div>`;
 }
 function renderFinanceiroGeral(){
@@ -3023,7 +3135,7 @@ function renderFinanceiroGeral(){
     <thead><tr><th>Colaborador</th><th>Data</th><th>Tipo</th><th>Valor</th><th>Status</th></tr></thead>
     <tbody>${pendentesRevisao.map(n=>`<tr class="clickable" onclick="abrirNota('${n.id}','geral')">
       <td>${esc(um[n.usuario_id]?.nome||'—')}</td><td>${fmtDateOnly(n.data_despesa)}</td><td>${esc(n.tipo_despesa||'—')}</td>
-      <td class="mono">${fmtMoney(n.valor)}</td><td>${finStatusBadge(n.status)}</td></tr>`).join('') || `<tr><td colspan="5" class="empty-state">Nada pendente.</td></tr>`}
+      <td class="mono">${fmtMoney(n.valor)}</td><td>${finStatusBadge(n.status)} ${origemPagamentoBadge(n)}</td></tr>`).join('') || `<tr><td colspan="5" class="empty-state">Nada pendente.</td></tr>`}
     </tbody></table></div>
   <div class="section-header">Por Colaborador</div>
   <div class="table-scroll"><table class="mega-table">
@@ -3040,7 +3152,7 @@ function renderFinanceiroGeral(){
     <thead><tr><th>Colaborador</th><th>Data</th><th>Tipo</th><th>Valor</th><th>Forma Pagto</th><th>Status</th><th></th></tr></thead>
     <tbody>${list.map(n=>`<tr class="clickable" onclick="abrirNota('${n.id}','geral')">
       <td>${esc(um[n.usuario_id]?.nome||'—')}</td><td>${fmtDateOnly(n.data_despesa)}</td><td>${esc(n.tipo_despesa||'—')}</td>
-      <td class="mono">${fmtMoney(n.valor)}</td><td>${esc(n.forma_pagamento||'—')}</td><td>${finStatusBadge(n.status)}</td>
+      <td class="mono">${fmtMoney(n.valor)}</td><td>${esc(n.forma_pagamento||'—')}</td><td>${finStatusBadge(n.status)} ${origemPagamentoBadge(n)}</td>
       <td><button class="btn-icon danger" onclick="event.stopPropagation();excluirNota('${n.id}')">🗑</button></td></tr>`).join('') || `<tr><td colspan="7" class="empty-state">Nenhuma nota registrada.</td></tr>`}
     </tbody></table></div>`;
 }
@@ -3052,7 +3164,7 @@ function renderFinanceiroDetalhe(){
   return `<div class="card">
     <button class="btn btn-secondary btn-sm" onclick="S.financeiroView='${S.financeiroNotaOrigem||'meu_painel'}';render()">← Voltar</button>
     <div class="divider"></div>
-    <div class="flex-row" style="margin-bottom:10px;">${finStatusBadge(n.status)}</div>
+    <div class="flex-row" style="margin-bottom:10px;">${finStatusBadge(n.status)}${origemPagamentoBadge(n)}</div>
     <div class="form-grid" style="font-size:13px;">
       <div><b>Colaborador:</b> ${esc(um[n.usuario_id]?.nome||'—')}</div>
       <div><b>Data:</b> ${fmtDateOnly(n.data_despesa)}</div>
@@ -3092,6 +3204,7 @@ function renderFinanceiroDetalhe(){
    MÓDULO PESSOAS / RH
    ========================================================== */
 function isRHStaff(){ return S.user && (S.user.perfil==='administrador'||S.user.perfil==='departamento_pessoal'); }
+function podeComporMensagem(){ return isRHStaff() || (S.user && S.user.perfil==='financeiro'); }
 function renderRH(){
   const podeApontarFalta = ['administrador','departamento_pessoal','supervisor','coordenador','encarregado'].includes(S.user.perfil);
   const tabs=[['pessoas','Meus Dados'],
@@ -4273,13 +4386,13 @@ function renderMensagens(){
   const resolvidos = (S.avisos||[]).filter(a=>(S.avisosResolvidos||[]).includes(a.id));
   return `<div class="wrap">
     <div class="section-header">💬 Mensagens${naoLidos?` <span class="badge critico" style="margin-left:6px;">${naoLidos} nova(s)</span>`:''}</div>
-    ${isRHStaff()?renderComporAviso():''}
+    ${podeComporMensagem()?renderComporAviso():''}
     <div class="section-header">Pendente</div>
     ${pendentes.map(renderAvisoCard).join('') || '<div class="empty-state">Nenhuma mensagem pendente.</div>'}
     <div class="divider"></div>
     <div class="section-header">Resolvido</div>
     ${resolvidos.map(renderAvisoCard).join('') || '<div class="empty-state">Nenhuma mensagem resolvida ainda.</div>'}
-    ${isRHStaff()?renderAvisosEnviados():''}
+    ${podeComporMensagem()?renderAvisosEnviados():''}
   </div>`;
 }
 function renderComporAviso(){
@@ -4711,7 +4824,7 @@ function carregarMobTab(tab){
   else if(tab==='minhas') loadMinhasSolicitacoesMob().then(done).catch(fail);
   else if(tab==='planejar') Promise.all([loadMobilizacoes()]).then(done).catch(fail);
   else if(tab==='fila') loadFilaFinanceiroMob().then(done).catch(fail);
-  else if(tab==='dashboard') Promise.all([loadFilaFinanceiroMob(), loadMinhasSolicitacoesMob()]).then(done).catch(fail);
+  else if(tab==='dashboard') Promise.all([loadTodasSolicitacoesMob(), loadFilaFinanceiroMob()]).then(done).catch(fail);
   else done();
 }
 async function loadMobilizacoes(){ S.mobilizacoes = await sb('mobilizacoes?select=*&status=eq.ativa&order=criado_em.desc&limit=200'); S.mobilizacoesLoaded=true; }
@@ -4720,6 +4833,9 @@ async function loadMinhasSolicitacoesMob(){
 }
 async function loadFilaFinanceiroMob(){
   S.filaFinanceiroMob = await sb(`solicitacoes_mobilizacao?select=*&status=in.(solicitada,em_analise)&order=criado_em.asc&limit=200`);
+}
+async function loadTodasSolicitacoesMob(){
+  S.todasSolicitacoesMob = await sb(`solicitacoes_mobilizacao?select=*&order=criado_em.desc&limit=300`);
 }
 
 /* ---------- CCO: Planejamento ---------- */
@@ -4782,11 +4898,11 @@ function renderMobNovaSolicitacao(){
   const m = mobEncontrarMobilizacao();
   return `
   <form class="card" onsubmit="event.preventDefault();enviarSolicitacaoMob(this);">
-    <div class="muted" style="margin-bottom:10px;">Qualquer colaborador pode solicitar. A obra é opcional, mas se informada e existir um planejamento de mobilização para ela, o sistema mostra o orçamento previsto automaticamente.</div>
+    <div class="muted" style="margin-bottom:10px;">Qualquer colaborador pode solicitar. Ao ser aprovada, o valor entra direto no Caixa do solicitante.</div>
     <div class="form-grid">
-      <div class="field"><label>Obra (opcional)</label><select onchange="selecionarObraSolicitacao(this.value)"><option value="">Sem obra vinculada</option>${opt(S.obras.map(o=>[o.id,o.nome]),__mobObraSel)}</select></div>
+      <div class="field"><label>Obra</label><select onchange="selecionarObraSolicitacao(this.value)" required><option value="">Selecione…</option>${opt(S.obras.map(o=>[o.id,o.nome]),__mobObraSel)}</select></div>
       <div class="field"><label>Equipe (opcional)</label><select onchange="selecionarEquipeSolicitacao(this.value)"><option value="">Sem equipe vinculada</option>${opt(S.equipes.map(e=>[e.id,e.nome]),__mobEquipeSel)}</select></div>
-      <div class="field"><label>Centro de custo</label><input name="centro_custo"></div>
+      <div class="field"><label>Centro de custo</label><select name="centro_custo" required><option value="">Selecione…</option>${opt(S.centrosCusto.filter(c=>c.status==='ativo').map(c=>[c.nome,c.nome]),'')}</select></div>
       <div class="field"><label>Tipo de solicitação</label>${chipGroup('tipo_solicitacao',Object.entries(MOB_TIPO_LABELS),'alimentacao','selecionarTipoSolicitacaoMob')}</div>
       <div class="field"><label>Valor solicitado (R$)</label><input type="number" step="0.01" name="valor_solicitado" required oninput="atualizarAlertaOrcamentoMob(this.value)"></div>
       <div class="field"><label>Urgência</label>${chipGroup('urgencia',[['normal','Normal'],['urgente','Urgente']],'normal')}</div>
@@ -4918,7 +5034,7 @@ async function decidirSolicitacaoMob(id, status, valorAprovado){
   S.loading=true; render();
   try{
     await sb(`solicitacoes_mobilizacao?id=eq.${id}`,{method:'PATCH',body:{status, valor_aprovado:status==='aprovada'?valorAprovado:null, motivo_decisao:motivo||null, analisado_por:S.user.id, analisado_em:new Date().toISOString()}});
-    toast('Solicitação atualizada.'); await loadFilaFinanceiroMob();
+    toast('Solicitação atualizada.'); await Promise.all([loadFilaFinanceiroMob(), loadTodasSolicitacoesMob()]);
   }catch(e){ toast('Erro: '+e.message); }
   S.loading=false; render();
 }
@@ -4929,15 +5045,52 @@ async function aprovarParcialMob(id){
 
 /* ---------- Dashboard Financeiro ---------- */
 function renderMobDashboard(){
-  const list = S.filaFinanceiroMob||[];
+  if(!S.todasSolicitacoesMob){ loadTodasSolicitacoesMob().then(render); return '<div class="empty-state">Carregando…</div>'; }
+  let todas = S.todasSolicitacoesMob||[];
+  const periodoData = S.mobDashPeriodo||'todas';
+  if(periodoData!=='todas'){
+    const [de,ate] = periodoData==='custom' ? [new Date(S.mobDashDataDe+'T00:00:00'), new Date(S.mobDashDataAte+'T23:59:59')] : periodoParaDatas(periodoData);
+    todas = todas.filter(s=>{ const d=new Date(s.criado_em); return d>=de && d<=ate; });
+  }
   const hoje = new Date().toISOString().slice(0,10);
-  const totalHoje = list.filter(s=>s.criado_em.slice(0,10)===hoje).reduce((a,s)=>a+parseFloat(s.valor_solicitado),0);
-  return `<div class="kpi-grid">
-    <div class="kpi-card"><div class="kpi-label">Pendentes de aprovação</div><div class="kpi-value">${list.length}</div></div>
+  const totalHoje = todas.filter(s=>s.criado_em.slice(0,10)===hoje).reduce((a,s)=>a+parseFloat(s.valor_solicitado),0);
+  const pendentes = todas.filter(s=>['solicitada','em_analise'].includes(s.status));
+  const aprovadas = todas.filter(s=>['aprovada','parcialmente_aprovada'].includes(s.status));
+  const reprovadas = todas.filter(s=>s.status==='reprovada');
+  const valorAprovado = aprovadas.reduce((a,s)=>a+parseFloat(s.valor_aprovado||s.valor_solicitado||0),0);
+  const filtro = S.mobDashFiltro||'todas';
+  const listaFiltrada = filtro==='todas'?todas: filtro==='pendentes'?pendentes: filtro==='aprovadas'?aprovadas: reprovadas;
+  const periodos = [['todas','Sempre'],['hoje','Hoje'],['ontem','Ontem'],['7','7 dias'],['15','15 dias'],['30','30 dias'],['custom','Personalizado']];
+  const podeDecidir = isFinanceiroMob();
+  return `
+  <div class="panel-card" style="margin-bottom:18px;">
+    <div class="panel-eyebrow">PERÍODO</div>
+    <div class="flex-row" style="margin-top:8px;">${periodos.map(([k,l])=>`<button class="btn ${periodoData===k?'btn-primary':'btn-secondary'} btn-sm" onclick="S.mobDashPeriodo='${k}';render();">${l}</button>`).join('')}</div>
+    ${periodoData==='custom'?`<div class="form-grid" style="margin-top:10px;max-width:400px;"><div class="field"><label>De</label><input type="date" value="${S.mobDashDataDe||''}" onchange="S.mobDashDataDe=this.value;render();"></div><div class="field"><label>Até</label><input type="date" value="${S.mobDashDataAte||''}" onchange="S.mobDashDataAte=this.value;render();"></div></div>`:''}
+  </div>
+  <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:18px;">
+    <div class="kpi-card" style="border-left-color:var(--mega-amarelo);"><div class="kpi-label">Pendentes</div><div class="kpi-value">${pendentes.length}</div></div>
+    <div class="kpi-card" style="border-left-color:var(--mega-verde);"><div class="kpi-label">Aprovado (total)</div><div class="kpi-value">${fmtMoney(valorAprovado)}</div></div>
+    <div class="kpi-card" style="border-left-color:var(--mega-vermelho);"><div class="kpi-label">Reprovadas</div><div class="kpi-value">${reprovadas.length}</div></div>
     <div class="kpi-card"><div class="kpi-label">Solicitado hoje</div><div class="kpi-value">${fmtMoney(totalHoje)}</div></div>
   </div>
-  <div class="section-header">Fila atual</div>
-  ${renderMobFila()}`;
+  <div class="flex-row" style="margin-bottom:14px;">
+    <button class="btn ${filtro==='todas'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.mobDashFiltro='todas';render();">Todas (${todas.length})</button>
+    <button class="btn ${filtro==='pendentes'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.mobDashFiltro='pendentes';render();">Pendentes (${pendentes.length})</button>
+    <button class="btn ${filtro==='aprovadas'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.mobDashFiltro='aprovadas';render();">Aprovadas (${aprovadas.length})</button>
+    <button class="btn ${filtro==='reprovadas'?'btn-primary':'btn-secondary'} btn-sm" onclick="S.mobDashFiltro='reprovadas';render();">Reprovadas (${reprovadas.length})</button>
+  </div>
+  <div class="table-scroll"><table class="mega-table">
+    <thead><tr><th>Número</th><th>Tipo</th><th>Obra</th><th>Centro custo</th><th>Solicitante</th><th>Solicitado</th><th>Aprovado</th><th>Status</th>${podeDecidir?'<th></th>':''}</tr></thead>
+    <tbody>${listaFiltrada.map(s=>`<tr><td class="mono">${esc(s.numero)}</td><td>${MOB_TIPO_LABELS[s.tipo_solicitacao]}</td><td>${esc(obraMap()[s.obra_id]?.nome||'—')}</td><td>${esc(s.centro_custo||'—')}</td>
+      <td>${esc(usuMap()[s.solicitante_id]?.nome||'—')}</td><td class="mono">${fmtMoney(s.valor_solicitado)}</td><td class="mono">${s.valor_aprovado?fmtMoney(s.valor_aprovado):'—'}</td>
+      <td>${badge(['aprovada','parcialmente_aprovada'].includes(s.status)?'ok':s.status==='reprovada'?'critico':'pendente',s.status.replace(/_/g,' '))}${s.requer_admin?' ⚠️':''}</td>
+      ${podeDecidir?`<td>${['solicitada','em_analise'].includes(s.status) && (!s.requer_admin || S.user.perfil==='administrador')?`
+        <button class="btn btn-verde btn-sm" onclick="decidirSolicitacaoMob('${s.id}','aprovada', ${s.valor_solicitado})">Aprovar</button>
+        <button class="btn btn-secondary btn-sm" onclick="aprovarParcialMob('${s.id}')">Parcial</button>
+        <button class="btn btn-vermelho btn-sm" onclick="decidirSolicitacaoMob('${s.id}','reprovada', 0)">Reprovar</button>`:''}</td>`:''}
+      </tr>`).join('') || `<tr><td colspan="${podeDecidir?9:8}" class="empty-state">Nenhuma solicitação nessa categoria.</td></tr>`}
+    </tbody></table></div>`;
 }
 
 /* ==========================================================

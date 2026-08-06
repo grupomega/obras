@@ -466,6 +466,7 @@ const FORMA_PAGAMENTO_OPTS=['Cartão Corporativo','Cartão Pessoal (reembolso)',
 const FIN_STATUS_LABELS={enviado:'Aguardando Aprovação',aprovado:'Aprovado',reprovado:'Reprovado',atencao:'Atenção — Retorno Necessário'};
 const FIN_STATUS_CLASS={enviado:'andamento',aprovado:'ok',reprovado:'critico',atencao:'pendente'};
 function finStatusBadge(s){ return badge(FIN_STATUS_CLASS[s]||'andamento', FIN_STATUS_LABELS[s]||s); }
+function origemPagamentoBadge(n){ return n.origem_pagamento==='pago_direto_empresa' ? `<span class="badge badge-andamento" title="Não desconta do caixa do colaborador">🏢 Empresa pagou direto</span>` : ''; }
 function fmtMoney(v){ return 'R$ '+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 
 const MODULES=[['dashboard','Dashboard'],['os_lista','Ordens de Serviço'],['os_nova','Nova OS'],
@@ -690,6 +691,8 @@ const S = {
   ncTab:'nova', ncLista:[], dashOculto:false, inicioStats:null, dashObraSel:null, buscaObras:'', obraStatusTab:'todas',
   estoqueObraSel:null, estoqueObraLista:[], apontamentosFaltaHoje:[], splashProgress:0,
   caixaSaldo:0, caixaUsuarioSel:null, caixaExtratoPeriodo:'7', caixaExtratoLista:[], caixaListaSaldos:[], caixaResumoNotas:null,
+  todasSolicitacoesMob:[], mobDashFiltro:'todas', mobDashPeriodo:'todas', mobDashDataDe:'', mobDashDataAte:'',
+  finGeralPeriodo:'todas', finGeralDataDe:'', finGeralDataAte:'',
   centrosCusto:[], tiposDespesa:[], formasPagamento:[], currentNotaAuditoria:[],
   obraRodoviasSelecionada:null, rodoviasObraLista:[], obraFiscaisSelecionada:null, fiscaisObraLista:[]
 };
@@ -1365,7 +1368,8 @@ async function criarNota(form){
       usuario_id:S.user.id, fotos_urls:urls, tipo_despesa:fd.get('tipo_despesa')||null,
       data_despesa:fd.get('data_despesa')||new Date().toISOString().slice(0,10),
       forma_pagamento:fd.get('forma_pagamento')||null, valor:fd.get('valor')||null,
-      obra_id:fd.get('obra_id')||null, centro_custo:fd.get('centro_custo')||null, observacao:fd.get('observacao')||null, status:'enviado'
+      obra_id:fd.get('obra_id')||null, centro_custo:fd.get('centro_custo')||null, observacao:fd.get('observacao')||null,
+      origem_pagamento:fd.get('origem_pagamento')||'caixa_colaborador', status:'enviado'
     };
     await sb('notas_fiscais',{method:'POST',body:payload});
     clearPending(key);
@@ -1706,7 +1710,7 @@ function renderDashboard(){
   </div>
 
   <div class="resumo-card" style="margin-top:-14px;">
-    <div class="head-row"><b>💵 ${(stats.saldoCaixa||0)<0?'Reembolso devido':'Meu Caixa'}</b><a onclick="carregarExtratoCaixa(S.user.id,'7')">Extrato →</a></div>
+    <div class="head-row"><b>💵 Saldo Caixa de Obra</b><a onclick="carregarExtratoCaixa(S.user.id,'7')">Extrato →</a></div>
     <div style="font-family:var(--font-display);font-size:26px;font-weight:800;color:${(stats.saldoCaixa||0)<0?'var(--mega-amarelo)':(stats.saldoCaixa||0)>0?'var(--mega-verde)':'inherit'};">${fmtMoney(Math.abs(stats.saldoCaixa||0))}</div>
   </div>
 
@@ -2512,18 +2516,23 @@ function renderCheckinHistorico(){
    FINANCEIRO — NOTAS FISCAIS
    ========================================================== */
 function renderFinanceiro(){
-  const tabs=[['enviar','💵','Inserir Despesa','Enviar nota fiscal ou comprovante de despesa'],
-    ['meu_painel','📊','Meu Painel','Suas despesas enviadas e status de aprovação'],
+  const tabsPessoal=[['enviar','💵','Inserir Despesa','Enviar nota fiscal ou comprovante de despesa'],
+    ['meu_painel','📊','Minhas Despesas','Suas despesas enviadas e status de aprovação'],
     ['reprovadas','🚫','Reprovadas','Despesas reprovadas com o motivo'],
-    ['caixa','💵','Meu Caixa','Saldo, extrato e aportes'],
+    ['caixa','👛','Meu Caixa','Saldo, extrato e aportes'],
   ];
-  if(canAccess('financeiro_geral')) tabs.push(['geral','🗂️','Geral','Visão consolidada de todas as despesas']);
-  if(canAccess('mobilizacao')) tabs.push(['mobilizacao','📐','Mobilização','Planejar, solicitar e prestar contas de recursos de mobilização']);
-  if(canAccess('financeiro_geral')) tabs.push(['cadastros_fin','⚙️','Cadastros Financeiros','Centro de custo, tipo de despesa e forma de pagamento']);
+  const tabsGestao=[];
+  if(canAccess('financeiro_geral')) tabsGestao.push(['geral','🗂️','Todas as Despesas','Visão consolidada de todas as despesas — aprovar/reprovar']);
+  if(canAccess('financeiro_geral')) tabsGestao.push(['cadastros_fin','⚙️','Cadastros Financeiros','Centro de custo, tipo de despesa e forma de pagamento']);
+  if(canAccess('mobilizacao')) tabsGestao.push(['mobilizacao','📐','Mobilização','Planejar, solicitar e prestar contas de recursos de mobilização']);
+  const tabs = [...tabsPessoal, ...tabsGestao];
   if(!S.financeiroView || S.financeiroView==='hub'){
     return `<div class="wrap">
       <div class="section-header">💰 Financeiro</div>
-      ${tabs.map(([k,ic,titulo,desc])=>hubCard(ic,titulo,desc,k==='mobilizacao'?"S.view='mobilizacao';S.mobView='hub';render();":`irFinanceiroTab('${k}')`)).join('')}
+      <div class="muted" style="font-weight:700;margin:4px 0 8px;">MEU — pessoal</div>
+      ${tabsPessoal.map(([k,ic,titulo,desc])=>hubCard(ic,titulo,desc,`irFinanceiroTab('${k}')`)).join('')}
+      ${tabsGestao.length?`<div class="muted" style="font-weight:700;margin:16px 0 8px;">GESTÃO FINANCEIRA</div>
+      ${tabsGestao.map(([k,ic,titulo,desc])=>hubCard(ic,titulo,desc,k==='mobilizacao'?"S.view='mobilizacao';S.mobView='hub';render();":`irFinanceiroTab('${k}')`)).join('')}`:''}
     </div>`;
   }
   const atual = tabs.find(t=>t[0]===S.financeiroView);
@@ -2586,9 +2595,9 @@ function renderCaixa(){
   const saldo = S.caixaSaldo||0;
   const resumo = S.caixaResumoNotas || {aprovadas:0,valorAprovadas:0,reprovadas:0,valorReprovadas:0};
   return `<div class="hero-card" style="border-radius:var(--radius-md);${saldo<0?'background:linear-gradient(160deg,var(--app-black2),var(--mega-amarelo) 140%);':''}">
-    <div class="lbl">${saldo<0?'⚠️ Reembolso devido ao colaborador':'Saldo de caixa'}${S.caixaUsuarioSel&&S.caixaUsuarioSel!==S.user.id?' — '+esc(usuMap()[S.caixaUsuarioSel]?.nome||''):''}</div>
+    <div class="lbl">💵 Saldo Caixa de Obra${S.caixaUsuarioSel&&S.caixaUsuarioSel!==S.user.id?' — '+esc(usuMap()[S.caixaUsuarioSel]?.nome||''):''}</div>
     <div class="val" style="font-size:30px;${saldo>0?'color:#7CFFA0;':''}">${fmtMoney(Math.abs(saldo))}</div>
-    ${saldo<0?`<div class="sub">A empresa deve reembolsar essa pessoa — ela gastou mais do que recebeu de aporte.</div>`:''}
+    ${saldo<0?`<div class="sub">Saldo negativo — despesas registradas acima do valor recebido em aportes.</div>`:''}
   </div>
   <div class="resumo-grid" style="grid-template-columns:1fr 1fr;margin-bottom:12px;">
     <div class="resumo-item2" style="background:var(--mega-verde-cl);"><div class="lbl4">Notas aprovadas</div><div class="val4" style="color:var(--mega-verde);">${resumo.aprovadas}</div><div class="trend2" style="color:var(--mega-verde);">${fmtMoney(resumo.valorAprovadas)}</div></div>
@@ -2717,6 +2726,8 @@ function renderFinanceiroEnviar(){
       <div class="field"><label>Forma de Pagamento</label>${chipGroup('forma_pagamento', S.formasPagamento.filter(f=>f.status==='ativo').map(f=>[f.nome,f.nome]), '')}</div>
       <div class="field"><label>Obra</label><select name="obra_id" required><option value="">Selecione…</option>${opt(S.obras.map(o=>[o.id,o.nome]),'')}</select></div>
       <div class="field"><label>Centro de Custo</label><select name="centro_custo">${opt(S.centrosCusto.filter(c=>c.status==='ativo').map(c=>[c.nome,c.nome]),'',true)}</select></div>
+      <div class="field field-span2"><label>Origem do pagamento</label>${chipGroup('origem_pagamento',[['caixa_colaborador','Saiu do meu caixa'],['pago_direto_empresa','Empresa pagou direto (não passou por mim)']],'caixa_colaborador')}
+        <div class="muted" style="margin-top:4px;">Se a empresa pagou o fornecedor direto (ex: PIX pro posto), marque "Empresa pagou direto" — a despesa entra na prestação de contas mas não desconta do seu caixa.</div></div>
       <div class="field"><label>Observação (opcional)</label><textarea name="observacao"></textarea></div>
     </div>
     <div class="divider"></div>
@@ -2736,20 +2747,31 @@ function renderFinanceiroMeuPainel(){
     <div class="kpi-card"><div class="kpi-label">Total Aprovado</div><div class="kpi-value" style="font-size:18px;">${fmtMoney(somaAprovado)}</div></div>
   </div>
   ${list.map(n=>`<div class="mcard" onclick="abrirNota('${n.id}','meu_painel')">
-    <div class="mc-top"><span>${esc(n.tipo_despesa||'Despesa')}</span>${finStatusBadge(n.status)}</div>
+    <div class="mc-top"><span>${esc(n.tipo_despesa||'Despesa')}</span><span>${finStatusBadge(n.status)}${origemPagamentoBadge(n)}</span></div>
     <div class="mc-meta">${fmtDateOnly(n.data_despesa)} · ${fmtMoney(n.valor)}</div>
   </div>`).join('') || '<div class="empty-state">Nenhuma nota enviada ainda.</div>'}`;
 }
 function renderFinanceiroGeral(){
   if(!S.todasNotasLoaded){ S.todasNotasLoaded=true; loadTodasNotas().then(render).catch(e=>{toast('Erro ao carregar notas: '+e.message); render();}); }
-  const list = S.todasNotas;
+  const periodo = S.finGeralPeriodo||'todas';
+  let list = S.todasNotas;
+  if(periodo!=='todas'){
+    const [de,ate] = periodo==='custom' ? [new Date(S.finGeralDataDe+'T00:00:00'), new Date(S.finGeralDataAte+'T23:59:59')] : periodoParaDatas(periodo);
+    list = list.filter(n=>{ const d=new Date(n.criado_em); return d>=de && d<=ate; });
+  }
   const cnt = s=>list.filter(n=>n.status===s).length;
   const somaAprovado = list.filter(n=>n.status==='aprovado').reduce((a,n)=>a+(parseFloat(n.valor)||0),0);
   const um = usuMap();
   const porColab = {};
   list.forEach(n=>{ const k=n.usuario_id; porColab[k]=porColab[k]||{total:0,aprovado:0,soma:0}; porColab[k].total++; if(n.status==='aprovado'){porColab[k].aprovado++; porColab[k].soma+=parseFloat(n.valor)||0;} });
   const pendentesRevisao = list.filter(n=>n.status==='enviado'||n.status==='atencao');
+  const periodos = [['todas','Sempre'],['hoje','Hoje'],['ontem','Ontem'],['7','7 dias'],['15','15 dias'],['30','30 dias'],['custom','Personalizado']];
   return `
+  <div class="chip-scroll">${periodos.map(([k,l])=>`<button class="chip ${periodo===k?'sel':''}" onclick="S.finGeralPeriodo='${k}';render();">${l}</button>`).join('')}</div>
+  ${periodo==='custom'?`<div class="form-grid" style="margin-bottom:12px;">
+    <div class="field"><label>De</label><input type="date" value="${S.finGeralDataDe||''}" onchange="S.finGeralDataDe=this.value;render();"></div>
+    <div class="field"><label>Até</label><input type="date" value="${S.finGeralDataAte||''}" onchange="S.finGeralDataAte=this.value;render();"></div>
+  </div>`:''}
   <div class="kpi-grid" style="grid-template-columns:repeat(2,1fr);">
     <div class="kpi-card"><div class="kpi-label">Total</div><div class="kpi-value">${list.length}</div></div>
     <div class="kpi-card" style="border-left-color:var(--mega-amarelo);"><div class="kpi-label">Aguard./Atenção</div><div class="kpi-value">${pendentesRevisao.length}</div></div>
@@ -2758,17 +2780,17 @@ function renderFinanceiroGeral(){
   </div>
   <div class="section-header">Aguardando Ação (${pendentesRevisao.length})</div>
   ${pendentesRevisao.map(n=>`<div class="mcard" onclick="abrirNota('${n.id}','geral')">
-    <div class="mc-top"><span>${esc(um[n.usuario_id]?.nome||'—')}</span>${finStatusBadge(n.status)}</div>
+    <div class="mc-top"><span>${esc(um[n.usuario_id]?.nome||'—')}</span><span>${finStatusBadge(n.status)}${origemPagamentoBadge(n)}</span></div>
     <div class="mc-meta">${fmtDateOnly(n.data_despesa)} · ${esc(n.tipo_despesa||'—')} · ${fmtMoney(n.valor)}</div>
   </div>`).join('') || '<div class="empty-state">Nada pendente.</div>'}
   <div class="section-header">Por Colaborador</div>
-  ${Object.entries(porColab).map(([uid,d])=>`<div class="mcard">
-    <div class="mc-title">${esc(um[uid]?.nome||'—')}</div>
+  ${Object.entries(porColab).map(([uid,d])=>`<div class="mcard" style="cursor:pointer;" onclick="carregarSaldoCaixa('${uid}').then(()=>{S.financeiroView='caixa';render();});">
+    <div class="mc-title">${esc(um[uid]?.nome||'—')} <span class="muted" style="font-weight:400;">→ ver caixa</span></div>
     <div class="mc-meta">${d.total} notas · ${d.aprovado} aprovadas · ${fmtMoney(d.soma)}</div>
   </div>`).join('') || '<div class="empty-state">Sem dados.</div>'}
   <div class="section-header">Histórico Completo</div>
   ${list.map(n=>`<div class="mcard" onclick="abrirNota('${n.id}','geral')">
-    <div class="mc-top"><span>${esc(um[n.usuario_id]?.nome||'—')}</span>${finStatusBadge(n.status)}</div>
+    <div class="mc-top"><span>${esc(um[n.usuario_id]?.nome||'—')}</span><span>${finStatusBadge(n.status)}${origemPagamentoBadge(n)}</span></div>
     <div class="mc-meta">${fmtDateOnly(n.data_despesa)} · ${esc(n.tipo_despesa||'—')} · ${fmtMoney(n.valor)}</div>
   </div>`).join('') || '<div class="empty-state">Nenhuma nota registrada.</div>'}`;
 }
@@ -2780,7 +2802,7 @@ function renderFinanceiroDetalhe(){
   return `<div class="card">
     <button class="btn btn-secondary btn-sm" onclick="S.financeiroView='${S.financeiroNotaOrigem||'meu_painel'}';render()">← Voltar</button>
     <div class="divider"></div>
-    <div class="flex-row" style="margin-bottom:10px;">${finStatusBadge(n.status)}</div>
+    <div class="flex-row" style="margin-bottom:10px;">${finStatusBadge(n.status)}${origemPagamentoBadge(n)}</div>
     <div style="font-size:13px;">
       <div><b>Colaborador:</b> ${esc(um[n.usuario_id]?.nome||'—')}</div>
       <div><b>Data:</b> ${fmtDateOnly(n.data_despesa)}</div>
@@ -2823,6 +2845,7 @@ function renderFinanceiroDetalhe(){
    MÓDULO PESSOAS / RH
    ========================================================== */
 function isRHStaff(){ return S.user && (S.user.perfil==='administrador'||S.user.perfil==='departamento_pessoal'); }
+function podeComporMensagem(){ return isRHStaff() || (S.user && S.user.perfil==='financeiro'); }
 function renderRH(){
   const podeApontarFalta = ['administrador','departamento_pessoal','supervisor','coordenador','encarregado'].includes(S.user.perfil);
   const tabs=[['ponto','⏱️','Inserir Ponto','Bater ponto com selfie e localização'],
@@ -4037,13 +4060,13 @@ function renderMensagens(){
   const resolvidos = (S.avisos||[]).filter(a=>(S.avisosResolvidos||[]).includes(a.id));
   return `<div class="wrap">
     <div class="section-header">💬 Mensagens${naoLidos?` <span class="badge critico" style="margin-left:6px;">${naoLidos} nova(s)</span>`:''}</div>
-    ${isRHStaff()?renderComporAviso():''}
+    ${podeComporMensagem()?renderComporAviso():''}
     <div class="section-header">Pendente</div>
     ${pendentes.map(renderAvisoCard).join('') || '<div class="empty-state">Nenhuma mensagem pendente.</div>'}
     <div class="divider"></div>
     <div class="section-header">Resolvido</div>
     ${resolvidos.map(renderAvisoCard).join('') || '<div class="empty-state">Nenhuma mensagem resolvida ainda.</div>'}
-    ${isRHStaff()?renderAvisosEnviados():''}
+    ${podeComporMensagem()?renderAvisosEnviados():''}
   </div>`;
 }
 function renderComporAviso(){
@@ -4397,7 +4420,8 @@ function renderMobilizacao(){
   cards.push(['📋','Minhas Solicitações','Suas solicitações e prestação de contas',"carregarMobTab('minhas')"]);
   if(isCCOMob()) cards.push(['📐','Planejar Mobilização','CCO define obra/equipe/período e o orçamento previsto',"carregarMobTab('planejar')"]);
   if(isFinanceiroMob()) cards.push(['💵','Fila de Aprovação','Analisar solicitações pendentes',"carregarMobTab('fila')"]);
-  if(isFinanceiroMob()) cards.push(['📊','Dashboard Financeiro','Indicadores gerais de mobilização',"carregarMobTab('dashboard')"]);
+  if(isFinanceiroMob()) cards.push(['📊','Dashboard Financeiro','Todas as solicitações — aprovadas, reprovadas e pendentes',"carregarMobTab('dashboard')"]);
+  if(canAccess('financeiro_geral')) cards.push(['⚡','Enviar Mobilização Direta','Aporte direto no caixa do colaborador, sem solicitação prévia',"S.view='financeiro';S.financeiroView='caixa';carregarSaldoCaixa(S.user.id).then(()=>{S.financeiroView='caixa';render();});"]);
   if(!S.mobView || S.mobView==='hub'){
     return `<div class="wrap"><div class="section-header">💰 Mobilização</div>${cards.map(([ic,t,d,oc])=>hubCard(ic,t,d,oc)).join('')}</div>`;
   }
@@ -4420,7 +4444,7 @@ function carregarMobTab(tab){
   else if(tab==='minhas') loadMinhasSolicitacoesMob().then(done).catch(fail);
   else if(tab==='planejar') Promise.all([loadMobilizacoes()]).then(done).catch(fail);
   else if(tab==='fila') loadFilaFinanceiroMob().then(done).catch(fail);
-  else if(tab==='dashboard') Promise.all([loadFilaFinanceiroMob(), loadMinhasSolicitacoesMob()]).then(done).catch(fail);
+  else if(tab==='dashboard') Promise.all([loadTodasSolicitacoesMob(), loadFilaFinanceiroMob()]).then(done).catch(fail);
   else done();
 }
 async function loadMobilizacoes(){ S.mobilizacoes = await sb('mobilizacoes?select=*&status=eq.ativa&order=criado_em.desc&limit=200'); S.mobilizacoesLoaded=true; }
@@ -4429,6 +4453,9 @@ async function loadMinhasSolicitacoesMob(){
 }
 async function loadFilaFinanceiroMob(){
   S.filaFinanceiroMob = await sb(`solicitacoes_mobilizacao?select=*&status=in.(solicitada,em_analise)&order=criado_em.asc&limit=200`);
+}
+async function loadTodasSolicitacoesMob(){
+  S.todasSolicitacoesMob = await sb(`solicitacoes_mobilizacao?select=*&order=criado_em.desc&limit=300`);
 }
 
 /* ---------- CCO: Planejamento ---------- */
@@ -4487,11 +4514,11 @@ function renderMobNovaSolicitacao(){
   const m = mobEncontrarMobilizacao();
   return `
   <form class="card" onsubmit="event.preventDefault();enviarSolicitacaoMob(this);">
-    <div class="muted" style="margin-bottom:10px;">Qualquer colaborador pode solicitar. A obra é opcional, mas se informada e existir um planejamento de mobilização para ela, o sistema mostra o orçamento previsto automaticamente.</div>
+    <div class="muted" style="margin-bottom:10px;">Qualquer colaborador pode solicitar. Ao ser aprovada, o valor entra direto no seu Caixa.</div>
     <div class="form-grid">
-      <div class="field"><label>Obra (opcional)</label><select onchange="selecionarObraSolicitacao(this.value)"><option value="">Sem obra vinculada</option>${opt(S.obras.map(o=>[o.id,o.nome]),__mobObraSel)}</select></div>
+      <div class="field"><label>Obra</label><select onchange="selecionarObraSolicitacao(this.value)" required><option value="">Selecione…</option>${opt(S.obras.map(o=>[o.id,o.nome]),__mobObraSel)}</select></div>
       <div class="field"><label>Equipe (opcional)</label><select onchange="selecionarEquipeSolicitacao(this.value)"><option value="">Sem equipe vinculada</option>${opt(S.equipes.map(e=>[e.id,e.nome]),__mobEquipeSel)}</select></div>
-      <div class="field"><label>Centro de custo</label><select name="centro_custo">${opt(S.centrosCusto.filter(c=>c.status==='ativo').map(c=>[c.nome,c.nome]),'',true)}</select></div>
+      <div class="field"><label>Centro de custo</label><select name="centro_custo" required><option value="">Selecione…</option>${opt(S.centrosCusto.filter(c=>c.status==='ativo').map(c=>[c.nome,c.nome]),'')}</select></div>
       <div class="field"><label>Tipo de solicitação</label>${chipGroup('tipo_solicitacao',Object.entries(MOB_TIPO_LABELS),'alimentacao','selecionarTipoSolicitacaoMob')}</div>
       <div class="field"><label>Valor solicitado (R$)</label><input type="number" step="0.01" name="valor_solicitado" required oninput="atualizarAlertaOrcamentoMob(this.value)"></div>
       <div class="field"><label>Urgência</label>${chipGroup('urgencia',[['normal','Normal'],['urgente','Urgente']],'normal')}</div>
@@ -4618,7 +4645,7 @@ async function decidirSolicitacaoMob(id, status, valorAprovado){
   S.loading=true; render();
   try{
     await sb(`solicitacoes_mobilizacao?id=eq.${id}`,{method:'PATCH',body:{status, valor_aprovado:status==='aprovada'?valorAprovado:null, motivo_decisao:motivo||null, analisado_por:S.user.id, analisado_em:new Date().toISOString()}});
-    toast('Solicitação atualizada.'); await loadFilaFinanceiroMob();
+    toast('Solicitação atualizada.'); await Promise.all([loadFilaFinanceiroMob(), loadTodasSolicitacoesMob()]);
   }catch(e){ toast('Erro: '+e.message); }
   S.loading=false; render();
 }
@@ -4629,15 +4656,53 @@ async function aprovarParcialMob(id){
 
 /* ---------- Dashboard Financeiro ---------- */
 function renderMobDashboard(){
-  const list = S.filaFinanceiroMob||[];
+  let todas = S.todasSolicitacoesMob||[];
+  const periodoData = S.mobDashPeriodo||'todas';
+  if(periodoData!=='todas'){
+    const [de,ate] = periodoData==='custom' ? [new Date(S.mobDashDataDe+'T00:00:00'), new Date(S.mobDashDataAte+'T23:59:59')] : periodoParaDatas(periodoData);
+    todas = todas.filter(s=>{ const d=new Date(s.criado_em); return d>=de && d<=ate; });
+  }
   const hoje = new Date().toISOString().slice(0,10);
-  const totalHoje = list.filter(s=>s.criado_em.slice(0,10)===hoje).reduce((a,s)=>a+parseFloat(s.valor_solicitado),0);
-  return `<div class="kpi-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-    <div class="kpi-card"><div class="kpi-label">Pendentes de aprovação</div><div class="kpi-value">${list.length}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Solicitado hoje</div><div class="kpi-value">${fmtMoney(totalHoje)}</div></div>
+  const totalHoje = todas.filter(s=>s.criado_em.slice(0,10)===hoje).reduce((a,s)=>a+parseFloat(s.valor_solicitado),0);
+  const pendentes = todas.filter(s=>['solicitada','em_analise'].includes(s.status));
+  const aprovadas = todas.filter(s=>['aprovada','parcialmente_aprovada'].includes(s.status));
+  const reprovadas = todas.filter(s=>s.status==='reprovada');
+  const valorAprovado = aprovadas.reduce((a,s)=>a+parseFloat(s.valor_aprovado||s.valor_solicitado||0),0);
+  const filtro = S.mobDashFiltro||'todas';
+  const listaFiltrada = filtro==='todas'?todas: filtro==='pendentes'?pendentes: filtro==='aprovadas'?aprovadas: reprovadas;
+  const periodos = [['todas','Sempre'],['hoje','Hoje'],['ontem','Ontem'],['7','7 dias'],['15','15 dias'],['30','30 dias'],['custom','Personalizado']];
+  return `
+  <div class="muted" style="font-weight:700;margin-bottom:4px;">Período</div>
+  <div class="chip-scroll">${periodos.map(([k,l])=>`<button class="chip ${periodoData===k?'sel':''}" onclick="S.mobDashPeriodo='${k}';render();">${l}</button>`).join('')}</div>
+  ${periodoData==='custom'?`<div class="form-grid" style="margin-bottom:12px;">
+    <div class="field"><label>De</label><input type="date" value="${S.mobDashDataDe||''}" onchange="S.mobDashDataDe=this.value;render();"></div>
+    <div class="field"><label>Até</label><input type="date" value="${S.mobDashDataAte||''}" onchange="S.mobDashDataAte=this.value;render();"></div>
+  </div>`:''}
+  <div class="kpi-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+    <div class="kpi-card" style="border-left-color:var(--mega-amarelo);"><div class="kpi-label">Pendentes</div><div class="kpi-value">${pendentes.length}</div></div>
+    <div class="kpi-card" style="border-left-color:var(--mega-verde);"><div class="kpi-label">Aprovado (total)</div><div class="kpi-value" style="font-size:16px;">${fmtMoney(valorAprovado)}</div></div>
+    <div class="kpi-card" style="border-left-color:var(--mega-vermelho);"><div class="kpi-label">Reprovadas</div><div class="kpi-value">${reprovadas.length}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Solicitado hoje</div><div class="kpi-value" style="font-size:16px;">${fmtMoney(totalHoje)}</div></div>
   </div>
-  <div class="section-header">Fila atual</div>
-  ${renderMobFila()}`;
+  <div class="muted" style="font-weight:700;margin:10px 0 4px;">Status</div>
+  <div class="chip-scroll">
+    <button class="chip ${filtro==='todas'?'sel':''}" onclick="S.mobDashFiltro='todas';render();">Todas (${todas.length})</button>
+    <button class="chip ${filtro==='pendentes'?'sel':''}" onclick="S.mobDashFiltro='pendentes';render();">Pendentes (${pendentes.length})</button>
+    <button class="chip ${filtro==='aprovadas'?'sel':''}" onclick="S.mobDashFiltro='aprovadas';render();">Aprovadas (${aprovadas.length})</button>
+    <button class="chip ${filtro==='reprovadas'?'sel':''}" onclick="S.mobDashFiltro='reprovadas';render();">Reprovadas (${reprovadas.length})</button>
+  </div>
+  ${listaFiltrada.map(s=>`<div class="mcard"><div class="mc-top"><span>${esc(s.numero)} · ${MOB_TIPO_LABELS[s.tipo_solicitacao]}</span>${badge(['aprovada','parcialmente_aprovada'].includes(s.status)?'ok':s.status==='reprovada'?'critico':'pendente',s.status.replace(/_/g,' '))}</div>
+    <div class="mc-meta">${esc(obraMap()[s.obra_id]?.nome||'—')} · ${esc(s.centro_custo||'—')} · Solicitante: ${esc(usuMap()[s.solicitante_id]?.nome||'—')}</div>
+    <div class="mc-meta">Solicitado: <b>${fmtMoney(s.valor_solicitado)}</b>${s.valor_aprovado?' · Aprovado: '+fmtMoney(s.valor_aprovado):''}${s.requer_admin?' · ⚠️ Requer administrador':''}</div>
+    ${s.justificativa?`<div class="muted">${esc(s.justificativa)}</div>`:''}
+    ${s.motivo_decisao?`<div class="muted">Decisão: ${esc(s.motivo_decisao)}</div>`:''}
+    ${['solicitada','em_analise'].includes(s.status) && (!s.requer_admin || S.user.perfil==='administrador')?`
+    <div class="mc-actions">
+      <button class="btn-icon" onclick="decidirSolicitacaoMob('${s.id}','aprovada', ${s.valor_solicitado})">✅ Aprovar</button>
+      <button class="btn-icon" onclick="aprovarParcialMob('${s.id}')">✏️ Aprovar parcial</button>
+      <button class="btn-icon danger" onclick="decidirSolicitacaoMob('${s.id}','reprovada', 0)">❌ Reprovar</button>
+    </div>`:''}
+  </div>`).join('') || '<div class="empty-state">Nenhuma solicitação nessa categoria.</div>'}`;
 }
 
 /* ==========================================================
