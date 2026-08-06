@@ -1365,7 +1365,7 @@ async function criarNota(form){
       usuario_id:S.user.id, fotos_urls:urls, tipo_despesa:fd.get('tipo_despesa')||null,
       data_despesa:fd.get('data_despesa')||new Date().toISOString().slice(0,10),
       forma_pagamento:fd.get('forma_pagamento')||null, valor:fd.get('valor')||null,
-      obra_id:fd.get('obra_id')||null, observacao:fd.get('observacao')||null, status:'enviado'
+      obra_id:fd.get('obra_id')||null, centro_custo:fd.get('centro_custo')||null, observacao:fd.get('observacao')||null, status:'enviado'
     };
     await sb('notas_fiscais',{method:'POST',body:payload});
     clearPending(key);
@@ -2716,6 +2716,7 @@ function renderFinanceiroEnviar(){
       <div class="field"><label>Valor (R$)</label><input type="number" step="0.01" name="valor" placeholder="0,00"></div>
       <div class="field"><label>Forma de Pagamento</label>${chipGroup('forma_pagamento', S.formasPagamento.filter(f=>f.status==='ativo').map(f=>[f.nome,f.nome]), '')}</div>
       <div class="field"><label>Obra</label><select name="obra_id" required><option value="">Selecione…</option>${opt(S.obras.map(o=>[o.id,o.nome]),'')}</select></div>
+      <div class="field"><label>Centro de Custo</label><select name="centro_custo">${opt(S.centrosCusto.filter(c=>c.status==='ativo').map(c=>[c.nome,c.nome]),'',true)}</select></div>
       <div class="field"><label>Observação (opcional)</label><textarea name="observacao"></textarea></div>
     </div>
     <div class="divider"></div>

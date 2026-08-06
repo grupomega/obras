@@ -682,7 +682,8 @@ const S = {
   obraRodoviasSelecionada:null, rodoviasObraLista:[], obraFiscaisSelecionada:null, fiscaisObraLista:[],
   programacaoView:'novo', programacaoLista:[],
   dashGeral:null, buscaUsuarios:'', dashFiltro:{}, ocorrenciaFrotaTab:'nova', ocorrenciasFrotaLista:[],
-  estoqueObraSel:null, estoqueObraLista:[], gpFiltro:null, gpLista:[], gpLista4d:[], finDashNotas:null, finDashCaixaMovs:[],
+  estoqueObraSel:null, estoqueObraLista:[], gpFiltro:null, gpLista:[], gpLista4d:[], finDashNotas:null, finDashCaixaMovs:[], finDashFiltro:null,
+  centrosCusto:[], tiposDespesa:[], formasPagamento:[],
   apontamentosFaltaHoje:[], ocorrenciaRHTab:'nova', ocorrenciasRHLista:[]
 };
 
@@ -705,15 +706,19 @@ async function loadLoginList(){
   S.usuariosLoginLoaded = true;
 }
 async function loadBaseData(){
-  const [usuarios,obras,equipes,veiculos,equipamentos,colaboradores] = await Promise.all([
+  const [usuarios,obras,equipes,veiculos,equipamentos,colaboradores,centrosCusto,tiposDespesa,formasPagamento] = await Promise.all([
     sb('usuarios?select=id,codigo,matricula,foto,nome,cpf,cargo,email,telefone,perfil,equipe_id,obra_id,status,permissoes,plataforma_acesso,obras_acesso,criado_em,data_nascimento,estado_civil,naturalidade,rg,telefone_whatsapp,data_admissao,banco,agencia,conta,tipo_conta,chave_pix&order=nome.asc'),
     sb('obras?select=*&order=nome.asc'),
     sb('equipes?select=*&order=nome.asc'),
     sb('veiculos?select=*&order=placa.asc'),
     sb('equipamentos?select=*&order=nome.asc'),
-    sb('colaboradores?select=*&order=nome.asc&limit=500')
+    sb('colaboradores?select=*&order=nome.asc&limit=500'),
+    sb('centros_custo?select=*&order=nome.asc'),
+    sb('tipos_despesa?select=*&order=nome.asc'),
+    sb('formas_pagamento?select=*&order=nome.asc')
   ]);
   S.usuarios=usuarios; S.obras=obras; S.equipes=equipes; S.veiculos=veiculos; S.equipamentos=equipamentos; S.colaboradores=colaboradores;
+  S.centrosCusto=centrosCusto; S.tiposDespesa=tiposDespesa; S.formasPagamento=formasPagamento;
 }
 async function loadNotificacoes(){
   if(!S.user) return;
@@ -1352,7 +1357,7 @@ async function criarNota(form){
       usuario_id:S.user.id, fotos_urls:urls, tipo_despesa:fd.get('tipo_despesa')||null,
       data_despesa:fd.get('data_despesa')||new Date().toISOString().slice(0,10),
       forma_pagamento:fd.get('forma_pagamento')||null, valor:fd.get('valor')||null,
-      obra_id:fd.get('obra_id')||null, observacao:fd.get('observacao')||null, status:'enviado'
+      obra_id:fd.get('obra_id')||null, centro_custo:fd.get('centro_custo')||null, observacao:fd.get('observacao')||null, status:'enviado'
     };
     await sb('notas_fiscais',{method:'POST',body:payload});
     clearPending(key);
@@ -2699,19 +2704,43 @@ function renderFinanceiro(){
     ${S.financeiroView==='detalhe'?renderFinanceiroDetalhe():''}
   </div>`;
 }
+function periodoParaDatasFin(periodo, dataDe, dataAte){
+  if(periodo==='custom'){ return [new Date(dataDe+'T00:00:00'), new Date(dataAte+'T23:59:59')]; }
+  const hoje = new Date(); const fim = new Date(hoje); fim.setHours(23,59,59,999);
+  let inicio = new Date(hoje);
+  if(!periodo) return null;
+  if(periodo==='hoje'){ inicio.setHours(0,0,0,0); }
+  else if(periodo==='ontem'){ inicio.setDate(inicio.getDate()-1); inicio.setHours(0,0,0,0); const fimOntem=new Date(inicio); fimOntem.setHours(23,59,59,999); return [inicio,fimOntem]; }
+  else { inicio.setDate(inicio.getDate()-parseInt(periodo)); inicio.setHours(0,0,0,0); }
+  return [inicio, fim];
+}
 async function carregarFinanceiroDashboard(){
   S.view='financeiro'; S.financeiroView='dashboard'; S.loading=true; render();
+  if(!S.finDashFiltro) S.finDashFiltro = {usuario_id:'', obra_id:'', centro_custo:'', periodo:'', data_de:'', data_ate:''};
+  const f = S.finDashFiltro;
+  let q = 'notas_fiscais?select=id,usuario_id,status,valor,tipo_despesa,centro_custo,obra_id,data_despesa,criado_em';
+  if(f.usuario_id) q += `&usuario_id=eq.${f.usuario_id}`;
+  if(f.obra_id) q += `&obra_id=eq.${f.obra_id}`;
+  if(f.centro_custo) q += `&centro_custo=eq.${encodeURIComponent(f.centro_custo)}`;
+  const range = periodoParaDatasFin(f.periodo, f.data_de, f.data_ate);
+  if(range){ q += `&criado_em=gte.${range[0].toISOString()}&criado_em=lte.${range[1].toISOString()}`; }
+  let qc = 'caixa_movimentos?select=tipo,valor,usuario_id,obra_id';
+  if(f.usuario_id) qc += `&usuario_id=eq.${f.usuario_id}`;
+  if(f.obra_id) qc += `&obra_id=eq.${f.obra_id}`;
   try{
-    const [notas, caixaMovs] = await Promise.all([
-      sb('notas_fiscais?select=status,valor,tipo_despesa,data_despesa,criado_em'),
-      sb('caixa_movimentos?select=tipo,valor')
-    ]);
+    const [notas, caixaMovs] = await Promise.all([sb(q), sb(qc)]);
     S.finDashNotas = notas; S.finDashCaixaMovs = caixaMovs;
   }catch(e){ toast('Erro: '+e.message); S.finDashNotas=[]; S.finDashCaixaMovs=[]; }
   S.loading=false; render();
 }
+function atualizarFiltroFinDash(campo, valor){
+  S.finDashFiltro[campo] = valor;
+  if(campo!=='periodo' || valor!=='custom') carregarFinanceiroDashboard();
+  else render();
+}
 function renderFinanceiroDashboard(){
   if(!S.finDashNotas){ carregarFinanceiroDashboard(); return '<div class="empty-state">Carregando dashboard…</div>'; }
+  const f = S.finDashFiltro||{};
   const notas = S.finDashNotas;
   const hoje = new Date(); const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
   const pendentes = notas.filter(n=>['enviado','atencao'].includes(n.status));
@@ -2743,6 +2772,23 @@ function renderFinanceiroDashboard(){
   const maxTipo = Math.max(...tiposOrdenados.map(t=>t[1]),1);
 
   return `
+  <div class="panel-card" style="margin-bottom:18px;">
+    <div class="panel-eyebrow">FILTROS</div>
+    <div class="form-grid" style="margin-top:10px;grid-template-columns:repeat(5,1fr);">
+      <div class="field"><label>Usuário</label><select onchange="atualizarFiltroFinDash('usuario_id',this.value)"><option value="">Todos</option>${opt(S.usuarios.map(u=>[u.id,u.nome]),f.usuario_id)}</select></div>
+      <div class="field"><label>Obra</label><select onchange="atualizarFiltroFinDash('obra_id',this.value)"><option value="">Todas</option>${opt(S.obras.map(o=>[o.id,o.nome]),f.obra_id)}</select></div>
+      <div class="field"><label>Centro de custo</label><select onchange="atualizarFiltroFinDash('centro_custo',this.value)"><option value="">Todos</option>${opt(S.centrosCusto.map(c=>[c.nome,c.nome]),f.centro_custo)}</select></div>
+      <div class="field"><label>Período</label><select onchange="atualizarFiltroFinDash('periodo',this.value)">
+        <option value="" ${!f.periodo?'selected':''}>Todo o período</option>
+        <option value="hoje" ${f.periodo==='hoje'?'selected':''}>Hoje</option>
+        <option value="ontem" ${f.periodo==='ontem'?'selected':''}>Ontem</option>
+        <option value="7" ${f.periodo==='7'?'selected':''}>7 dias</option>
+        <option value="15" ${f.periodo==='15'?'selected':''}>15 dias</option>
+        <option value="30" ${f.periodo==='30'?'selected':''}>30 dias</option>
+        <option value="custom" ${f.periodo==='custom'?'selected':''}>Período personalizado</option></select></div>
+      ${f.periodo==='custom'?`<div class="field"><label>De — Até</label><div class="flex-row"><input type="date" value="${f.data_de}" onchange="atualizarFiltroFinDash('data_de',this.value)" style="flex:1;"><input type="date" value="${f.data_ate}" onchange="atualizarFiltroFinDash('data_ate',this.value)" style="flex:1;"></div></div>`:`<div class="field"><label>&nbsp;</label><button type="button" class="btn btn-secondary" onclick="S.finDashFiltro={usuario_id:'',obra_id:'',centro_custo:'',periodo:'',data_de:'',data_ate:''};carregarFinanceiroDashboard();">Limpar filtros</button></div>`}
+    </div>
+  </div>
   <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:18px;">
     <div class="kpi-card" style="border-left-color:var(--mega-amarelo);"><div class="kpi-label">Pendente</div><div class="kpi-value">${fmtMoney(valorPendente)}</div></div>
     <div class="kpi-card" style="border-left-color:var(--mega-verde);"><div class="kpi-label">Aprovado no mês</div><div class="kpi-value">${fmtMoney(valorAprovadoMes)}</div></div>
@@ -2785,11 +2831,12 @@ function renderFinanceiroDashboard(){
 function renderFinanceiroEnviar(){
   return `<form class="card" onsubmit="event.preventDefault();criarNota(this);">    <div class="form-grid">
       <div class="field field-span2"><label>Foto(s) da Nota *</label>${photoWidget('nota_foto')}</div>
-      <div class="field field-span2"><label>Tipo de Despesa</label>${chipGroup('tipo_despesa', TIPO_DESPESA_OPTS.map(t=>[t,t]), '')}</div>
+      <div class="field field-span2"><label>Tipo de Despesa</label>${chipGroup('tipo_despesa', S.tiposDespesa.filter(t=>t.status==='ativo').map(t=>[t.nome,t.nome]), '')}</div>
       <div class="field"><label>Data</label><input type="date" name="data_despesa" value="${new Date().toISOString().slice(0,10)}"></div>
       <div class="field"><label>Valor (R$)</label><input type="number" step="0.01" name="valor" placeholder="0,00"></div>
-      <div class="field field-span2"><label>Forma de Pagamento</label>${chipGroup('forma_pagamento', FORMA_PAGAMENTO_OPTS.map(f=>[f,f]), '')}</div>
-      <div class="field"><label>Obra (opcional)</label><select name="obra_id">${opt(S.obras.map(o=>[o.id,o.nome]),'',true)}</select></div>
+      <div class="field field-span2"><label>Forma de Pagamento</label>${chipGroup('forma_pagamento', S.formasPagamento.filter(f=>f.status==='ativo').map(f=>[f.nome,f.nome]), '')}</div>
+      <div class="field"><label>Obra</label><select name="obra_id" required><option value="">Selecione…</option>${opt(S.obras.map(o=>[o.id,o.nome]),'')}</select></div>
+      <div class="field"><label>Centro de Custo</label><select name="centro_custo">${opt(S.centrosCusto.filter(c=>c.status==='ativo').map(c=>[c.nome,c.nome]),'',true)}</select></div>
       <div class="field field-span3"><label>Observação (opcional)</label><textarea name="observacao"></textarea></div>
     </div>
     <div class="divider"></div>
