@@ -51,20 +51,35 @@ a.applink{color:#aaa;font-size:12px;text-decoration:underline;}
 body{background:#f4f5f6;}
 .shell{display:flex;min-height:100vh;}
 .sidebar{width:250px;background:linear-gradient(180deg,var(--app-black2),var(--app-black) 45%,var(--app-red-dark));color:#eee;flex-shrink:0;display:flex;flex-direction:column;
-  position:fixed;top:0;left:0;bottom:0;overflow-y:auto;z-index:60;}
-.sidebar-brand{display:flex;align-items:center;gap:10px;padding:20px 18px;border-bottom:1px solid rgba(255,255,255,.12);}
+  position:fixed;top:0;left:0;bottom:0;overflow-y:visible;z-index:60;transition:width .15s;}
+.sidebar.collapsed{width:64px;}
+.sidebar-brand{display:flex;align-items:center;gap:10px;padding:20px 18px;border-bottom:1px solid rgba(255,255,255,.12);position:relative;}
+.sidebar.collapsed .sidebar-brand{padding:16px 12px;justify-content:center;}
 .sidebar-brand img{height:30px;}
-.sidebar-scroll{flex:1;padding:10px 10px 16px;}
+.sidebar.collapsed .sidebar-brand img{height:24px;}
+.sidebar-toggle{position:absolute;top:20px;right:-12px;width:24px;height:24px;border-radius:50%;background:var(--app-red);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.4);z-index:2;}
+.sidebar-scroll{flex:1;padding:10px 10px 16px;overflow-y:auto;overflow-x:visible;}
+.sidebar.collapsed .sidebar-scroll{padding:10px 6px 16px;}
 .sidebar-section{font-family:var(--font-display);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#aaa;padding:16px 10px 6px;}
 .sidebar-item{display:flex;align-items:center;gap:10px;padding:10px 12px;color:#ddd;cursor:pointer;font-size:13.5px;
-  border-radius:var(--radius-md);margin-bottom:2px;transition:background .1s;}
-.sidebar-item .ic{font-size:15px;width:18px;text-align:center;}
+  border-radius:var(--radius-md);margin-bottom:2px;transition:background .1s;position:relative;}
+.sidebar.collapsed .sidebar-item{justify-content:center;padding:11px 0;}
+.sidebar-item .ic{font-size:15px;width:18px;text-align:center;flex-shrink:0;}
 .sidebar-item:hover{background:rgba(255,255,255,.08);color:#fff;}
 .sidebar-item.active{background:linear-gradient(135deg,var(--app-red),var(--app-red-dark));color:#fff;font-weight:700;box-shadow:0 2px 10px rgba(184,17,31,.5);}
+.sidebar-item .chev{margin-left:auto;font-size:10px;opacity:.6;}
+.sidebar-flyout{position:absolute;left:100%;top:0;min-width:210px;background:var(--app-black2);border:1px solid rgba(255,255,255,.15);
+  border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5);padding:8px;z-index:100;margin-left:6px;}
+.sidebar-flyout .flyout-title{font-size:10.5px;letter-spacing:1px;text-transform:uppercase;color:#999;padding:6px 10px;}
+.sidebar-submenu{padding-left:14px;}
 .sidebar-user{display:flex;align-items:center;gap:10px;padding:14px 18px;border-top:1px solid rgba(255,255,255,.12);}
+.sidebar.collapsed .sidebar-user{padding:12px 6px;flex-direction:column;}
+.sidebar.collapsed .sidebar-user > div{display:none;}
 .sidebar-user .avatar{width:34px;height:34px;border-radius:8px;background:var(--mega-laranja);color:#fff;
   display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;}
-.main-area{margin-left:250px;flex:1;display:flex;flex-direction:column;min-height:100vh;width:calc(100% - 250px);}
+.main-area{margin-left:250px;flex:1;display:flex;flex-direction:column;min-height:100vh;width:calc(100% - 250px);transition:margin-left .15s,width .15s;}
+.main-area.collapsed{margin-left:64px;width:calc(100% - 64px);}
 .topbar{background:#fff;border-bottom:1px solid var(--mega-cinza-bdr);padding:14px 26px;
   display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:45;}
 .topbar-crumb{font-family:var(--font-display);font-size:10.5px;letter-spacing:1.5px;text-transform:uppercase;color:#999;}
@@ -129,7 +144,7 @@ body{background:#f4f5f6;}
 .btn-sm{padding:5px 12px;font-size:12px;}
 .btn:disabled{opacity:.45;cursor:not-allowed;}
 .btn-block{width:100%;}
-.btn-icon{width:34px;height:34px;border-radius:var(--radius-sm);border:1px solid var(--mega-cinza-bdr);background:#fff;font-size:15px;}
+.btn-icon{min-width:34px;width:auto;height:34px;padding:0 10px;white-space:nowrap;border-radius:var(--radius-sm);border:1px solid var(--mega-cinza-bdr);background:#fff;font-size:13px;}
 .btn-icon.danger{color:var(--mega-vermelho);border-color:var(--mega-vermelho-cl);}
 .btn-icon.danger:hover{background:var(--mega-vermelho-cl);}
 .btn-icon:hover{border-color:var(--mega-cinza-esc);}
@@ -657,6 +672,7 @@ const S = {
   usuariosLogin:[], loginSel:null, pin:'', loginMatricula:'', loginUsuarioEncontrado:null,
   usuarios:[], obras:[], equipes:[], veiculos:[], equipamentos:[], colaboradores:[], editColaborador:null,
   basesOperacionais:[], colaboradorBases:[], editBase:null,
+  sidebarCollapsed:true, sidebarOpenGroup:null,
   osList:[], osFilters:{obra:'',equipe:'',status:'',criticidade:'',busca:'',ordenar:'criticidade'},
   currentOS:null, currentItens:[], currentFotos:[], currentRetorno:null, currentMedicoes:[], currentImpedimentos:[], currentHistorico:[], currentComentarios:[],
   lightboxUrl:null, notificacoes:[], showNotif:false, showAddItem:false, editingOS:false,
@@ -997,7 +1013,8 @@ async function criarObra(form){
   const fd=new FormData(form);
   const payload={nome:fd.get('nome'),cliente:fd.get('cliente')||null,contrato:fd.get('contrato')||null,rodovia:fd.get('rodovia')||null,
     km_inicial:fd.get('km_inicial')||null,km_final:fd.get('km_final')||null,cidade:fd.get('cidade')||null,estado:fd.get('estado')||null,
-    data_inicio:fd.get('data_inicio')||null,data_prevista_termino:fd.get('data_prevista_termino')||null,status:fd.get('status')||'planejada'};
+    data_inicio:fd.get('data_inicio')||null,data_prevista_termino:fd.get('data_prevista_termino')||null,status:fd.get('status')||'planejada',
+    base_operacional_id:fd.get('base_operacional_id')||null};
   try{ await sb('obras',{method:'POST',body:payload}); toast('Obra cadastrada.'); await loadBaseData(); form.reset(); render(); }
   catch(e){ toast('Erro: '+e.message); }
 }
@@ -1007,7 +1024,8 @@ async function salvarEdicaoObra(form){
   const fd=new FormData(form);
   const payload={nome:fd.get('nome'),cliente:fd.get('cliente')||null,contrato:fd.get('contrato')||null,rodovia:fd.get('rodovia')||null,
     km_inicial:fd.get('km_inicial')||null,km_final:fd.get('km_final')||null,cidade:fd.get('cidade')||null,estado:fd.get('estado')||null,
-    data_inicio:fd.get('data_inicio')||null,data_prevista_termino:fd.get('data_prevista_termino')||null,status:fd.get('status')};
+    data_inicio:fd.get('data_inicio')||null,data_prevista_termino:fd.get('data_prevista_termino')||null,status:fd.get('status'),
+    base_operacional_id:fd.get('base_operacional_id')||null};
   try{ await sb(`obras?id=eq.${S.editObra.id}`,{method:'PATCH',body:payload}); toast('Obra atualizada.'); S.editObra=null; await loadBaseData(); }
   catch(e){ toast('Erro: '+e.message); }
   render();
@@ -1477,7 +1495,7 @@ function trocarMatricula(){ S.loginUsuarioEncontrado=null; S.loginMatricula=''; 
 const VIEW_TITULOS = {dashboard:'Visão Geral', lista:'Ordens de Serviço', nova:'Nova Ordem de Serviço', cadastros:'Cadastros',
   checklists:'Checklists', veiculo_checkin:'Frota', financeiro:'Financeiro', permissoes:'Permissões de Acesso', rh:'Pessoas / RH',
   dds:'Segurança', suprimentos:'Suprimentos', dre_sinalizacao:'DRE Sinalização Horizontal', epi:'Segurança — EPI', mensagens:'Mensagens',
-  rdo:'RDO — Diário de Obra', mobilizacao:'Mobilização', historico:'Histórico', detalhe:'Detalhe da OS', obra:'Obra', gestao_producao:'Gestão de Produção'};
+  rdo:'RDO — Diário de Obra', mobilizacao:'Mobilização', historico:'Histórico', detalhe:'Detalhe da OS', obra:'Obra', gestao_producao:'Gestão de Produção', sobre:'Sobre'};
 function navGoto(k){
   if(k==='lista'){ S.view='lista'; loadOSList().then(render); }
   else if(k==='veiculo_checkin'){ S.view='veiculo_checkin'; S.veiculoUsoView='pendentes'; loadVeiculoUsos().then(render); }
@@ -1492,6 +1510,10 @@ function navGoto(k){
   else if(k==='cadastros_equipamentos_ir'){ S.view='cadastros'; S.cadastroTab='equipamentos'; render(); }
   else if(k==='cadastros_veiculos_ir'){ S.view='cadastros'; S.cadastroTab='veiculos'; render(); }
   else if(k==='cadastros_usuarios_ir'){ S.view='cadastros'; S.cadastroTab='usuarios'; render(); }
+  else if(k==='cadastros_colaboradores_ir'){ S.view='cadastros'; S.cadastroTab='colaboradores'; render(); }
+  else if(k==='financeiro_enviar'){ S.view='financeiro'; S.financeiroView='enviar'; render(); }
+  else if(k==='vias_seguras'){ window.open('https://viasseguras.com.br','_blank'); }
+  else if(k==='sobre'){ S.view='sobre'; render(); }
   else if(k==='cadastros_equipes_ir'){ S.view='cadastros'; S.cadastroTab='equipes'; render(); }
   else if(k==='obra_programacao'){ S.view='obra'; S.obraSubView='programacao'; carregarProgramacaoTab('novo'); }
   else if(k==='obra_informe'){ S.view='obra'; S.obraSubView='informe'; carregarInformeTab('novo'); }
@@ -1500,53 +1522,93 @@ function navGoto(k){
   else { S.view=k; render(); }
 }
 function renderHeader(){
-  const principal = [
-    ['dashboard','🏠','Início'],
-    (canAccess('cadastros_obras')||canAccess('cadastros_equipes')||canAccess('cadastros_usuarios')||canAccess('cadastros_veiculos')||canAccess('cadastros_equipamentos'))?['cadastros','🗂️','Cadastros']:null,
-    (canAccess('cadastros_obras')?['cadastros_obras_ir','🏗️','Obras']:null),
-    ['obra_programacao','🗓️','Planejamento'],
-    ['rdo','📝','RDO'],
-    ['ocorrencias_ir','🔔','Ocorrências'],
-    ['obra_informe','📍','Produção'],
-    ['gestao_producao','📈','Gestão de Produção'],
-    canAccess('suprimentos')?['suprimentos','📦','Suprimentos']:null,
-    canAccess('checkin_veiculo')?['veiculo_checkin','🚚','Frota']:null,
-    (canAccess('cadastros_veiculos')?['cadastros_veiculos_ir','🚙','Veículos']:null),
-    (canAccess('cadastros_equipamentos')?['cadastros_equipamentos_ir','🛠️','Equipamentos']:null),
-    ['cadastros_usuarios_ir','👥','Colaboradores'],
-    canAccess('mobilizacao')?['mobilizacao','💵','Mobilizações']:null,
-    canAccess('financeiro')?['financeiro','💰','Financeiro']:null,
-    S.user.perfil==='administrador'?['historico','📊','Relatórios']:null,
-    canAccess('permissoes')?['permissoes','⚙️','Configurações']:null,
-  ].filter(Boolean);
-  const outros = [
-    canAccess('os_lista')?['lista','📋','Ordens de Serviço']:null,
-    canAccess('os_nova')?['nova','➕','Nova OS']:null,
-    canAccess('checklists')?['checklists','✅','Checklists']:null,
-    (canAccess('cadastros_equipes')?['cadastros_equipes_ir','👷','Equipes']:null),
-    ['rh','👤','Pessoas / RH'],
-    ['dds','🦺','Segurança'],
-    canAccess('seguranca_epi')?['epi','⛑️','EPI']:null,
-    canAccess('dre_sinalizacao')?['dre_sinalizacao','🎨','DRE Sinalização']:null,
-    ['mensagens','💬','Mensagens'],
-  ].filter(Boolean);
+  const grupos = [
+    {key:'dashboard', ic:'🏠', label:'Início', to:'dashboard'},
+    {key:'cadastro', ic:'🗂️', label:'Cadastro', filhos:[
+      canAccess('cadastros_obras')?['cadastros_obras_ir','Obras']:null,
+      canAccess('cadastros_equipes')?['cadastros_equipes_ir','Equipes']:null,
+      canAccess('cadastros_equipes')?['cadastros_colaboradores_ir','Colaboradores']:null,
+      canAccess('cadastros_usuarios')?['cadastros_usuarios_ir','Usuários']:null,
+      canAccess('cadastros_veiculos')?['cadastros_veiculos_ir','Veículos']:null,
+      canAccess('cadastros_equipamentos')?['cadastros_equipamentos_ir','Equipamentos']:null,
+    ].filter(Boolean)},
+    {key:'producao', ic:'🏗️', label:'Produção', filhos:[
+      ['obra_programacao','Programação'],
+      ['obra_informe','Produção Diária'],
+      ['rdo','RDO'],
+      ['gestao_producao','Gestão de Produção'],
+    ]},
+    {key:'seguranca', ic:'🦺', label:'Segurança', filhos:[
+      canAccess('seguranca_epi')?['epi','Entrega de EPI']:null,
+      ['dds','DDS'],
+      canAccess('checklists')?['checklists','Checklist']:null,
+    ].filter(Boolean)},
+    {key:'financeiro_grp', ic:'💰', label:'Financeiro', filhos:canAccess('financeiro')?[
+      ['financeiro_enviar','Inserir Despesa'],
+      canAccess('mobilizacao')?['mobilizacao','Mobilização']:null,
+    ].filter(Boolean):[]},
+    {key:'rh', ic:'👤', label:'RH / Pessoas', to:'rh'},
+    {key:'suprimentos_grp', ic:'📦', label:'Suprimentos', filhos:[
+      canAccess('suprimentos')?['suprimentos','Suprimentos']:null,
+      canAccess('checkin_veiculo')?['veiculo_checkin','Frota']:null,
+    ].filter(Boolean)},
+    {key:'engenharia', ic:'📐', label:'Engenharia', filhos:[
+      canAccess('dre_sinalizacao')?['dre_sinalizacao','DER Pintura']:null,
+    ].filter(Boolean)},
+    {key:'config_grp', ic:'⚙️', label:'Configurações', filhos:[
+      canAccess('permissoes')?['permissoes','Permissões']:null,
+      ['vias_seguras','Vias Seguras'],
+      ['sobre','Sobre'],
+    ].filter(Boolean)},
+    {key:'outros_grp', ic:'⋯', label:'Outros', filhos:[
+      canAccess('os_lista')?['lista','Ordens de Serviço']:null,
+      canAccess('os_nova')?['nova','Nova OS']:null,
+      ['mensagens','Mensagens'],
+      ['ocorrencias_ir','Ocorrências (Frota)'],
+      S.user.perfil==='administrador'?['historico','Relatórios']:null,
+    ].filter(Boolean)},
+  ].filter(g=>g.to || (g.filhos && g.filhos.length));
 
+  const viewsDoGrupo = g => g.to ? [g.to] : (g.filhos||[]).map(f=>f[0]);
+  const collapsed = !!S.sidebarCollapsed;
   const iniciais = (S.user.nome||'?').split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
+
+  const itemHtml = g => {
+    const ativo = viewsDoGrupo(g).includes(S.view);
+    if(g.to){
+      return `<div class="sidebar-item ${ativo?'active':''}" onclick="navGoto('${g.to}')" title="${g.label}"><span class="ic">${g.ic}</span>${collapsed?'':g.label}</div>`;
+    }
+    const aberto = S.sidebarOpenGroup===g.key;
+    if(collapsed){
+      return `<div class="sidebar-item ${ativo?'active':''}" onmouseenter="S.sidebarOpenGroup='${g.key}';render();" onmouseleave="S.sidebarOpenGroup=null;render();" title="${g.label}">
+        <span class="ic">${g.ic}</span>
+        ${aberto?`<div class="sidebar-flyout"><div class="flyout-title">${g.label}</div>${g.filhos.map(([k,l])=>`<div class="sidebar-item ${S.view===k?'active':''}" onclick="navGoto('${k}')">${l}</div>`).join('')}</div>`:''}
+      </div>`;
+    }
+    return `<div>
+      <div class="sidebar-item ${ativo&&!aberto?'active':''}" onclick="S.sidebarOpenGroup=(S.sidebarOpenGroup==='${g.key}'?null:'${g.key}');render();">
+        <span class="ic">${g.ic}</span>${g.label}<span class="chev">${aberto?'▾':'▸'}</span>
+      </div>
+      ${aberto?`<div class="sidebar-submenu">${g.filhos.map(([k,l])=>`<div class="sidebar-item ${S.view===k?'active':''}" style="font-size:12.5px;padding:8px 12px;" onclick="navGoto('${k}')">${l}</div>`).join('')}</div>`:''}
+    </div>`;
+  };
+
   return `
-  <div class="sidebar">
-    <div class="sidebar-brand" style="cursor:pointer;" onclick="S.view='dashboard';render();"><img src="${MEGA_LOGO_URL}" alt="Grupo MEGA"></div>
-    <div class="sidebar-user" style="border-top:none;border-bottom:1px solid #333;flex-direction:column;align-items:center;text-align:center;padding:16px;gap:8px;">
-      <div class="avatar" style="width:56px;height:56px;border-radius:50%;font-size:18px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--mega-laranja);color:#fff;font-weight:700;flex-shrink:0;">${S.user.foto?`<img src="${S.user.foto}" style="width:100%;height:100%;object-fit:cover;">`:iniciais}</div>
+  <div class="sidebar ${collapsed?'collapsed':''}">
+    <div class="sidebar-brand" style="cursor:pointer;" onclick="S.view='dashboard';render();">
+      <img src="${MEGA_LOGO_URL}" alt="Grupo MEGA">
+      <div class="sidebar-toggle" onclick="event.stopPropagation();S.sidebarCollapsed=!S.sidebarCollapsed;S.sidebarOpenGroup=null;render();">${collapsed?'›':'‹'}</div>
+    </div>
+    <div class="sidebar-user">
+      <div class="avatar" style="width:${collapsed?'34px':'56px'};height:${collapsed?'34px':'56px'};border-radius:50%;font-size:14px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--mega-laranja);color:#fff;font-weight:700;flex-shrink:0;">${S.user.foto?`<img src="${S.user.foto}" style="width:100%;height:100%;object-fit:cover;">`:iniciais}</div>
       <div>
         <div style="font-size:13.5px;font-weight:700;color:#fff;">${esc(S.user.nome)}</div>
         <div style="font-size:11px;color:#999;">${esc(PERFIL_LABELS[S.user.perfil]||S.user.perfil)}</div>
       </div>
     </div>
     <div class="sidebar-scroll">
-      ${principal.map(([k,ic,l])=>`<div class="sidebar-item ${S.view===k?'active':''}" onclick="navGoto('${k}')"><span class="ic">${ic}</span>${l}</div>`).join('')}
-      <div class="sidebar-section">MAIS</div>
-      ${outros.map(([k,ic,l])=>`<div class="sidebar-item ${S.view===k?'active':''}" onclick="navGoto('${k}')"><span class="ic">${ic}</span>${l}</div>`).join('')}
-      <div class="sidebar-item" onclick="doLogout()"><span class="ic">🚪</span>Sair</div>
+      ${grupos.map(itemHtml).join('')}
+      <div class="sidebar-item" onclick="doLogout()" title="Sair"><span class="ic">🚪</span>${collapsed?'':'Sair'}</div>
     </div>
   </div>`;
 }
@@ -2076,6 +2138,17 @@ function renderFormConferencia(){
 /* ==========================================================
    RENDER — CADASTROS (Obras / Equipes / Usuários / Veículos / Equipamentos)
    ========================================================== */
+function renderSobre(){
+  return `<div class="wrap"><div class="panel-card" style="max-width:520px;">
+    <img src="${MEGA_LOGO_URL}" style="height:50px;margin-bottom:16px;">
+    <div class="panel-title">Sistema MEGA</div>
+    <div class="muted" style="margin-top:8px;line-height:1.6;">
+      Sistema de gestão operacional do Grupo MEGA Sinalização Viária — obras, produção, RH, segurança, financeiro, suprimentos e frota, tudo integrado.
+    </div>
+    <div class="divider"></div>
+    <div class="muted" style="font-size:12px;">MEGA Comércio e Sinalização de Obras Viárias LTDA<br>R. G. F. Zanatelli, 83 — Varginha/MG<br>www.megasinalizacao.com.br</div>
+  </div></div>`;
+}
 function renderCadastros(){
   const tabs=[];
   if(canAccess('cadastros_obras')) tabs.push(['obras','Obras']);
@@ -2130,6 +2203,7 @@ function renderCadastroObras(){
           <option value="em_andamento" ${ed?.status==='em_andamento'?'selected':''}>Em andamento</option>
           <option value="paralisada" ${ed?.status==='paralisada'?'selected':''}>Paralisada</option>
           <option value="concluida" ${ed?.status==='concluida'?'selected':''}>Concluída</option></select></div>
+        <div class="field"><label>Base Operacional</label><select name="base_operacional_id">${opt((S.basesOperacionais||[]).map(b=>[b.id,b.nome]),ed?.base_operacional_id,true)}</select></div>
       </div>
       <div class="flex-row" style="margin-top:12px;">
         <button class="btn btn-primary">${ed?'Salvar alterações':'Cadastrar Obra'}</button>
@@ -2970,13 +3044,14 @@ async function calcularSaldoUsuario(usuarioId){
   return movs.reduce((s,m)=>s+(m.tipo==='aporte'?parseFloat(m.valor):-parseFloat(m.valor)),0);
 }
 async function carregarSaldoCaixa(usuarioId){
-  S.loading=true; render();
+  S.loading=true; S.caixaUsuarioSel = usuarioId; render();
   try{
     const [saldo, notas] = await Promise.all([
       calcularSaldoUsuario(usuarioId),
       sb(`notas_fiscais?select=status,valor&usuario_id=eq.${usuarioId}`)
     ]);
-    S.caixaSaldo = saldo; S.caixaUsuarioSel = usuarioId;
+    if(S.caixaUsuarioSel !== usuarioId){ S.loading=false; return; } // uma requisição mais nova já foi feita — descarta essa resposta atrasada
+    S.caixaSaldo = saldo;
     S.caixaResumoNotas = {
       aprovadas: notas.filter(n=>n.status==='aprovado').length,
       valorAprovadas: notas.filter(n=>n.status==='aprovado').reduce((s,n)=>s+parseFloat(n.valor||0),0),
@@ -5816,6 +5891,7 @@ function render(){
   else if(S.view==='lista') body=renderLista();
   else if(S.view==='nova') body=renderNovaOS();
   else if(S.view==='cadastros') body=renderCadastros();
+  else if(S.view==='sobre') body=renderSobre();
   else if(S.view==='checklists') body=renderChecklists();
   else if(S.view==='veiculo_checkin') body=renderCheckinVeiculo();
   else if(S.view==='gestao_producao') body=renderGestaoProducao();
@@ -5832,7 +5908,7 @@ function render(){
   else if(S.view==='obra') body=renderObra();
   else if(S.view==='historico') body=renderHistorico();
   else if(S.view==='detalhe') body=renderDetalheOS();
-  app.innerHTML = `<div class="shell">${renderHeader()}<div class="main-area">${renderTopbar()}<div class="content-scroll">${body}</div></div></div>${S.loading?'<div class="spinner"></div>':''}`;
+  app.innerHTML = `<div class="shell">${renderHeader()}<div class="main-area ${S.sidebarCollapsed?'collapsed':''}">${renderTopbar()}<div class="content-scroll">${body}</div></div></div>${S.loading?'<div class="spinner"></div>':''}`;
   if(S.view==='nova'){
     const c = document.getElementById('itens-container');
     if(c && c.children.length===0) addItemRow('itens-container');

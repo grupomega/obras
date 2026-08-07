@@ -138,7 +138,7 @@ a.applink{color:#aaa;font-size:12px;text-decoration:underline;}
 .btn-sm{padding:8px 14px;font-size:12px;min-height:36px;}
 .btn:disabled{opacity:.45;}
 .btn-block{width:100%;}
-.btn-icon{width:38px;height:38px;border-radius:var(--radius-sm);border:1px solid var(--mega-cinza-bdr);background:#fff;font-size:16px;}
+.btn-icon{min-width:38px;width:auto;height:38px;padding:0 10px;white-space:nowrap;border-radius:var(--radius-sm);border:1px solid var(--mega-cinza-bdr);background:#fff;font-size:14px;}
 .btn-icon.danger{color:var(--mega-vermelho);border-color:var(--mega-vermelho-cl);}
 
 .form-grid{display:grid;grid-template-columns:1fr;gap:12px;}
@@ -718,7 +718,7 @@ async function loadLoginList(){
 }
 async function loadBaseData(){
   const [usuarios,obras,equipes,veiculos,equipamentos,colaboradores,centrosCusto,tiposDespesa,formasPagamento,basesOperacionais,colaboradorBases] = await Promise.all([
-    sb('usuarios?select=id,matricula,foto,nome,cpf,cargo,email,telefone,perfil,equipe_id,obra_id,status,permissoes,plataforma_acesso,obras_acesso,criado_em,data_nascimento,estado_civil,naturalidade,rg,telefone_whatsapp,data_admissao,banco,agencia,conta,tipo_conta,chave_pix&order=nome.asc'),
+    sb('usuarios?select=id,matricula,foto,nome,cpf,cargo,email,telefone,perfil,equipe_id,obra_id,status,permissoes,plataforma_acesso,obras_acesso,criado_em,data_nascimento,estado_civil,naturalidade,rg,telefone_whatsapp,data_admissao,banco,agencia,conta,tipo_conta,chave_pix,base_operacional_id&order=nome.asc'),
     sb('obras?select=*&order=nome.asc'),
     sb('equipes?select=*&order=nome.asc'),
     sb('veiculos?select=*&order=placa.asc'),
@@ -1008,7 +1008,8 @@ async function criarObra(form){
   const fd=new FormData(form);
   const payload={nome:fd.get('nome'),cliente:fd.get('cliente')||null,contrato:fd.get('contrato')||null,rodovia:fd.get('rodovia')||null,
     km_inicial:fd.get('km_inicial')||null,km_final:fd.get('km_final')||null,cidade:fd.get('cidade')||null,estado:fd.get('estado')||null,
-    data_inicio:fd.get('data_inicio')||null,data_prevista_termino:fd.get('data_prevista_termino')||null,status:fd.get('status')||'planejada'};
+    data_inicio:fd.get('data_inicio')||null,data_prevista_termino:fd.get('data_prevista_termino')||null,status:fd.get('status')||'planejada',
+    base_operacional_id:fd.get('base_operacional_id')||null};
   try{ await sb('obras',{method:'POST',body:payload}); toast('Obra cadastrada.'); await loadBaseData(); form.reset(); render(); }
   catch(e){ toast('Erro: '+e.message); }
 }
@@ -1018,7 +1019,8 @@ async function salvarEdicaoObra(form){
   const fd=new FormData(form);
   const payload={nome:fd.get('nome'),cliente:fd.get('cliente')||null,contrato:fd.get('contrato')||null,rodovia:fd.get('rodovia')||null,
     km_inicial:fd.get('km_inicial')||null,km_final:fd.get('km_final')||null,cidade:fd.get('cidade')||null,estado:fd.get('estado')||null,
-    data_inicio:fd.get('data_inicio')||null,data_prevista_termino:fd.get('data_prevista_termino')||null,status:fd.get('status')};
+    data_inicio:fd.get('data_inicio')||null,data_prevista_termino:fd.get('data_prevista_termino')||null,status:fd.get('status'),
+    base_operacional_id:fd.get('base_operacional_id')||null};
   try{ await sb(`obras?id=eq.${S.editObra.id}`,{method:'PATCH',body:payload}); toast('Obra atualizada.'); S.editObra=null; await loadBaseData(); }
   catch(e){ toast('Erro: '+e.message); }
   render();
@@ -1669,14 +1671,15 @@ function renderDashboard(){
   const iniciais = (S.user.nome||'?').split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
 
   const acoes = [
-    ['📋','Nova OS',"S.view='nova';render();"],
-    ['📝','Novo RDO',"carregarRDOTab('novo');"],
-    ['📦','Solicitar Material',"carregarSuprimentosTab('movimentar');"],
+    ['🗓️','Programação',"carregarProgramacaoTab('novo');"],
     ['📍','Lançar Produção',"carregarInformeTab('novo');"],
-    ['⚠️','Nova Ocorrência',"carregarOcorrenciasFrotaTab('nova');"],
-    ['✅','Novo Checklist',"S.view='checklists';S.checklistView='novo';render();"],
-    ['🚚','Mobilização',"carregarMobTab('nova');"],
+    ['🚚','Mobilização',"S.view='mobilizacao';S.mobView='hub';render();"],
     ['📸','Não Conformidade',"carregarNaoConformidadeTab('nova');"],
+    ['📝','RDO',"carregarRDOTab('novo');"],
+    ['⛑️','Entrega de EPI',"carregarEpiTab('entrega');"],
+    ['💰','Solicitar $ Mobilização',"carregarMobTab('nova');"],
+    ['💵','Inserir Despesa',"S.view='financeiro';irFinanceiroTab('enviar');"],
+    ['⚠️','Ocorrência',"carregarOcorrenciasFrotaTab('nova');"],
   ];
   const alertas = [];
   if(criticas>0) alertas.push(['⚠️',`${criticas} OS crítica(s)`, 'pendentes ou em execução', "S.view='lista';loadOSList().then(render);"]);
@@ -2160,6 +2163,7 @@ function renderCadastroObras(){
         <div class="field"><label>Cidade</label><input name="cidade" value="${esc(ed?.cidade||'')}"></div>
         <div class="field"><label>Estado</label><input name="estado" maxlength="2" value="${esc(ed?.estado||'')}"></div>
         <div class="field"><label>Status</label>${chipGroup('status',[['planejada','Planejada'],['em_andamento','Em andamento'],['paralisada','Paralisada'],['concluida','Concluída']],ed?.status||'planejada')}</div>
+        <div class="field"><label>Base Operacional</label><select name="base_operacional_id">${opt((S.basesOperacionais||[]).map(b=>[b.id,b.nome]),ed?.base_operacional_id,true)}</select></div>
       </div>
       <button class="btn btn-primary btn-block" style="margin-top:12px;">${ed?'Salvar alterações':'Cadastrar Obra'}</button>
       ${ed?`<button type="button" class="btn btn-secondary btn-block" style="margin-top:8px;" onclick="cancelarEdicaoObra()">Cancelar</button>`:''}
@@ -2634,13 +2638,14 @@ async function calcularSaldoUsuario(usuarioId){
   return movs.reduce((s,m)=>s+(m.tipo==='aporte'?parseFloat(m.valor):-parseFloat(m.valor)),0);
 }
 async function carregarSaldoCaixa(usuarioId){
-  S.loading=true; render();
+  S.loading=true; S.caixaUsuarioSel = usuarioId; render();
   try{
     const [saldo, notas] = await Promise.all([
       calcularSaldoUsuario(usuarioId),
       sb(`notas_fiscais?select=status,valor&usuario_id=eq.${usuarioId}`)
     ]);
-    S.caixaSaldo = saldo; S.caixaUsuarioSel = usuarioId;
+    if(S.caixaUsuarioSel !== usuarioId){ S.loading=false; return; } // uma requisição mais nova já foi feita — descarta essa resposta atrasada
+    S.caixaSaldo = saldo;
     S.caixaResumoNotas = {
       aprovadas: notas.filter(n=>n.status==='aprovado').length,
       valorAprovadas: notas.filter(n=>n.status==='aprovado').reduce((s,n)=>s+parseFloat(n.valor||0),0),
