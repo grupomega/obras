@@ -663,6 +663,7 @@ const S = {
   view:'login', user:null, loading:false, error:null,
   usuariosLogin:[], loginSel:null, pin:'', loginMatricula:'', loginUsuarioEncontrado:null, buscaUsuarios:'',
   usuarios:[], obras:[], equipes:[], veiculos:[], equipamentos:[], colaboradores:[], editColaborador:null,
+  basesOperacionais:[], colaboradorBases:[], editBase:null,
   osList:[], osFilters:{obra:'',equipe:'',status:'',criticidade:'',busca:'',ordenar:'criticidade'},
   currentOS:null, currentItens:[], currentFotos:[], currentRetorno:null, currentMedicoes:[], currentImpedimentos:[], currentHistorico:[], currentComentarios:[],
   lightboxUrl:null, notificacoes:[], showNotif:false, showAddItem:false, editingOS:false,
@@ -716,7 +717,7 @@ async function loadLoginList(){
   S.usuariosLoginLoaded = true;
 }
 async function loadBaseData(){
-  const [usuarios,obras,equipes,veiculos,equipamentos,colaboradores,centrosCusto,tiposDespesa,formasPagamento] = await Promise.all([
+  const [usuarios,obras,equipes,veiculos,equipamentos,colaboradores,centrosCusto,tiposDespesa,formasPagamento,basesOperacionais,colaboradorBases] = await Promise.all([
     sb('usuarios?select=id,matricula,foto,nome,cpf,cargo,email,telefone,perfil,equipe_id,obra_id,status,permissoes,plataforma_acesso,obras_acesso,criado_em,data_nascimento,estado_civil,naturalidade,rg,telefone_whatsapp,data_admissao,banco,agencia,conta,tipo_conta,chave_pix&order=nome.asc'),
     sb('obras?select=*&order=nome.asc'),
     sb('equipes?select=*&order=nome.asc'),
@@ -725,10 +726,13 @@ async function loadBaseData(){
     sb('colaboradores?select=*&order=nome.asc&limit=500'),
     sb('centros_custo?select=*&order=nome.asc'),
     sb('tipos_despesa?select=*&order=nome.asc'),
-    sb('formas_pagamento?select=*&order=nome.asc')
+    sb('formas_pagamento?select=*&order=nome.asc'),
+    sb('bases_operacionais?select=*&order=nome.asc'),
+    sb('colaborador_bases?select=*&limit=2000')
   ]);
   S.usuarios=usuarios; S.obras=obras; S.equipes=equipes; S.veiculos=veiculos; S.equipamentos=equipamentos; S.colaboradores=colaboradores;
   S.centrosCusto=centrosCusto; S.tiposDespesa=tiposDespesa; S.formasPagamento=formasPagamento;
+  S.basesOperacionais=basesOperacionais; S.colaboradorBases=colaboradorBases;
 }
 async function loadNotificacoes(){
   if(!S.user) return;
@@ -1578,6 +1582,7 @@ function renderMaisSheet(){
   if(canAccess('cadastros_obras')) items.push(['cadastro_obras','🏗️','Cadastro de Obras']);
   if(canAccess('cadastros_equipes')) items.push(['cadastro_equipes','👷','Cadastro de Equipes']);
   if(canAccess('cadastros_equipes')) items.push(['cadastro_colaboradores','🧑‍🔧','Cadastro de Colaboradores']);
+  if(canAccess('cadastros_obras')) items.push(['cadastro_bases','🏢','Bases Operacionais']);
   if(canAccess('cadastros_usuarios')) items.push(['cadastro_usuarios','👤','Cadastro de Usuários']);
   if(canAccess('cadastros_veiculos')) items.push(['cadastro_veiculos','🚚','Cadastro de Veículos']);
   if(canAccess('cadastros_equipamentos')) items.push(['cadastro_equipamentos','🛠️','Cadastro de Equipamentos']);
@@ -1993,6 +1998,7 @@ function renderCadastros(){
     ${S.cadastroTab==='usuarios'?renderCadastroUsuarios():''}
     ${S.cadastroTab==='veiculos'?renderCadastroVeiculos():''}
     ${S.cadastroTab==='equipamentos'?renderCadastroEquipamentos():''}
+    ${S.cadastroTab==='bases'?renderCadastroBases():''}
   </div>`;
 }
 function colabsDaEquipe(equipeId){
@@ -2007,6 +2013,7 @@ function renderCadastroColaboradores(){
   ${(S.colaboradores||[]).map(c=>`<div class="mcard"><div class="mc-title">${esc(c.nome)}</div>
     <div class="mc-meta">${esc(c.cargo||'—')}</div>
     <div class="mc-meta">Equipe: ${esc(equipeMap()[c.equipe_id]?.nome||'—')}</div>
+    <div class="mc-meta">Filiais: ${esc(basesDoColaborador(c.id).map(b=>b.nome).join(', ')||'—')}</div>
     <div class="mc-meta">${badge(c.status==='ativo'?'ok':'critico',c.status)}</div>
     <div class="mc-actions"><button class="btn-icon" onclick="iniciarEdicaoColaborador('${c.id}')">✏️</button><button class="btn-icon danger" onclick="excluirColaborador('${c.id}')">🗑</button></div>
   </div>`).join('') || '<div class="empty-state">Nenhum colaborador cadastrado.</div>'}
@@ -2020,15 +2027,37 @@ function renderCadastroColaboradores(){
         <div class="field"><label>Equipe</label><select name="equipe_id">${opt(S.equipes.map(e=>[e.id,e.nome]),ed?.equipe_id,true)}</select></div>
         ${ed?`<div class="field"><label>Status</label>${chipGroup('status',[['ativo','Ativo'],['inativo','Inativo']],ed.status)}</div>`:''}
       </div>
+      <div class="field" style="margin-top:10px;">
+        <label>Filiais (marque onde essa pessoa atua)</label>
+        <div class="flex-row" style="gap:14px;flex-wrap:wrap;margin-top:6px;">
+          ${(S.basesOperacionais||[]).filter(b=>b.status==='ativo').map(b=>{ const marcado = ed && basesDoColaborador(ed.id).some(x=>x.id===b.id);
+            return `<label class="perm-check" style="padding:0;"><input type="checkbox" name="base_id" value="${b.id}" ${marcado?'checked':''}> ${esc(b.nome)}</label>`; }).join('')}
+        </div>
+      </div>
       <button class="btn btn-primary btn-block" style="margin-top:12px;">${ed?'Salvar alterações':'Cadastrar Colaborador'}</button>
       ${ed?`<button type="button" class="btn btn-secondary btn-block" style="margin-top:8px;" onclick="cancelarEdicaoColaborador()">Cancelar</button>`:''}
     </form>
   </div>`;
 }
+function basesDoColaborador(colaboradorId){
+  const ids = (S.colaboradorBases||[]).filter(cb=>cb.colaborador_id===colaboradorId).map(cb=>cb.base_id);
+  return (S.basesOperacionais||[]).filter(b=>ids.includes(b.id));
+}
+async function sincronizarBasesColaborador(form, colaboradorId){
+  const fd = new FormData(form);
+  const basesMarcadas = fd.getAll('base_id');
+  const atuais = (S.colaboradorBases||[]).filter(cb=>cb.colaborador_id===colaboradorId);
+  const proms = [];
+  atuais.filter(cb=>!basesMarcadas.includes(cb.base_id)).forEach(cb=>proms.push(sb(`colaborador_bases?id=eq.${cb.id}`,{method:'DELETE'})));
+  basesMarcadas.filter(bid=>!atuais.some(cb=>cb.base_id===bid)).forEach(bid=>proms.push(sb('colaborador_bases',{method:'POST',body:{colaborador_id:colaboradorId, base_id:bid}})));
+  await Promise.all(proms);
+  S.colaboradorBases = await sb('colaborador_bases?select=*&limit=2000');
+}
 async function criarColaborador(form){
   const fd = new FormData(form);
   try{
-    await sb('colaboradores',{method:'POST',body:{nome:fd.get('nome'), cargo:fd.get('cargo')||null, equipe_id:fd.get('equipe_id')||null, criado_por:S.user.id}});
+    const criado = await sb('colaboradores?select=id',{method:'POST',body:{nome:fd.get('nome'), cargo:fd.get('cargo')||null, equipe_id:fd.get('equipe_id')||null, criado_por:S.user.id},prefer:'return=representation'});
+    await sincronizarBasesColaborador(form, criado[0].id);
     toast('Colaborador cadastrado.'); form.reset(); await loadColaboradores();
   }catch(e){ toast('Erro: '+e.message); }
 }
@@ -2038,6 +2067,7 @@ async function salvarEdicaoColaborador(form){
   const fd = new FormData(form);
   try{
     await sb(`colaboradores?id=eq.${S.editColaborador.id}`,{method:'PATCH',body:{nome:fd.get('nome'), cargo:fd.get('cargo')||null, equipe_id:fd.get('equipe_id')||null, status:fd.get('status')||'ativo'}});
+    await sincronizarBasesColaborador(form, S.editColaborador.id);
     toast('Colaborador atualizado.'); S.editColaborador=null; await loadColaboradores();
   }catch(e){ toast('Erro: '+e.message); }
   render();
@@ -2049,6 +2079,37 @@ async function excluirColaborador(id){
   render();
 }
 async function loadColaboradores(){ S.colaboradores = await sb('colaboradores?select=*&order=nome.asc&limit=500'); render(); }
+function renderCadastroBases(){
+  const ed = S.editBase;
+  return `<div class="section-header">Bases Operacionais</div>
+  ${(S.basesOperacionais||[]).map(b=>`<div class="mcard"><div class="mc-top"><span>${esc(b.nome)}</span>${badge(b.status==='ativo'?'ok':'critico',b.status)}</div>
+    <div class="mc-actions"><button class="btn-icon" onclick="toggleStatusBase('${b.id}','${b.status==='ativo'?'inativo':'ativo'}')">${b.status==='ativo'?'Inativar':'Ativar'}</button></div>
+  </div>`).join('') || '<div class="empty-state">Nenhuma base cadastrada.</div>'}
+  <div class="divider"></div>
+  <div class="card">
+    <div class="muted" style="margin-bottom:10px;font-weight:700;">Nova base</div>
+    <form onsubmit="event.preventDefault();criarBaseOperacional(this);">
+      <div class="field"><label>Nome</label><input name="nome" required placeholder="Ex: Filial MG"></div>
+      <button class="btn btn-primary btn-block" style="margin-top:10px;">+ Adicionar base</button>
+    </form>
+  </div>`;
+}
+async function criarBaseOperacional(form){
+  const fd = new FormData(form);
+  try{
+    await sb('bases_operacionais',{method:'POST',body:{nome:fd.get('nome'), criado_por:S.user.id}});
+    toast('Base adicionada.'); form.reset();
+    S.basesOperacionais = await sb('bases_operacionais?select=*&order=nome.asc');
+  }catch(e){ toast('Erro: '+e.message); }
+  render();
+}
+async function toggleStatusBase(id, novoStatus){
+  try{
+    await sb(`bases_operacionais?id=eq.${id}`,{method:'PATCH',body:{status:novoStatus}});
+    S.basesOperacionais = await sb('bases_operacionais?select=*&order=nome.asc');
+  }catch(e){ toast('Erro: '+e.message); }
+  render();
+}
 function progressRingSVG(pct, cor){
   const r=20, c=2*Math.PI*r, off=c-(pct/100)*c;
   return `<svg width="52" height="52" viewBox="0 0 52 52"><circle cx="26" cy="26" r="${r}" fill="none" stroke="#eee" stroke-width="5"/>
